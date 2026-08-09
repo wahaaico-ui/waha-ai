@@ -1,0 +1,267 @@
+
+# 1. إنشاء المجلدات أولاً للتأكد من وجودها
+mkdir -p types services
+
+# 2. إنشاء ملف types/ResearchContext.ts
+cat << 'EOF' > types/ResearchContext.ts
+export interface Paper {
+  id: string;
+  title: string;
+  authors: string[];
+  year: number;
+  source: 'openalex' | 'semanticscholar' | 'both';
+  citationCount: number;
+  referenceCount?: number;
+  abstract?: string;
+  doi?: string;
+  url?: string;
+  venue?: string;
+  concepts?: string[];
+  countries?: string[];
+}
+
+export interface ResearchGap {
+  confidence: number;
+  reason: string[];
+  suggestions: string[];
+  missingAreas: string[];
+  recommendedKeywords: string[];
+  recommendedYears: number[];
+  recommendedConcepts: string[];
+}
+
+export interface ResearchContext {
+  originalIdea: string;
+  language: 'ar' | 'en';
+  searchMetadata: {
+    selectedQuery: string;
+    attemptCount: number;
+    generatedQueries: string[];
+  };
+  papers: Paper[];
+  statistics: {
+    totalCitations: number;
+    averageCitations: number;
+    latestYear: number;
+    oldestYear: number;
+    openAlexCount: number;
+    semanticScholarCount: number;
+  };
+  concepts: { name: string; count: number }[];
+  journals: { name: string; count: number }[];
+  countries: { name: string; count: number }[];
+  researchGap: ResearchGap;
+}
+EOF
+
+# 3. إنشاء ملف services/semanticScholar.ts
+cat << 'EOF' > services/semanticScholar.ts
+import axios from 'axios';
+import { Paper } from '../types/ResearchContext';
+
+export async function searchSemanticScholar(query: string): Promise<Paper[]> {
+  try {
+    const response = await axios.get('https://api.semanticscholar.org/graph/v1/paper/search', {
+      params: {
+        query: query,
+        limit: 10,
+        fields: 'title,authors,year,abstract,citationCount,referenceCount,fieldsOfStudy,url,externalIds,venue'
+      }
+    });
+
+    if (!response.data || !response.data.data) return [];
+
+    return response.data.data.map((item: any) => ({
+      id: item.paperId,
+      title: item.title,
+      authors: item.authors ? item.authors.map((a: any) => a.name) : [],
+      year: item.year || 0,
+      source: 'semanticscholar',
+      citationCount: item.citationCount || 0,
+      referenceCount: item.referenceCount || 0,
+      abstract: item.abstract || '',
+      doi: item.externalIds?.DOI || '',
+      url: item.url || '',
+      venue: item.venue || '',
+      concepts: item.fieldsOfStudy || []
+    }));
+  } catch (error) {
+    console.error('Semantic Scholar API Error:', error);
+    return [];
+  }
+}
+EOF
+
+# 4. إنشاء ملف services/researchAggregator.ts
+cat << 'EOF' > services/researchAggregator.ts
+import { searchOpenAlex } from './openalex';
+import { searchSemanticScholar } from './semanticScholar';
+import { Paper } from '../types/ResearchContext';
+
+const ARABIC_DICTIONARY: Record<string, string> = {
+  "الذكاء الاصطناعي": "Artificial Intelligence",
+  "تعلم الآلة": "Machine Learning",
+  "التعليم": "Education",
+  "التحصيل الأكاديمي": "Academic Achievement",
+  "الجامعة": "Higher Education",
+  "طالب": "Student",
+  "صحة": "Healthcare",
+  "اقتصاد": "Economics",
+  "إدارة": "Management",
+  "بحث علمي": "Research",
+  "تحليل": "Analysis",
+  "شبكات عصبية": "Neural Networks"
+};
+
+export function generateQueries(input: string): { queries: string[], isArabic: boolean } {
+  let processedInput = input;
+  let isArabic = /[\u0600-\u06FF]/.test(input);
+
+  if (isArabic) {
+    Object.keys(ARABIC_DICTIONARY).forEach(key => {
+      if (processedInput.includes(key)) {
+        processedInput = processedInput.replace(new RegExp(key, 'g'), ARABIC_DICTIONARY[key]);
+      }
+    });
+  }
+
+  const tokens = processedInput.split(/\s+/).filter(Boolean);
+  if (tokens.length <= 1) return { queries: [processedInput], isArabic };
+
+  const queries: string[] = [
+    tokens.join(' '),
+    tokens.slice(0, 3).join(' '),
+    tokens.filter((_, i) => i !== 1).join(' '),
+    tokens[0]
+  ];
+
+  return { 
+    queries: Array.from(new Set(queries)), 
+    isArabic 
+  };
+}
+
+export async function aggregateResearch(input: string) {
+  const { queries, isArabic } = generateQueries(input);
+  let selectedQuery = queries[0];
+  let attemptCount = 0;
+  let openAlexPapers: Paper[] = [];
+  let semanticPapers: Paper[] = [];
+
+  for (const query of queries) {
+    attemptCount++;
+    selectedQuery = query;
+
+    const [oaRes, ssRes] = await Promise.all([
+      searchOpenAlex(query).catch(() => []),
+      searchSemanticScholar(query).catch(() => [])
+    ]);
+
+    if (oaRes.length > 0 || ssRes.length > 0) {
+      openAlexPapers = oaRes;
+      semanticPapers = ssRes;
+      break;
+    }
+  }
+
+  const mergedMap = new Map<string, Paper>();
+  const getCleanTitle = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  openAlexPapers.forEach(p => {
+    const key = p.doi ? p.doi.toLowerCase() : getCleanTitle(p.title);
+    mergedMap.set(key, p);
+  });
+
+  semanticPapers.forEach(p => {
+    const key = p.doi ? p.doi.toLowerCase() : getCleanTitle(p.title);
+    if (mergedMap.has(key)) {
+      const existing = mergedMap.get(key)!;
+      existing.source = 'both';
+      if (!existing.abstract) existing.abstract = p.abstract;
+      if (!existing.referenceCount) existing.referenceCount = p.referenceCount;
+    } else {
+      mergedMap.set(key, p);
+    }
+  });
+
+  return {
+    papers: Array.from(mergedMap.values()),
+    searchMetadata: {
+      selectedQuery,
+      attemptCount,
+      generatedQueries: queries
+    },
+    language: isArabic ? 'ar' : 'en' as 'ar' | 'en',
+    openAlexCount: openAlexPapers.length,
+    semanticScholarCount: semanticPapers.length
+  };
+}
+EOF
+
+# 5. إنشاء ملف services/researchGap.ts
+cat << 'EOF' > services/researchGap.ts
+import { Paper, ResearchGap } from '../types/ResearchContext';
+
+export function analyzeResearchGap(papers: Paper[], currentYear: number = 2026): ResearchGap {
+  const reasons: string[] = [];
+  const suggestions: string[] = [];
+  const missingAreas: string[] = [];
+  
+  if (papers.length === 0) {
+    return {
+      confidence: 0,
+      reason: ["No publications found to analyze."],
+      suggestions: ["Try expanding your keywords or search scope."],
+      missingAreas: ["All areas"],
+      recommendedKeywords: [],
+      recommendedYears: [currentYear],
+      recommendedConcepts: []
+    };
+  }
+
+  const years = papers.map(p => p.year).filter(y => y > 0);
+  const latestYear = years.length ? Math.max(...years) : currentYear;
+  
+  if (latestYear < currentYear - 3) {
+    reasons.push(`No recent publications detected since ${latestYear}. This field lacks modern continuous investigation.`);
+    suggestions.push(`Focus on building a framework that accounts for technology/context updates post-${latestYear}.`);
+    missingAreas.push("Contemporary Empirical Applications");
+  }
+
+  const countryCounts: Record<string, number> = {};
+  papers.forEach(p => p.countries?.forEach(c => countryCounts[c] = (countryCounts[c] || 0) + 1));
+  const countries = Object.entries(countryCounts).sort((a,b) => b[1] - a[1]);
+  
+  if (countries.length > 0 && countries[0][1] > papers.length * 0.6) {
+    reasons.push(`Geographical Dominance: More than 60% of literature is concentrated in (${countries[0][0]}).`);
+    suggestions.push(`Conduct comparative study or localized research outside ${countries[0][0]}.`);
+    missingAreas.push(`Regional diversification outside ${countries[0][0]}`);
+  }
+
+  const totalCitations = papers.reduce((acc, p) => acc + p.citationCount, 0);
+  const avgCitations = papers.length ? totalCitations / papers.length : 0;
+  if (avgCitations < 5) {
+    reasons.push("Low Academic Traction: The field has a very low average citation impact, indicating an unmapped or niche topic.");
+    suggestions.push("Link this topic with a higher-impact field to increase academic relevance.");
+  }
+
+  const conceptCounts: Record<string, number> = {};
+  papers.forEach(p => p.concepts?.forEach(c => conceptCounts[c] = (conceptCounts[c] || 0) + 1));
+  const topConcepts = Object.entries(conceptCounts).sort((a,b) => b[1] - a[1]).map(e => e[0]);
+
+  const confidence = Math.min(100, Math.max(30, (papers.length * 7) + (avgCitations > 10 ? 20 : 0)));
+
+  return {
+    confidence: Math.round(confidence),
+    reason: reasons.length > 0 ? reasons : ["The field is highly active and balanced, requiring highly granular sub-topic investigation."],
+    suggestions: suggestions.length > 0 ? suggestions : ["Look into shifting research methodologies (e.g., from qualitative to mixed-methods)."],
+    missingAreas: missingAreas.length > 0 ? missingAreas : ["Granular edge-case methodologies"],
+    recommendedKeywords: topConcepts.slice(-2), 
+    recommendedYears: Array.from({length: 3}, (_, i) => currentYear - i),
+    recommendedConcepts: topConcepts.slice(0, 3)
+  };
+}
+EOF
+
+echo "✅ تم إنشاء جميع الملفات والملحقات البنيوية الأربعة الجديدة بنجاح تامة!"
+

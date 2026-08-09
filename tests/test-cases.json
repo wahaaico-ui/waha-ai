@@ -1,0 +1,63 @@
+[
+  {
+    "id": "TC-001",
+    "input": "الذكاء الاصطناعي في التعليم",
+    "category": "TOPIC",
+    "expectedIntent": "TOPIC_GENERAL",
+    "expectedVariables": "غير محددة",
+    "expectedPopulation": "غير محدد",
+    "expectedCountry": "غير محدد",
+    "expectedDecision": "REQUIRES_MAJOR_RESTRUCTURING",
+    "expectedConfidenceRange": [0, 50],
+    "expectedOutcome": "FAIL_TO_PROCEED"
+  },
+  {
+    "id": "TC-002",
+    "input": "أثر الذكاء الاصطناعي التوليدي في تنمية مهارات التفكير النقدي لدى طلبة الجامعات الفلسطينية",
+    "category": "IDEA",
+    "expectedIntent": "RESEARCH_IDEA",
+    "expectedVariables": "مستقل (الذكاء الاصطناعي التوليدي) وتابع (التفكير النقدي)",
+    "expectedPopulation": "طلبة الجامعات",
+    "expectedCountry": "فلسطين",
+    "expectedDecision": "READY_DIRECTLY",
+    "expectedConfidenceRange": [85, 100],
+    "expectedOutcome": "PASS"
+  },
+  {
+    "id": "TC-003",
+    "input": "مرحبا كيف حالك؟",
+    "category": "NON_ACADEMIC",
+    "expectedIntent": "CHAT",
+    "expectedVariables": "لا توجد",
+    "expectedPopulation": "لا يوجد",
+    "expectedCountry": "غير محدد",
+    "expectedDecision": "UNSUITABLE",
+    "expectedConfidenceRange": [0, 10],
+    "expectedOutcome": "FAIL"
+  },
+  {
+    "id": "TC-004",
+    "input": "بحث عن التكنولوجيا والمجتمع",
+    "category": "WEAK_TITLE",
+    "expectedIntent": "TOPIC_GENERAL",
+    "expectedVariables": "غير واضحة",
+    "expectedPopulation": "غير محدد",
+    "expectedCountry": "غير محدد",
+    "expectedDecision": "REQUIRES_MAJOR_RESTRUCTURING",
+    "expectedConfidenceRange": [0, 40],
+    "expectedOutcome": "FAIL_TO_PROCEED"
+  },
+  {
+    "id": "TC-005",
+    "input": "فعالية استخدام خوارزميات التعلم العميق في التنبؤ بالأداء الأكاديمي لطلبة المدارس الثانوية في السعودية",
+    "category": "STRONG_TITLE",
+    "expectedIntent": "RESEARCH_IDEA",
+    "expectedVariables": "مستقل (خوارزميات التعلم العميق) وتابع (الأداء الأكاديمي)",
+    "expectedPopulation": "طلبة المدارس الثانوية",
+    "expectedCountry": "السعودية",
+    "expectedDecision": "READY_DIRECTLY",
+    "expectedConfidenceRange": [90, 100],
+    "expectedOutcome": "PASS"
+  }
+  /* (تم هندسة بقية الـ 100 حالة داخل الـ Runner لتوليد الاختبارات دفعة واحدة بدقة) */
+]

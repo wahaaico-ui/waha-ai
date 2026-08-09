@@ -1,0 +1,1518 @@
+{
+  "metadata": {
+    "totalTests": 100,
+    "passed": 80,
+    "failed": 20,
+    "timestamp": "2026-08-05T23:44:22.744Z"
+  },
+  "metrics": {
+    "Accuracy": "80%",
+    "Precision": "50%",
+    "Recall": "100%",
+    "HallucinationRate": "0%",
+    "FalsePositiveRate": "66.67%",
+    "FalseNegativeRate": "0%"
+  },
+  "cases": [
+    {
+      "id": "TC-001",
+      "input": "دراسة عامة حول موضوع رقم 1 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-002",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 2",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-003",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 3",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-004",
+      "input": "مقال قصير عن التقنية والطلاب 4",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-005",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 5",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-006",
+      "input": "دراسة عامة حول موضوع رقم 6 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-007",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 7",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-008",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 8",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-009",
+      "input": "مقال قصير عن التقنية والطلاب 9",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-010",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 10",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-011",
+      "input": "دراسة عامة حول موضوع رقم 11 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-012",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 12",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-013",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 13",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-014",
+      "input": "مقال قصير عن التقنية والطلاب 14",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-015",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 15",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-016",
+      "input": "دراسة عامة حول موضوع رقم 16 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-017",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 17",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-018",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 18",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-019",
+      "input": "مقال قصير عن التقنية والطلاب 19",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-020",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 20",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-021",
+      "input": "دراسة عامة حول موضوع رقم 21 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-022",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 22",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-023",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 23",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-024",
+      "input": "مقال قصير عن التقنية والطلاب 24",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-025",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 25",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-026",
+      "input": "دراسة عامة حول موضوع رقم 26 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-027",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 27",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-028",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 28",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-029",
+      "input": "مقال قصير عن التقنية والطلاب 29",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-030",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 30",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-031",
+      "input": "دراسة عامة حول موضوع رقم 31 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-032",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 32",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-033",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 33",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-034",
+      "input": "مقال قصير عن التقنية والطلاب 34",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-035",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 35",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-036",
+      "input": "دراسة عامة حول موضوع رقم 36 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-037",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 37",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-038",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 38",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-039",
+      "input": "مقال قصير عن التقنية والطلاب 39",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-040",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 40",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-041",
+      "input": "دراسة عامة حول موضوع رقم 41 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-042",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 42",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-043",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 43",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-044",
+      "input": "مقال قصير عن التقنية والطلاب 44",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-045",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 45",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-046",
+      "input": "دراسة عامة حول موضوع رقم 46 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-047",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 47",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-048",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 48",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-049",
+      "input": "مقال قصير عن التقنية والطلاب 49",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-050",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 50",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-051",
+      "input": "دراسة عامة حول موضوع رقم 51 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 1
+    },
+    {
+      "id": "TC-052",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 52",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-053",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 53",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-054",
+      "input": "مقال قصير عن التقنية والطلاب 54",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-055",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 55",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-056",
+      "input": "دراسة عامة حول موضوع رقم 56 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-057",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 57",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-058",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 58",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-059",
+      "input": "مقال قصير عن التقنية والطلاب 59",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-060",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 60",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-061",
+      "input": "دراسة عامة حول موضوع رقم 61 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-062",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 62",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-063",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 63",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-064",
+      "input": "مقال قصير عن التقنية والطلاب 64",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-065",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 65",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-066",
+      "input": "دراسة عامة حول موضوع رقم 66 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-067",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 67",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-068",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 68",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-069",
+      "input": "مقال قصير عن التقنية والطلاب 69",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-070",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 70",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-071",
+      "input": "دراسة عامة حول موضوع رقم 71 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-072",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 72",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-073",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 73",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-074",
+      "input": "مقال قصير عن التقنية والطلاب 74",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-075",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 75",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-076",
+      "input": "دراسة عامة حول موضوع رقم 76 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-077",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 77",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-078",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 78",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-079",
+      "input": "مقال قصير عن التقنية والطلاب 79",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-080",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 80",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-081",
+      "input": "دراسة عامة حول موضوع رقم 81 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-082",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 82",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-083",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 83",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-084",
+      "input": "مقال قصير عن التقنية والطلاب 84",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-085",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 85",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-086",
+      "input": "دراسة عامة حول موضوع رقم 86 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-087",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 87",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-088",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 88",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-089",
+      "input": "مقال قصير عن التقنية والطلاب 89",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-090",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 90",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-091",
+      "input": "دراسة عامة حول موضوع رقم 91 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-092",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 92",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-093",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 93",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-094",
+      "input": "مقال قصير عن التقنية والطلاب 94",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-095",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 95",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-096",
+      "input": "دراسة عامة حول موضوع رقم 96 في التكنولوجيا والتعليم",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-097",
+      "input": "أثر استخدام التقنيات الرقمية في تحسين مهارات التعلم الذاتي لدى طلبة الجامعات في الأردن رقم 97",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-098",
+      "input": "فعالية نموذج استقصائي رقمي في تنمية التحصيل والدافعية لدى عينة من طلبة العلوم في فلسطين رقم 98",
+      "expected": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "actual": {
+        "intent": "RESEARCH_IDEA",
+        "decision": "READY_DIRECTLY"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-099",
+      "input": "مقال قصير عن التقنية والطلاب 99",
+      "expected": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "actual": {
+        "intent": "TOPIC_GENERAL",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "PASS",
+      "reason": "مطابقة تامة للمعايير الأكاديمية",
+      "executionTimeMs": 0
+    },
+    {
+      "id": "TC-100",
+      "input": "مرحبا أود الاستفسار عن النظام رقم 100",
+      "expected": {
+        "intent": "CHAT",
+        "decision": "UNSUITABLE"
+      },
+      "actual": {
+        "intent": "CHAT",
+        "decision": "REQUIRES_MAJOR_RESTRUCTURING"
+      },
+      "status": "FAIL",
+      "reason": "خطأ في تقدير النية أو القرار",
+      "executionTimeMs": 0
+    }
+  ]
+}
