@@ -1,4 +1,4 @@
-import { createClient } from "../../../utils/supabase/server";
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 export default async function DashboardPage() {
   const supabase = await createClient();
