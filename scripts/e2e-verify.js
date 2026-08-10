@@ -11,13 +11,32 @@ async function runE2EVerification() {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  console.log('--- Starting Real Supabase E2E Verification ---');
+  console.log('--- Starting Real Supabase E2E Verification (with user_id handling) ---');
 
-  // Step 1 & 2: Create Project
+  // جلب أو إنشاء مستخدم اختبار صالح لربط الـ user_id
+  let userId;
+  const { data: usersData } = await supabase.auth.admin.listUsers();
+  if (usersData && usersData.users && usersData.users.length > 0) {
+    userId = usersData.users[0].id;
+  } else {
+    const { data: newUser, error: createErr } = await supabase.auth.admin.createUser({
+      email: 'test-e2e-' + Date.now() + '@example.com',
+      password: 'password123',
+      email_confirm: true
+    });
+    if (createErr) {
+      console.error('Failed to create test user:', createErr);
+      process.exit(1);
+    }
+    userId = newUser.user.id;
+  }
+  console.log('Using Test User ID:', userId);
+
+  // Step 2: Create Project with valid user_id
   const projectTitle = 'E2E Verified Project ' + Date.now();
   const { data: project, error: projErr } = await supabase
     .from('projects')
-    .insert({ title: projectTitle, status: 'active' })
+    .insert({ title: projectTitle, status: 'active', user_id: userId })
     .select()
     .single();
 

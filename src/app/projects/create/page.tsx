@@ -32,12 +32,19 @@ export default function CreateProjectPage() {
 
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // إدخال المشروع بالاعتماد على الأعمدة الحقيقية (title, status)
+      // جلب المستخدم الحالي للتأكد من وجود user_id مطلوب في الجدول
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('يجب تسجيل الدخول أولاً لإنشاء مشروع');
+      }
+
+      // إدخال المشروع مع تمرير user_id الحقيقي
       const { data, error: insertError } = await supabase
         .from('projects')
         .insert({
           title: title.trim(),
           status: 'active',
+          user_id: user.id,
         })
         .select()
         .single();
@@ -45,7 +52,6 @@ export default function CreateProjectPage() {
       if (insertError) throw insertError;
 
       if (data && data.id) {
-        // بدلاً من التوجيه للـ workspace مباشرة، نقوم بتفعيل خطوة الـ Onboarding الإجبارية
         setCreatedProjectId(data.id);
       } else {
         router.push('/projects/workspace');
@@ -58,7 +64,6 @@ export default function CreateProjectPage() {
     }
   };
 
-  // إذا تم إنشاء المشروع، يظهر مكون الـ Onboarding إجبارياً ولا يمكن تجاوزه
   if (createdProjectId) {
     return (
       <UniversityOnboarding
@@ -98,7 +103,7 @@ export default function CreateProjectPage() {
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition duration-200 disabled:opacity-50"
           >
-            {loading ? 'جاري الإنشاء...' : 'إنشاء المشروع والبدء'}
+            {loading ? 'جاري الإنشاء والربط...' : 'إنشاء المشروع والبدء'}
           </button>
         </form>
       </div>
