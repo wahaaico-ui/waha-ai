@@ -3,11 +3,13 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import UniversityOnboarding from '@/components/UniversityOnboarding';
 
 export default function CreateProjectPage() {
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,7 +32,7 @@ export default function CreateProjectPage() {
 
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // إدخال المشروع بالاعتماد حصرياً على الأعمدة الحقيقية في السكيما (title, status)
+      // إدخال المشروع بالاعتماد على الأعمدة الحقيقية (title, status)
       const { data, error: insertError } = await supabase
         .from('projects')
         .insert({
@@ -43,8 +45,8 @@ export default function CreateProjectPage() {
       if (insertError) throw insertError;
 
       if (data && data.id) {
-        // التوجيه إلى مسار الـ workspace المعتمد مع الـ project id الحقيقي
-        router.push(`/projects/workspace?projectId=${data.id}`);
+        // بدلاً من التوجيه للـ workspace مباشرة، نقوم بتفعيل خطوة الـ Onboarding الإجبارية
+        setCreatedProjectId(data.id);
       } else {
         router.push('/projects/workspace');
       }
@@ -55,6 +57,18 @@ export default function CreateProjectPage() {
       setLoading(false);
     }
   };
+
+  // إذا تم إنشاء المشروع، يظهر مكون الـ Onboarding إجبارياً ولا يمكن تجاوزه
+  if (createdProjectId) {
+    return (
+      <UniversityOnboarding
+        projectId={createdProjectId}
+        onComplete={() => {
+          router.push(`/projects/workspace?projectId=${createdProjectId}`);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -84,7 +98,7 @@ export default function CreateProjectPage() {
             disabled={loading}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition duration-200 disabled:opacity-50"
           >
-            {loading ? 'جاري الإنشاء والربط...' : 'إنشاء المشروع والبدء'}
+            {loading ? 'جاري الإنشاء...' : 'إنشاء المشروع والبدء'}
           </button>
         </form>
       </div>
