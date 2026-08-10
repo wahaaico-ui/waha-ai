@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { AcademicDecisionEngine } from '@/lib/academic/core/decision/AcademicDecisionEngine';
-import { AcademicReportGenerator } from '@/lib/academic/core/generator/AcademicReportGenerator';
-import { GroqAcademicRefiner } from '@/lib/academic/core/ai/GroqAcademicRefiner';
+import { AcademicDecisionEngine } from '@/lib/ai/geminiClient/core/decision/AcademicDecisionEngine';
+import { AcademicReportGenerator } from '@/lib/ai/geminiClient/core/generator/AcademicReportGenerator';
+import { GroqAcademicRefiner } from '@/lib/ai/geminiClient/core/ai/GroqAcademicRefiner';
 
 export async function POST(req: Request) {
   try {
