@@ -1,54 +1,75 @@
 import { NextResponse } from 'next/server';
+import { generateStructured } from '@/lib/ai/geminiClient';
+import { createClient } from '@supabase/supabase-js';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { textToRewrite } = await req.json();
-    const apiKey = process.env.GEMINI_API_KEY;
+    const body = await request.json();
+    const { documentId } = body;
 
-    if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'مفتاح Gemini API غير متوفر في البيئة' }, { status: 500 });
+    if (!documentId) {
+      return NextResponse.json({ error: 'documentId is required' }, { status: 400 });
     }
 
-    if (!textToRewrite || !textToRewrite.trim()) {
-      return NextResponse.json({ success: false, error: 'النص المراد إعادة صياغته مفقود' }, { status: 400 });
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return NextResponse.json({ error: 'Supabase credentials missing' }, { status: 500 });
     }
 
-    const prompt = `أنت خبير تدقيق لغوي ومراجع أكاديمي دولي. بناءً على النص التالي المراد إعادة صياغته:
-    "${textToRewrite}"
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    قم بإعادة صياغة النص بثلاثة أساليب أكاديمية مختلفة ومتميزة:
-    1. أسلوب الرصانة الأكاديمية الصارمة (Strict Academic Tone): لغة علمية رصينة ومحكمة مناسبة للمجلات المتميزة.
-    2. أسلوب الاختصار والوضوح (Concise & Clear Tone): صياغة مباشرة وموجزة تمنع الحشو وتبرز الفكرة بوضوح.
-    3. أسلوب النبرة النقدية والتحليلية (Critical & Analytical Tone): أسلوب يربط بين الأفكار ويظهر التحليل والتعميق العلمي.
+    // 1. جلب المستند الحالي والمحتوى والإصدار وproject_id
+    const { data: currentDoc, error: fetchError } = await supabase
+      .from('documents')
+      .select('id, project_id, content, type, version')
+      .eq('id', documentId)
+      .single();
 
-    أرجع النتيجة ككائن JSON صالح حصراً (بدون أي نصوص خارج الـ JSON) بالشكل التالي:
-    {
-      "strictAcademic": "...",
-      "conciseClear": "...",
-      "criticalAnalytical": "..."
-    }`;
+    if (fetchError || !currentDoc) {
+      return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    }
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
-      }),
+    const textToImprove = currentDoc.content || '';
+    if (!textToImprove.trim()) {
+      return NextResponse.json({ error: 'Document content is empty' }, { status: 400 });
+    }
+
+    // 2. إرسال النص إلى Gemini عبر العميل الموحد
+    const prompt = `Paraphrase and improve the following academic text for clarity, professional tone, and scholarly standards:\n\n${textToImprove}`;
+    
+    const { output, confidenceLabel } = await generateStructured({
+      prompt,
+      projectId: currentDoc.project_id,
+      feature: 'paraphrase',
     });
 
-    const data = await response.json();
+    // 3. حفظ النتيجة كنسخة جديدة (version + 1) بجدول documents
+    const nextVersion = (currentDoc.version || 1) + 1;
+    const { data: newDoc, error: insertError } = await supabase
+      .from('documents')
+      .insert({
+        project_id: currentDoc.project_id,
+        type: currentDoc.type || 'paraphrased',
+        content: output,
+        version: nextVersion,
+      })
+      .select()
+      .single();
 
-    if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-      const parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
-      return NextResponse.json({ success: true, paraphrasedResult: parsedData });
-    } else {
-      return NextResponse.json({ success: false, error: 'فشل التوليد عبر نموذج Gemini' }, { status: 500 });
+    if (insertError) {
+      throw insertError;
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      document: newDoc,
+      confidenceLabel,
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
