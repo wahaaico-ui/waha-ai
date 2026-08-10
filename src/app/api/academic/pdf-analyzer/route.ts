@@ -1,55 +1,53 @@
 import { NextResponse } from 'next/server';
+import { generateStructured } from '@/lib/ai/geminiClient';
+import { createClient } from '@supabase/supabase-js';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { textContent, fileName } = await req.json();
-    const apiKey = process.env.GEMINI_API_KEY;
+    const body = await request.json();
+    const { projectId, text, prompt } = body;
+    const rawText = text || prompt || '';
 
-    if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'مفتاح Gemini API غير متوفر' }, { status: 500 });
+    if (!rawText) {
+      return NextResponse.json({ error: 'Text or prompt is required' }, { status: 400 });
     }
 
-    if (!textContent || !textContent.trim()) {
-      return NextResponse.json({ success: false, error: 'النص المستخرج من المستند مفقود' }, { status: 400 });
-    }
-
-    const prompt = `أنت خبير تحليل أبحاث علمية وقارئ أوراق بحثية محترف. قم بتحليل نص البحث أو المستند المستخرج من الملف المرفق (${fileName || 'مستند بحثي'}) وتقديم تحليل عميق يتضمن:
-    1. ملخص الورقة البحثية (Executive Summary).
-    2. الإشكالية والأهداف (Problem Statement & Objectives).
-    3. المنهجية والأدوات المستخدمة (Methodology & Tools).
-    4. النتائج الرئيسية (Key Findings).
-    5. النقاط القوية والثغرات (Strengths & Limitations).
-
-    أرجع النتيجة ككائن JSON صالح حصراً (بدون أي نصوص خارج الـ JSON) بالشكل التالي:
-    {
-      "summary": "...",
-      "problemAndObjectives": "...",
-      "methodology": "...",
-      "keyFindings": ["..."],
-      "strengthsAndLimitations": "..."
-    }`;
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt + "\n\nالنص المستخرج:\n" + textContent }] }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
-      }),
+    const analysisPrompt = `Analyze the following academic text/PDF content and extract key insights and summary:\n\n${rawText}`;
+    
+    const { output, confidenceLabel } = await generateStructured({
+      prompt: analysisPrompt,
+      projectId,
+      feature: 'pdf-analyzer',
     });
 
-    const data = await response.json();
+    let sourceId = null;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-      const parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
-      return NextResponse.json({ success: true, analysis: parsedData });
-    } else {
-      return NextResponse.json({ success: false, error: 'فشل تحليل المستند عبر نموذج Gemini' }, { status: 500 });
+    if (supabaseUrl && supabaseKey && projectId) {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      const { data, error } = await supabase
+        .from('sources')
+        .insert({
+          project_id: projectId,
+          raw_text: rawText,
+          confidence: confidenceLabel,
+        })
+        .select('id')
+        .single();
+
+      if (!error && data) {
+        sourceId = data.id;
+      }
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      output,
+      confidenceLabel,
+      sourceId,
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

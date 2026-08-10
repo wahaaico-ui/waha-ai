@@ -1,57 +1,62 @@
 import { NextResponse } from 'next/server';
+import { generateStructured } from '@/lib/ai/geminiClient';
+import { createClient } from '@supabase/supabase-js';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { sourceInput } = await req.json();
-    const apiKey = process.env.GEMINI_API_KEY;
+    const body = await request.json();
+    const { sourceId, rawText, projectId } = body;
 
-    if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'مفتاح Gemini API غير متوفر في البيئة' }, { status: 500 });
-    }
+    const textToProcess = rawText || 'Academic source reference';
+    const citationPrompt = `Generate APA and IEEE citations for the following text/source:\n\n${textToProcess}\n\nProvide them clearly separated as APA and IEEE format.`;
 
-    if (!sourceInput || !sourceInput.trim()) {
-      return NextResponse.json({ success: false, error: 'تفاصيل المصدر مفقودة' }, { status: 400 });
-    }
-
-    const prompt = `أنت خبير توثيق ومراجع أبحاث أكاديمية. بناءً على بيانات أو وصف المصدر التالي:
-    "${sourceInput}"
-
-    قم بتنسيق هذا المصدر بدقة وفقاً لأشهر أنظمة التوثيق الأكاديمي العالمية:
-    1. نظام APA (الإصدار السابع - 7th Edition)
-    2. نظام IEEE (للهندسة والعلوم التقنية)
-    3. نظام Harvard (هارفارد)
-    4. نظام MLA (الإصدار التاسع)
-
-    أرجع النتيجة ككائن JSON صالح حصراً (بدون أي نصوص خارج الـ JSON) بالشكل التالي:
-    {
-      "apa": "...",
-      "ieee": "...",
-      "harvard": "...",
-      "mla": "...",
-      "notes": "أي ملاحظة حول نواقص البيانات إن وجدت (أو اكتب لا توجد)"
-    }`;
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
-      }),
+    const { output, confidenceLabel } = await generateStructured({
+      prompt: citationPrompt,
+      projectId,
+      feature: 'citations',
     });
 
-    const data = await response.json();
+    const apaMatch = output.match(/APA[:\s]*(.*?)(?=IEEE|$)/is);
+    const ieeeMatch = output.match(/IEEE[:\s]*(.*)/is);
+    const apa = apaMatch ? apaMatch[1].trim() : output;
+    const ieee = ieeeMatch ? ieeeMatch[1].trim() : output;
 
-    if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-      const parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
-      return NextResponse.json({ success: true, citations: parsedData });
-    } else {
-      return NextResponse.json({ success: false, error: 'فشل التنسيق عبر نموذج Gemini' }, { status: 500 });
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl && supabaseKey) {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      if (sourceId) {
+        await supabase
+          .from('sources')
+          .update({
+            parsed_citation_apa: apa,
+            parsed_citation_ieee: ieee,
+            confidence: confidenceLabel,
+          })
+          .eq('id', sourceId);
+      } else if (projectId) {
+        await supabase
+          .from('sources')
+          .insert({
+            project_id: projectId,
+            raw_text: textToProcess,
+            parsed_citation_apa: apa,
+            parsed_citation_ieee: ieee,
+            confidence: confidenceLabel,
+          });
+      }
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json({
+      success: true,
+      apa,
+      ieee,
+      confidenceLabel,
+      sourceId,
+    });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
