@@ -1,179 +1,91 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/utils/supabase';
+import { createClient } from '@supabase/supabase-js';
 
-export default function CreateProject() {
+export default function CreateProjectPage() {
+  const [title, setTitle] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
 
-  // حقول النموذج
-  const [projectName, setProjectName] = useState('');
-  const [description, setDescription] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [priority, setPriority] = useState('متوسطة');
-  const [message, setMessage] = useState('');
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        // حظر ومنع غير المسجلين وتوجيههم لصفحة تسجيل الدخول فوراً
-        router.push('/login');
-      } else {
-        setUserId(user.id);
-        setLoading(false);
-      }
-    };
-    checkUser();
-  }, [router]);
-
-  // دالة تفعيل نظام المشاريع الحقيقي بالكامل
-  const handleCreateProject = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userId) return;
+    if (!title.trim()) {
+      setError('عنوان المشروع مطلوب');
+      return;
+    }
 
-    setSubmitting(true);
-    setMessage('');
+    setLoading(true);
+    setError('');
 
     try {
-      // 1. إنشاء و حفظ الـ Project الجديد داخل قاعدة البيانات
-      const { data: projectData, error: projectError } = await supabase
-        .from('projects')
-        .insert([
-          {
-            user_id: userId,
-            name: projectName,
-            description: description,
-            end_date: endDate ? endDate : null,
-            priority: priority
-          }
-        ])
-        .select()
-        .single(); // جلب بيانات المشروع المضاف فوراً للحصول على الـ ID
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-      if (projectError) throw projectError;
-
-      if (projectData) {
-        // 2. إنشاء الـ Research Profile تلقائياً وربطه بـ ID المشروع الجديد
-        const { error: researchError } = await supabase
-          .from('research_profiles')
-          .insert([
-            {
-              project_id: projectData.id,
-              summary: `ملخص ذكي مبدئي لمشروع: ${projectName}`,
-              ai_recommendations: 'جاري توليد التوصيات الذكية المتقدمة بناءً على أهداف مساحة العمل...'
-            }
-          ]);
-
-        if (researchError) throw researchError;
-
-        // 3. إنشاء الـ Workspace تلقائياً (تحديث رسالة النجاح للمستخدم لتهيئة بيئة العمل)
-        setMessage('🚀 تم إنشاء المشروع، توليد الـ Research Profile وتهيئة الـ Workspace بنجاح! جاري تحويلك...');
-        
-        // 4. تحويل المستخدم تلقائياً إلى الـ Dashboard بعد اكتمال كل العمليات
-        setTimeout(() => {
-          router.push('/dashboard');
-        }, 1500);
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error('Supabase credentials missing');
       }
 
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'تعذر معالجة البيانات';
-      setMessage(`❌ خطأ أثناء تكوين النظام: ${message}`);
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // إدخال المشروع بالاعتماد حصرياً على الأعمدة الحقيقية في السكيما (title, status)
+      const { data, error: insertError } = await supabase
+        .from('projects')
+        .insert({
+          title: title.trim(),
+          status: 'active',
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      if (data && data.id) {
+        // التوجيه إلى مسار الـ workspace المعتمد مع الـ project id الحقيقي
+        router.push(`/projects/workspace?projectId=${data.id}`);
+      } else {
+        router.push('/projects/workspace');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || 'حدث خطأ أثناء إنشاء المشروع');
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center font-sans">
-        <p className="text-slate-400 text-lg animate-pulse">جاري فحص صلاحيات الأمان للتوجيه...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-6 font-sans antialiased">
-      <div className="w-full max-w-2xl bg-slate-800/50 backdrop-blur-md border border-slate-800 rounded-2xl p-8 shadow-xl">
-        <div className="mb-8 border-b border-slate-700/50 pb-5">
-          <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent mb-2 text-right">
-            تكوين مشروع ذكي جديد
-          </h2>
-          <p className="text-slate-400 text-sm text-right">أدخل تفاصيل مشروعك لتقوم منصة WAHA AI بتهيئة مساحة العمل الذكية لك</p>
-        </div>
-
-        {/* رسالة حالة توليد النظام */}
-        {message && (
-          <div className={`p-4 rounded-xl text-sm mb-5 text-center border ${
-            message.startsWith('❌') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-          }`}>
-            {message}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg max-w-md w-full p-6 border border-gray-200 dark:border-gray-700">
+        <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">إنشاء مشروع أكاديمي جديد</h1>
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm">
+            {error}
           </div>
         )}
-
-        <form className="space-y-6" onSubmit={handleCreateProject}>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5 text-right">اسم المشروع</label>
-            <input 
-              type="text" 
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              عنوان المشروع (Title)
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="أدخل عنوان البحث أو المشروع..."
+              className="w-full p-3 border rounded-lg bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500"
               required
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              placeholder="مثال: حملة التسويق الرقمي، تطوير التطبيق" 
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors text-right"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-1.5 text-right">وصف المشروع وأهدافه (للمساعد الذكي)</label>
-            <textarea 
-              rows={4}
-              required
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="اشرح باختصار ماذا تريد أن يحقق هذا المشروع، لكي يستطيع الذكاء الاصطناعي مساعدتك واقتراح المهام..." 
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 transition-colors text-right"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5 text-right">تاريخ الانتهاء المتوقع</label>
-              <input 
-                type="date" 
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-colors text-right"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5 text-right">مستوى الأولوية</label>
-              <select 
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-colors text-right appearance-none"
-              >
-                <option value="منخفضة">منخفضة</option>
-                <option value="متوسطة">متوسطة</option>
-                <option value="عالية جداً 🔥">عالية جداً 🔥</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="pt-4 flex items-center justify-end gap-4">
-            <a href="/dashboard" className="px-5 py-3 text-sm font-medium text-slate-400 hover:text-white transition-colors">إلغاء</a>
-            <button 
-              type="submit"
-              disabled={submitting}
-              className="bg-gradient-to-r from-blue-500 to-emerald-500 hover:from-blue-600 hover:to-emerald-600 text-white font-medium px-8 py-3 rounded-xl transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
-            >
-              {submitting ? 'جاري تهيئة مساحة العمل...' : 'توليد مساحة العمل الذكية 🚀'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition duration-200 disabled:opacity-50"
+          >
+            {loading ? 'جاري الإنشاء والربط...' : 'إنشاء المشروع والبدء'}
+          </button>
         </form>
       </div>
     </div>
