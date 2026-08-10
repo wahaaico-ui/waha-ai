@@ -154,7 +154,7 @@ export class SemanticScholarProvider {
     return {
       paperId,
       title,
-      abstract: this.string(paper.abstract),
+      abstract: this.string(paper.abstract) ?? undefined,
       authors,
       publicationYear: this.nullableNumber(paper.year),
       citationCount: this.number(paper.citationCount),
@@ -164,7 +164,7 @@ export class SemanticScholarProvider {
         : [],
       venue: this.string(paper.venue),
       doi: this.string(externalIds.DOI),
-      url: this.string(paper.url),
+      url: this.string(paper.url) ?? undefined,
     };
   }
 

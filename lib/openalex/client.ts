@@ -249,11 +249,11 @@ export class OpenAlexClient {
       journal: work.primary_location?.source?.display_name || null,
       authors: (work.authorships || [])
         .map(a => a?.author?.display_name)
-        .filter((name): name is string => Boolean(name)),
+        .filter((name: string | null | undefined): name is string => Boolean(name)),
       abstract: this.reconstructAbstract(work.abstract_inverted_index),
       concepts: (work.concepts || [])
-        .map(c => c?.display_name)
-        .filter((name): name is string => Boolean(name)),
+        .map((c: { display_name?: string | null }) => c?.display_name)
+        .filter((name: string | null | undefined): name is string => Boolean(name)),
       countries: this.extractCountries(work),
       openalexUrl: work.id,
     }));
