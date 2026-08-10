@@ -11,9 +11,9 @@ async function runE2EVerification() {
   }
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  console.log('--- Starting Real Supabase E2E Verification (with user_id handling) ---');
+  console.log('--- Starting Real Supabase E2E Verification ---');
 
-  // جلب أو إنشاء مستخدم اختبار صالح لربط الـ user_id
+  // جلب أو إنشاء مستخدم اختبار صالح
   let userId;
   const { data: usersData } = await supabase.auth.admin.listUsers();
   if (usersData && usersData.users && usersData.users.length > 0) {
@@ -32,7 +32,7 @@ async function runE2EVerification() {
   }
   console.log('Using Test User ID:', userId);
 
-  // Step 2: Create Project with valid user_id
+  // Step 2: Create Project
   const projectTitle = 'E2E Verified Project ' + Date.now();
   const { data: project, error: projErr } = await supabase
     .from('projects')
@@ -47,13 +47,16 @@ async function runE2EVerification() {
   console.log('Step 2 (Create Project): SUCCESS. Inserted ID:', project.id);
 
   // Step 3: University Onboarding Policy Update
+  // ملاحظة: إذا لم تكن قمت بتنفيذ أمر الـ ALTER TABLE في لوحة تحكم Supabase بعد، 
+  // سنقوم بالتحقق أولاً أو تحديث جدول projects مباشرة.
   const { error: polErr } = await supabase
     .from('projects')
     .update({ university_policy: 'Sample University APA Guidelines v1' })
     .eq('id', project.id);
 
   if (polErr) {
-    console.error('Step 3 Failed:', polErr);
+    console.error('Step 3 Failed (Column might be missing in DB):', polErr);
+    console.log('💡 TIP: Go to Supabase Dashboard -> SQL Editor and run: ALTER TABLE projects ADD COLUMN IF NOT EXISTS university_policy TEXT;');
     process.exit(1);
   }
   console.log('Step 3 (University Onboarding): SUCCESS. Policy updated in projects table.');
