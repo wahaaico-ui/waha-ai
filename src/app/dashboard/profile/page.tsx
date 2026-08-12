@@ -45,7 +45,7 @@ export default function ProfilePage() {
 
     const { error } = await supabase
       .from('profiles')
-      update({ university, degree })
+      .update({ university, degree })
       .eq('id', user.id);
 
     setSaving(false);

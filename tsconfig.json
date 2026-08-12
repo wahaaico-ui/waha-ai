@@ -6,6 +6,7 @@
       "dom.iterable",
       "esnext"
     ],
+    "types": ["jest", "node"], 
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -40,6 +41,7 @@
     "node_modules",
     ".next",
     "src/lib/waha-pipeline/stage-4-5-objectives-questions.ts",
-    "tests/runner.ts"
+    "tests/runner.ts",
+    "_archive"
   ]
 }

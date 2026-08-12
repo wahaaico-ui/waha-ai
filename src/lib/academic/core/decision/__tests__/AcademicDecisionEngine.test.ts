@@ -7,8 +7,9 @@ describe('AcademicDecisionEngine - Sprint 1 Task 6', () => {
     engine = new AcademicDecisionEngine();
   });
 
-  test('Case 1: Evaluates valid research idea completely', () => {
-    const report = engine.evaluate('أفكر في أثر الذكاء الاصطناعي على التحصيل الأكاديمي');
+  test('Case 1: Evaluates valid research idea completely', async () => {
+    // إضافة await هنا لانتظار النتيجة
+    const report = await engine.evaluate('أفكر في أثر الذكاء الاصطناعي على التحصيل الأكاديمي');
     
     expect(report).toBeDefined();
     expect(report.intentResult.intent).toBe('INITIAL_IDEA');
@@ -19,4 +20,3 @@ describe('AcademicDecisionEngine - Sprint 1 Task 6', () => {
     expect(report.finalVerdict.score).toBeGreaterThan(0);
   });
 });
-

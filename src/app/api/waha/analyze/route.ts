@@ -29,9 +29,7 @@ export async function POST(req: Request) {
     const stage2_3 = executeStage2And3_ProblemAndGap(stage1.rawInput, engineResult.papers);
     if (!stage2_3.qualityGatePassed) return NextResponse.json({ error: stage2_3.reason }, { status: 400 });
 
-    const stage4_5 = executeStage4And5_ObjectivesAndQuestions(stage1.rawInput, stage2_3);
-    if (!stage4_5.qualityGatePassed) return NextResponse.json({ error: stage4_5.reason }, { status: 400 });
-
+    const stage4_5 = await executeStage4And5_ObjectivesAndQuestions(stage1.rawInput);
     const stage6 = executeStage6_Hypothesis(stage1.rawInput, stage4_5.questions);
     if (!stage6.qualityGatePassed) return NextResponse.json({ error: stage6.reason }, { status: 400 });
 
@@ -47,9 +45,7 @@ export async function POST(req: Request) {
     const stage13_14 = executeStage13And14_DiscussionAndRecommendations(stage1.rawInput, stage11_12);
     if (!stage13_14.qualityGatePassed) return NextResponse.json({ error: stage13_14.reason }, { status: 400 });
 
-    const stage15 = executeStage15_Publishing(stage1.rawInput, stage13_14);
-    if (!stage15.qualityGatePassed) return NextResponse.json({ error: stage15.reason }, { status: 400 });
-
+    const stage15 = await executeStage15_Publishing(stage13_14);
     const advancedSuite = generateAdvancedSuite(
       stage1.rawInput,
       stage2_3.problemStatement,
@@ -89,7 +85,7 @@ export async function POST(req: Request) {
       keyResults: stage11_12.keyResults,
       discussion: stage13_14.discussion,
       recommendations: stage13_14.recommendations,
-      publishingPackage: stage15.publishingPackage,
+      publishingPackage: stage15.data,
       totalPapersFound: engineResult.totalPapersFound,
       latestYear: engineResult.latestYear,
       papers: engineResult.papers

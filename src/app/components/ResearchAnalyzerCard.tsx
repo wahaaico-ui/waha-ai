@@ -9,9 +9,7 @@
 import React from 'react';
 import { ResearchEvidence } from '@/types/OpenAlex';
 import { ResearchAnalysis, TopValue } from '@/types/ResearchAnalysis';
-import { ResearchAnalyzer } from '@/lib/research/ResearchAnalyzer';
-
-/** Placeholder for a metric OpenAlex did not report — never a fabricated value. */
+import { ResearchAnalyzer } from "@/lib/academic/ResearchAnalyzer";
 const MISSING = 'غير متوفر في OpenAlex';
 
 /**
