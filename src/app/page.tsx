@@ -43,7 +43,7 @@ export default function WahaLandingPage() {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            href="/dashboard"
+            href="/projects/create"
             className="w-full sm:w-auto px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-gray-950 font-bold rounded-2xl transition-all shadow-xl shadow-emerald-500/25 text-base flex items-center justify-center gap-3"
           >
             <span>انتقل إلى لوحة التحكم المباشرة</span>

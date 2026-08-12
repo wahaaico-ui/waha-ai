@@ -29,7 +29,7 @@ export default async function DashboardPage() {
             </p>
           </div>
           <Link
-            href="/project/new"
+            href="/projects/create"
             className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-gray-950 font-semibold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/10 text-sm"
           >
             <span>+ إنشاء مشروع بحثي جديد</span>
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
             <div className="col-span-full text-center py-16 bg-[#111827]/50 border border-dashed border-gray-800 rounded-2xl">
               <p className="text-gray-400 mb-4">لا توجد مشاريع بحثية مسجلة حتى الآن.</p>
               <Link
-                href="/project/new"
+                href="/projects/create"
                 className="text-emerald-400 hover:text-emerald-300 font-medium text-sm underline underline-offset-4"
               >
                 ابدأ بإنشاء مشروعك الأول الآن

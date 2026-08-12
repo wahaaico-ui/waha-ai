@@ -27,7 +27,7 @@ export default function SignupPage() {
       setError(signupError.message);
       setLoading(false);
     } else {
-      router.push('/dashboard');
+      router.push('/projects/create');
       router.refresh();
     }
   };

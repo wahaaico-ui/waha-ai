@@ -61,7 +61,7 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#09090b] text-white p-6 md:p-12">
       <div className="max-w-2xl mx-auto">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-cyan-400 mb-8 transition">
+        <Link href="/projects/create" className="inline-flex items-center gap-2 text-gray-400 hover:text-cyan-400 mb-8 transition">
           <ArrowRight className="w-4 h-4" /> العودة لمساحة العمل
         </Link>
 

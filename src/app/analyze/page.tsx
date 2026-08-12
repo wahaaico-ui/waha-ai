@@ -31,7 +31,7 @@ export default function AnalyzePage() {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl font-bold text-slate-900">محرك التحليل الأكاديمي (WAHA)</h1>
           <button 
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push('/projects/create')}
             className="text-sm text-blue-600 hover:underline"
           >
             ← العودة لوحة التحكم

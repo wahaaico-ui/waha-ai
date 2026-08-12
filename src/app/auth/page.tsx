@@ -33,7 +33,7 @@ export default function AuthPage() {
         if (error) throw error;
         if (data.session) {
           localStorage.setItem('waha_user_id', data.session.user.id);
-          router.push('/dashboard');
+          router.push('/projects/create');
         }
       }
     } catch (err: any) {
