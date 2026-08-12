@@ -39,7 +39,12 @@ export async function POST(request: Request) {
     }
 
     // 2. إرسال النص إلى Gemini عبر العميل الموحد
-    const prompt = `Paraphrase and improve the following academic text for clarity, professional tone, and scholarly standards:\n\n${textToImprove}`;
+    const prompt = `You are an academic editor. Rewrite the following text to fix all grammar, spelling, and clarity issues, in a professional academic tone.
+
+Output ONLY the corrected text itself. Do not add explanations, options, headers, bullet points, or any commentary. Do not use markdown formatting. Return nothing except the final corrected version of the text, ready to be used directly in an academic document.
+
+Text to correct:
+${textToImprove}`;
     
     const { output, confidenceLabel } = await generateStructured({
       prompt,

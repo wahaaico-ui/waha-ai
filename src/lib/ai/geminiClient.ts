@@ -21,7 +21,7 @@ export async function generateStructured({
     throw new Error('GEMINI_API_KEY is not defined in environment variables.');
   }
 
-  const modelName = 'gemini-1.5-flash';
+const modelName = 'gemini-flash-latest';
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
 
   const response = await fetch(endpoint, {
