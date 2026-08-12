@@ -16,6 +16,7 @@ export async function proxy(request: NextRequest) {
         get(name: string) {
           return request.cookies.get(name)?.value;
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         set(name: string, value: string, options: any) {
           request.cookies.set({ name, value, ...options });
           response = NextResponse.next({
@@ -23,6 +24,7 @@ export async function proxy(request: NextRequest) {
           });
           response.cookies.set({ name, value, ...options });
         },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         remove(name: string, options: any) {
           request.cookies.set({ name, value: '', ...options });
           response = NextResponse.next({
