@@ -12,7 +12,7 @@
  *   yet, and this builder must never pretend otherwise.
  */
 
-import { ResearchStatisticsEngine, StatisticsOptions } from '@/lib/research/ResearchStatisticsEngine';
+import { ResearchStatisticsEngine, StatisticsOptions } from './ResearchStatisticsEngine';
 import type {
   ResearchEvidence,
   OpenAlexFailure,

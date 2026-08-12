@@ -1,18 +1,46 @@
 import { NextResponse } from "next/server";
-import pdfParse from "pdf-parse";
+// استخدام استيراد النطاق لتجنب مشاكل الـ Default Export في حزم الـ Node الخارجية
+import * as pdfParseModule from "pdf-parse";
+
+// تعريف واجهة دقيقة لنتيجة الـ PDF
+interface PdfParseResult {
+  text: string;
+  numpages?: number;
+  info?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  version?: string;
+}
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    if (!file) return NextResponse.json({ error: "No PDF file provided." }, { status: 400 });
+    
+    if (!file) {
+      return NextResponse.json({ error: "No PDF file provided." }, { status: 400 });
+    }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const parsedData = await pdfParse(buffer);
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    // حل توافقية الاستيراد (Interoperability) بين ESM و CJS بشكل آمن ومحكم
+    const parseFunction = (
+      (pdfParseModule as unknown as { default?: (buf: Buffer) => Promise<PdfParseResult> }).default || 
+      (pdfParseModule as unknown as (buf: Buffer) => Promise<PdfParseResult>)
+    );
+
+    if (typeof parseFunction !== "function") {
+      throw new Error("PDF parser module failed to resolve as a callable function.");
+    }
+
+    const parsedData = await parseFunction(buffer);
     
     return NextResponse.json({ text: parsedData.text });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("PDF Parse Error:", error);
-    return NextResponse.json({ error: error.message || "Failed to parse PDF" }, { status: 500 });
+    
+    const errorMessage = error instanceof Error ? error.message : "Failed to parse PDF";
+    
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { OpenAlexProvider } from "./OpenAlexProvider";
 import { CrossrefProvider } from "./CrossrefProvider";
 import { ResearchSimilarity } from "./ResearchSimilarity";

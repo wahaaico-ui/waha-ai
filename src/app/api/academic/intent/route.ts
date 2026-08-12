@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ResearchIntentEngine } from '@/lib/ai/geminiClient/core/intent/ResearchIntentEngine';
-
+import { ResearchIntentEngine } from '../../../../lib/academic/core/intent/ResearchIntentEngine';
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -15,6 +14,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
+    console.error(error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

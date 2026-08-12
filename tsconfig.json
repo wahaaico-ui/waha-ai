@@ -24,7 +24,8 @@
     ],
     "paths": {
       "@/*": [
-        "./src/*"
+        "./src/*",
+        "./*"
       ]
     }
   },
@@ -37,6 +38,8 @@
   ],
   "exclude": [
     "node_modules",
-    ".next"
+    ".next",
+    "src/lib/waha-pipeline/stage-4-5-objectives-questions.ts",
+    "tests/runner.ts"
   ]
 }

@@ -147,14 +147,14 @@ export class ResearchStatisticsEngine {
   /** The concepts of one paper, blanks dropped. */
   private static conceptsOf(paper: ResearchEvidence): string[] {
     return (paper.concepts ?? [])
-      .map(concept => concept?.trim())
-      .filter((concept): concept is string => Boolean(concept));
+      .map((concept: string | null | undefined) => concept?.trim())
+      .filter((concept: string | undefined): concept is string => Boolean(concept));
   }
 
   /** The affiliation countries of one paper, normalized to upper-case ISO codes. */
   private static countriesOf(paper: ResearchEvidence): string[] {
     return (paper.countries ?? [])
-      .map(code => code?.trim().toUpperCase())
+      .map((code: string) => code.trim().toUpperCase())
       .filter((code): code is string => Boolean(code));
   }
 

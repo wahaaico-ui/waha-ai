@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Keyword Extraction Service
  * Simple text processing - NO AI

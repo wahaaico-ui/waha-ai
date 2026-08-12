@@ -3,63 +3,88 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [error, setError] = useState('');
-  const [msg, setMsg] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError(null);
 
-    const { error } = await supabase.auth.signUp({
+    const { error: signupError } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: { full_name: fullName }
-      }
     });
 
-    if (error) {
-      setError(error.message);
+    if (signupError) {
+      setError(signupError.message);
+      setLoading(false);
     } else {
-      setMsg('Registration successful! Check your email or login.');
+      router.push('/dashboard');
+      router.refresh();
     }
-    setLoading(false);
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontFamily: 'system-ui' }}>
-      <form onSubmit={handleSignup} style={{ background: '#1e293b', padding: '40px', borderRadius: '12px', width: '100%', maxWidth: '400px', border: '1px solid #334155' }}>
-        <h2 style={{ marginBottom: '24px', fontSize: '1.8rem', textAlign: 'center' }}>Create WAHA AI Account</h2>
-        {error && <p style={{ color: '#f87171', marginBottom: '16px', fontSize: '0.9rem' }}>{error}</p>}
-        {msg && <p style={{ color: '#4ade80', marginBottom: '16px', fontSize: '0.9rem' }}>{msg}</p>}
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Full Name</label>
-          <input type='text' value={fullName} onChange={(e) => setFullName(e.target.value)} required style={{ width: '100%', padding: '10px', background: '#0f172a', border: '1px solid #475569', color: 'white', borderRadius: '6px' }} />
+    <main className="min-h-screen bg-[#090D16] text-white flex items-center justify-center p-6" dir="rtl">
+      <div className="max-w-md w-full bg-[#111827] border border-gray-800 rounded-2xl p-8 shadow-2xl">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-white mb-2">إنشاء حساب جديد</h1>
+          <p className="text-gray-400 text-sm">انضم إلى منصة الأبحاث الذكية وابدأ مشاريعك</p>
         </div>
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Email</label>
-          <input type='email' value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: '100%', padding: '10px', background: '#0f172a', border: '1px solid #475569', color: 'white', borderRadius: '6px' }} />
-        </div>
-        <div style={{ marginBottom: '24px' }}>
-          <label style={{ display: 'block', marginBottom: '8px', color: '#94a3b8' }}>Password</label>
-          <input type='password' value={password} onChange={(e) => setPassword(e.target.value)} required style={{ width: '100%', padding: '10px', background: '#0f172a', border: '1px solid #475569', color: 'white', borderRadius: '6px' }} />
-        </div>
-        <button type='submit' disabled={loading} style={{ width: '100%', padding: '12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-          {loading ? 'Creating account...' : 'Sign Up'}
-        </button>
-        <div style={{ marginTop: '16px', textAlign: 'center', fontSize: '0.9rem' }}>
-          <a href='/login' style={{ color: '#60a5fa', textDecoration: 'none' }}>Already have an account? Sign In</a>
-        </div>
-      </form>
-    </div>
+
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">البريد الإلكتروني</label>
+            <input
+              type="email5"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full bg-[#090D16] border border-gray-800 focus:border-emerald-500 rounded-xl px-4 py-3 text-white text-sm outline-none"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">كلمة المرور</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full bg-[#090D16] border border-gray-800 focus:border-emerald-500 rounded-xl px-4 py-3 text-white text-sm outline-none"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-emerald-500 hover:bg-emerald-600 text-gray-950 font-semibold py-3 rounded-xl transition-all text-sm mt-2"
+          >
+            {loading ? 'جاري إنشاء الحساب...' : 'تسجيل وحفظ'}
+          </button>
+        </form>
+
+        <p className="text-center text-xs text-gray-400 mt-6">
+          لديك حساب بالفعل؟{' '}
+          <Link href="/login" className="text-emerald-400 hover:underline">
+            تسجيل الدخول
+          </Link>
+        </p>
+      </div>
+    </main>
   );
 }

@@ -49,7 +49,7 @@ export async function GET(request: Request) {
       returned: result.evidence.length,
       totalAvailable: result.totalAvailable,
       requestUrl: result.requestUrl,
-      papers: result.evidence.map(paper => ({
+      papers: result.evidence.map((paper: any) => ({
         title: paper.title,
         authors: paper.authors,
         publicationYear: paper.publicationYear,

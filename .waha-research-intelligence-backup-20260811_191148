@@ -1,0 +1,48 @@
+export interface IntelligenceRankedValue {
+  value: string;
+  count: number;
+  percentage?: number;
+}
+
+export interface CitationStrength {
+  q1Percentage: number;
+  averageCitations: number;
+  totalCitations: number;
+}
+
+export interface TopicMaturity {
+  maturityLevel: string;
+  trendScore: number;
+  growthRate?: number;
+}
+
+export interface IntelligenceTimelinePoint {
+  year: number;
+  count: number;
+  averageCitations?: number;
+}
+
+export interface ResearchActivity {
+  period: string;
+  activityLevel: string;
+}
+
+export interface ResearchDataQuality {
+  missingDoiPercentage: number;
+  missingJournalPercentage: number;
+  validMetadataCount: number;
+}
+
+export interface ResearchIntelligence {
+  trendScore: number;
+  totalCitationCount: number;
+  averageCitations: number;
+  papersCount: number;
+  topJournals?: IntelligenceRankedValue[];
+  topConcepts?: IntelligenceRankedValue[];
+  topCountries: IntelligenceRankedValue[];
+  timeline?: IntelligenceTimelinePoint[];
+  [key: string]: unknown;
+}
+
+export type ResearchIntelligenceReport = ResearchIntelligence;

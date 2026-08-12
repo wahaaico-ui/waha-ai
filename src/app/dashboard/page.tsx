@@ -1,11 +1,20 @@
-import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
+import { createClient } from '@/lib/supabase/server';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+
 export default async function DashboardPage() {
   const supabase = await createClient();
-  const { data: projects, error } = await supabase
-    .from("projects")
-    .select("*")
-    .order("created_at", { ascending: false });
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) {
+    redirect('/login');
+  }
+
+  const { data: projects, error: projectsError } = await supabase
+    .from('projects')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
 
   return (
     <main className="min-h-screen bg-[#090D16] text-white p-8 md:p-12" dir="rtl">
@@ -21,23 +30,24 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/project/new"
-            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-gray-950 font-semibold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/10"
+            className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-gray-950 font-semibold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/10 text-sm"
           >
             <span>+ إنشاء مشروع بحثي جديد</span>
           </Link>
         </div>
 
-        {error && (
+        {projectsError && (
           <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 text-sm">
-            حدث خطأ أثناء جلب المشاريع: {error.message}
+            حدث خطأ أثناء جلب المشاريع: {projectsError.message}
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects && projects.length > 0 ? (
             projects.map((project: { id: string; title: string; created_at: string }) => (
-              <div
+              <Link
                 key={project.id}
+                href={`/project/${project.id}`}
                 className="bg-[#111827] border border-gray-800 hover:border-emerald-500/50 rounded-2xl p-6 transition-all duration-300 flex flex-col justify-between group shadow-xl"
               >
                 <div>
@@ -58,7 +68,7 @@ export default async function DashboardPage() {
                     عرض التفاصيل &larr;
                   </span>
                 </div>
-              </div>
+              </Link>
             ))
           ) : (
             <div className="col-span-full text-center py-16 bg-[#111827]/50 border border-dashed border-gray-800 rounded-2xl">

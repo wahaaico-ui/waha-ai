@@ -1,0 +1,13 @@
+export interface YearCount {
+  year: number | string;
+  count: number;
+  [key: string]: any;
+}
+
+export interface ResearchStatistics {
+  totalPapers?: number;
+  papersByYear?: YearCount[];
+  topJournals?: any[];
+  topAuthors?: any[];
+  [key: string]: any;
+}

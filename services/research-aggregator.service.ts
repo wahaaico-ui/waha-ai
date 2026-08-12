@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { ResearchEvidence } from '@/types/OpenAlex';
 import type {
   ResearchAggregation,

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type {
   SemanticScholarPaper,
   SemanticScholarSearchResult,

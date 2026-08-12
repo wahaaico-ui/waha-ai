@@ -1,6 +1,9 @@
 import type { AcademicThinkingResult } from '@/services/academic-thinking.service';
 import type { ResearchAggregation, UnifiedResearchPaper } from '@/types/ResearchAggregation';
-import type { ResearchGapReport } from '@/types/ResearchGapReport';
+import type {
+  CoverageValue,
+  ResearchGapReport,
+} from '@/types/ResearchGapReport';
 import type {
   IntelligenceRankedValue,
   ResearchIntelligence,
@@ -165,7 +168,7 @@ export class ResearchGapService {
     definitions: DetectionDefinition[],
     avoidGenericStudents: boolean = false,
     includeConcepts: boolean = false
-  ): { covered: IntelligenceRankedValue[]; missing: string[] } {
+  ): { covered: CoverageValue[]; missing: string[] } {
     const counts = new Map<string, number>();
 
     for (const paper of papers) {
@@ -196,7 +199,7 @@ export class ResearchGapService {
     };
   }
 
-  private static conceptFrequency(papers: UnifiedResearchPaper[]): IntelligenceRankedValue[] {
+  private static conceptFrequency(papers: UnifiedResearchPaper[]): CoverageValue[] {
     const counts = new Map<string, { name: string; count: number }>();
     for (const paper of papers) {
       const seen = new Set<string>();
@@ -220,10 +223,10 @@ export class ResearchGapService {
     hasTargetCountry: boolean,
     targetCountry: string,
     density: ResearchGapReport['researchDensity'],
-    coveredPopulations: IntelligenceRankedValue[],
+    coveredPopulations: CoverageValue[],
     missingPopulations: string[],
     missingMethodologies: string[],
-    rareConcepts: IntelligenceRankedValue[]
+    rareConcepts: CoverageValue[]
   ): { statement: string; recommendation: string } {
     if (!hasTargetCountry && (density === 'Very High' || density === 'High')) {
       return {
