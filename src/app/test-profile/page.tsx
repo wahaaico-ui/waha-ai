@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 
 export default function ProfessionalDashboard() {
@@ -10,7 +10,6 @@ export default function ProfessionalDashboard() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
     async function loadUserData() {
