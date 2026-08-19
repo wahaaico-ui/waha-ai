@@ -5,8 +5,6 @@ import { createClient as createSessionClient } from '@/lib/supabase/server';
 const GEMINI_TIMEOUT_MS = 30000;
 const GEMINI_MAX_ATTEMPTS = 2;
 
-// Gemini occasionally times out or 429/5xxs under load; retry once with a fresh
-// 30s budget before giving up, since a second attempt usually succeeds.
 async function fetchGeminiWithRetry(url: string, body: string): Promise<Response> {
   let lastError: unknown;
   for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt++) {
@@ -32,18 +30,17 @@ async function fetchGeminiWithRetry(url: string, body: string): Promise<Response
   throw lastError;
 }
 
-interface RelatedPaper {
+interface UnifiedPaper {
   title: string;
   year: number | null;
   citationCount: number;
   url: string | null;
+  source: 'semanticscholar' | 'openalex' | 'both';
+  authors?: string[];
+  pdfUrl?: string | null;
 }
 
-// Semantic Scholar search runs before Gemini so the model analyzes the idea
-// against real papers (their titles, years, citation counts) instead of relying
-// only on its internal training. If the search fails or returns nothing, we
-// continue without papers — the analysis still works, it just won't cite evidence.
-async function fetchRelatedPapers(idea: string, limit: number): Promise<RelatedPaper[]> {
+async function fetchFromSemanticScholar(idea: string, limit: number): Promise<UnifiedPaper[]> {
   try {
     const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
     const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(idea)}&limit=${limit}&fields=title,year,citationCount,url`;
@@ -53,10 +50,11 @@ async function fetchRelatedPapers(idea: string, limit: number): Promise<RelatedP
     if (!response.ok) return [];
     const data = await response.json();
     return (data.data || []).map((p: Record<string, unknown>) => ({
-      title: (p.title as string) || 'عنوان غير متوفر',
+      title: ((p.title as string) || 'عنوان غير متوفر').trim(),
       year: (p.year as number) || null,
       citationCount: (p.citationCount as number) || 0,
       url: (p.url as string) || null,
+      source: 'semanticscholar' as const,
     }));
   } catch (err) {
     console.error('Semantic Scholar fetch failed:', err);
@@ -64,9 +62,85 @@ async function fetchRelatedPapers(idea: string, limit: number): Promise<RelatedP
   }
 }
 
+async function fetchFromOpenAlex(idea: string, limit: number): Promise<UnifiedPaper[]> {
+  try {
+    const email = process.env.OPENALEX_EMAIL || 'researcher@waha.ai';
+    const url = `https://api.openalex.org/works?search=${encodeURIComponent(idea)}&per-page=${limit}`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': `WahaAcademicEngine/1.0 (mailto:${email})` },
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.results || []).map((w: Record<string, unknown>) => {
+      const openAccess = w.open_access as Record<string, unknown> | undefined;
+      const authorships = (w.authorships as Array<Record<string, unknown>>) || [];
+      return {
+        title: ((w.title as string) || 'عنوان غير متوفر').trim(),
+        year: (w.publication_year as number) || null,
+        citationCount: (w.cited_by_count as number) || 0,
+        url: (w.id as string) || null,
+        source: 'openalex' as const,
+        authors: authorships
+          .map((a) => {
+            const author = a.author as Record<string, unknown> | undefined;
+            return (author?.display_name as string) || '';
+          })
+          .filter(Boolean),
+        pdfUrl: (openAccess?.oa_url as string) || null,
+      };
+    });
+  } catch (err) {
+    console.error('OpenAlex fetch failed:', err);
+    return [];
+  }
+}
+
+function mergeAndRankPapers(
+  semantic: UnifiedPaper[],
+  openalex: UnifiedPaper[],
+  finalCount: number
+): UnifiedPaper[] {
+  const normalize = (t: string) =>
+    t.toLowerCase().replace(/[^\w\u0600-\u06FF]+/g, ' ').trim();
+
+  const merged = new Map<string, UnifiedPaper>();
+
+  for (const paper of [...semantic, ...openalex]) {
+    const key = normalize(paper.title).substring(0, 80);
+    if (!key) continue;
+    const existing = merged.get(key);
+    if (!existing) {
+      merged.set(key, paper);
+    } else {
+      const richer = (paper.pdfUrl || paper.authors?.length) ? paper : existing;
+      merged.set(key, {
+        ...richer,
+        citationCount: Math.max(existing.citationCount, paper.citationCount),
+        source: 'both',
+      });
+    }
+  }
+
+  const currentYear = new Date().getFullYear();
+
+  const scored = Array.from(merged.values())
+    .filter((p) => p.title && p.title !== 'عنوان غير متوفر')
+    .map((p) => {
+      const age = p.year ? Math.max(0, currentYear - p.year) : 20;
+      const citationScore = Math.log1p(p.citationCount) * 10;
+      const recencyScore = Math.max(0, 10 - age * 0.5);
+      const crossSourceBonus = p.source === 'both' ? 5 : 0;
+      return { paper: p, score: citationScore + recencyScore + crossSourceBonus };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return scored.slice(0, finalCount).map((x) => x.paper);
+}
+
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_SECONDS = 60;
-const RELATED_PAPERS_LIMIT = 5;
+const PAPERS_PER_SOURCE = 10;
+const FINAL_PAPERS_COUNT = 5;
 
 export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -76,9 +150,6 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  // Rate limit is enforced in Supabase (Postgres RPC), not in memory, because
-  // Vercel serverless functions do not guarantee a shared instance/memory
-  // between consecutive requests — an in-memory counter resets per invocation.
   const { data: allowed, error: rateLimitError } = await serviceClient.rpc('check_rate_limit', {
     p_ip: ip,
     p_max_requests: RATE_LIMIT_MAX,
@@ -87,7 +158,6 @@ export async function POST(request: Request) {
 
   if (rateLimitError) {
     console.error('Rate limit check failed:', rateLimitError);
-    // Fail open: if the rate-limit check itself is broken, don't block real users.
   } else if (allowed === false) {
     return NextResponse.json(
       { error: 'عدد كبير من الطلبات، حاول بعد دقيقة' },
@@ -102,28 +172,36 @@ export async function POST(request: Request) {
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) return NextResponse.json({ error: 'مفتاح API غير موجود' }, { status: 500 });
 
-    // Fetch related papers first so the Gemini prompt can cite them as evidence.
-    const papers = await fetchRelatedPapers(idea, RELATED_PAPERS_LIMIT);
-    const papersEvidenceBlock = papers.length > 0
-      ? `\n\nبيانات مرجعية حقيقية من Semantic Scholar (${papers.length} أوراق ذات صلة، هذه هي البيانات الوحيدة الموثقة المتوفرة لك، لا تضف عليها):\n${papers
-          .map(
-            (p, i) =>
-              `${i + 1}. "${p.title}" (${p.year || 'سنة غير محددة'}, ${p.citationCount} استشهاد)`
-          )
-          .join('\n')}\n\nاستخدم هذه الأوراق كأدلة فعلية في تحليلك. يمكنك الإشارة إليها بأرقامها (مثال: "الورقة رقم 2 من عام كذا تشير إلى..."). ممنوع اختلاق تفاصيل عن منهجية أو نتائج هذه الأوراق لأنك تملك فقط عناوينها وسنواتها وعدد استشهاداتها، لا محتواها الكامل.`
-      : `\n\nملاحظة: لم يتم العثور على أوراق ذات صلة في قاعدة Semantic Scholar لهذا البحث. اذكر ذلك في التحليل بشفافية، ولا تختلق أوراقاً أو دراسات وهمية.`;
+    const [semanticResults, openalexResults] = await Promise.all([
+      fetchFromSemanticScholar(idea, PAPERS_PER_SOURCE),
+      fetchFromOpenAlex(idea, PAPERS_PER_SOURCE),
+    ]);
 
-    // gemini-2.0-flash / gemini-2.5-flash are retired for this key (404 from Google).
-    // gemini-3.6-flash hits its free-tier daily quota (20 requests/day/project) almost
-    // immediately in practice; gemini-3.1-flash-lite has a separate, much larger quota
-    // and skips the heavy internal "thinking" pass, so it's both cheaper and more reliable.
+    const papers = mergeAndRankPapers(semanticResults, openalexResults, FINAL_PAPERS_COUNT);
+
+    const papersEvidenceBlock = papers.length > 0
+      ? `\n\nبيانات مرجعية حقيقية موثقة من قاعدتين أكاديميتين (Semantic Scholar + OpenAlex)، تم دمجها وترتيبها حسب جودة الاستشهاد والحداثة (${papers.length} أوراق):\n${papers
+          .map((p, i) => {
+            const sourceLabel =
+              p.source === 'both'
+                ? 'مؤكدة من المصدرين'
+                : p.source === 'openalex'
+                ? 'OpenAlex'
+                : 'Semantic Scholar';
+            const authorsPart =
+              p.authors && p.authors.length > 0
+                ? `، المؤلفون: ${p.authors.slice(0, 3).join(', ')}${p.authors.length > 3 ? ' وآخرون' : ''}`
+                : '';
+            return `${i + 1}. "${p.title}" (${p.year || 'سنة غير محددة'}, ${p.citationCount} استشهاد، ${sourceLabel}${authorsPart})`;
+          })
+          .join('\n')}\n\nإلزامي: يجب أن تشير في تحليلك إلى هذه الأوراق صراحة (بأرقامها من 1 إلى ${papers.length}) كأدلة داعمة. ممنوع تجاهلها أو الادعاء بعدم وجود أوراق. ممنوع اختلاق تفاصيل عن منهجية أو نتائج هذه الأوراق (لديك فقط: العنوان، السنة، الاستشهادات، المؤلفون). لا تضف أوراقاً أخرى من خارج هذه القائمة.`
+      : `\n\nملاحظة مهمة: بحثنا في قاعدتي Semantic Scholar و OpenAlex ولم نجد أوراقاً ذات صلة كافية بهذه الفكرة تحديداً. اذكر ذلك في التحليل بشفافية، ولا تختلق أوراقاً أو دراسات وهمية.`;
+
     const response = await fetchGeminiWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${geminiKey}`,
       JSON.stringify({
         contents: [{
           parts: [{
-            // gemini-3.1-flash-lite tends to copy literal example numbers verbatim instead of
-            // scoring the idea; placeholder tokens like <0-100> force it to actually compute a value.
             text: `أنت "المشرف الأكاديمي الرقمي" في WAHA — خبير منهجية بحث علمي بخبرة تحكيم أكاديمي حقيقي، وليس مساعداً عاماً. المستخدم يكتب بحرية أياً مما يلي: فكرة بحثية جديدة، أو عنواناً رفضه مشرفه ويريد بديلاً، أو سؤالاً عن مدى ملاءمة عنوان لمرحلة دراسية معينة. افهم نوع الطلب من النص نفسه وتعامل معه بما يناسب.
 
 معايير التقييم الإلزامية (طبّقها بدقة، وليس بشكل انطباعي، على الدرجات الثلاث):
@@ -157,7 +235,7 @@ export async function POST(request: Request) {
 - نص غير مفهوم/عشوائي: اجعل الدرجات الثلاث أقل من 15 واذكر بوضوح أنه غير قابل للتقييم أكاديمياً ولماذا تحديداً.
 - خلل أكاديمي جوهري (تناقض منطقي، خلط متغيرات، استحالة قياس): اذكره صراحة كسبب رئيسي يمنع المتابعة قبل أي شيء آخر.
 
-اكتب diagnosis كفقرة واحدة متماسكة بالعربية الفصحى الأكاديمية، بأسلوب مشرف خبير مباشر وحاسم، تغطي جميع العناصر الخمسة أعلاه دائماً. إذا توفرت أوراق مرجعية أدناه، ادمج الإشارة إليها ضمن التحليل بشكل طبيعي كأدلة داعمة.
+اكتب diagnosis كفقرة واحدة متماسكة بالعربية الفصحى الأكاديمية، بأسلوب مشرف خبير مباشر وحاسم، تغطي جميع العناصر الخمسة أعلاه دائماً. إذا توفرت أوراق مرجعية أدناه، ادمج الإشارة إليها ضمن التحليل بشكل طبيعي كأدلة داعمة (أشِر إلى أرقامها).
 
 أجب بـ JSON فقط بدون أي نص إضافي أو markdown، بالشكل التالي (استبدل كل placeholder بتقييمك الفعلي):
 {"clarityScore": <رقم من 0 إلى 100>, "feasibilityScore": <رقم من 0 إلى 100>, "applicabilityScore": <رقم من 0 إلى 100>, "diagnosis": "<فقرة تحليل أكاديمي خبير مفصلة>"}
@@ -167,8 +245,6 @@ export async function POST(request: Request) {
         }],
         generationConfig: {
           temperature: 0.3,
-          // gemini-3.6-flash spends ~300-800 tokens on internal thinking before
-          // the visible reply, so a low budget (e.g. 300) truncates before any JSON is written.
           maxOutputTokens: 2000
         }
       })
