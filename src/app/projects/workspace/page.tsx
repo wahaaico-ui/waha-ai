@@ -1,27 +1,38 @@
 'use client';
 
+import { supabase } from '@/lib/supabase/client';
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
+type Project = {
+  id: string;
+  title: string;
+};
+
+type Source = {
+  id: string;
+  project_id: string;
+  raw_text?: string | null;
+  title?: string | null;
+  authors?: string | null;
+  parsed_citation_apa?: string | null;
+  parsed_citation_ieee?: string | null;
+  [key: string]: unknown;
+};
 
 function WorkspaceContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
 
-  const [project, setProject] = useState<any>(null);
-  const [sources, setSources] = useState<any[]>([]);
+  const [project, setProject] = useState<Project | null>(null);
+  const [sources, setSources] = useState<Source[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  const fetchProjectData = async () => {
+const fetchProjectData = async () => {
     try {
       setLoading(true);
       const { data: projData, error: projErr } = await supabase
@@ -39,20 +50,57 @@ function WorkspaceContent() {
         .order('created_at', { ascending: false });
       if (srcErr) throw srcErr;
       setSources(srcData || []);
-    } catch (err: any) {
-      setError(err.message || 'فشل في جلب البيانات');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'فشل في جلب البيانات');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!projectId) {
-      setError('لا يوجد معرف مشروع (projectId) في الرابط.');
-      setLoading(false);
-      return;
-    }
-    fetchProjectData();
+    if (!projectId) return;
+
+    let cancelled = false;
+
+    const loadProjectData = async () => {
+      try {
+        setLoading(true);
+
+        const { data: projData, error: projErr } = await supabase
+          .from('projects')
+          .select('*')
+          .eq('id', projectId)
+          .single();
+
+        if (projErr) throw projErr;
+
+        const { data: srcData, error: srcErr } = await supabase
+          .from('sources')
+          .select('*')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false });
+
+        if (srcErr) throw srcErr;
+
+        if (!cancelled) {
+          setProject(projData);
+          setSources(srcData || []);
+          setError('');
+          setLoading(false);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'فشل في جلب البيانات');
+          setLoading(false);
+        }
+      }
+    };
+
+    loadProjectData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,13 +114,13 @@ function WorkspaceContent() {
     if (!selectedFile || !projectId) return;
 
     setSubmitting(true);
-    
+
     try {
       // 1. استخراج النص
       setUploadStatus('جاري استخراج النص من الـ PDF...');
       const formData = new FormData();
       formData.append('file', selectedFile);
-      
+
       const parseRes = await fetch('/api/academic/parse-pdf', { method: 'POST', body: formData });
       if (!parseRes.ok) throw new Error('فشل استخراج النص');
       const parseData = await parseRes.json();
@@ -103,17 +151,25 @@ function WorkspaceContent() {
       setSelectedFile(null);
       const fileInput = document.getElementById('pdf-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
-      
-      await fetchProjectData(); 
-      
-    } catch (err: any) {
-      alert('خطأ: ' + err.message);
+
+      await fetchProjectData();
+
+    } catch (err: unknown) {
+      alert('خطأ: ' + (err instanceof Error ? err.message : 'حدث خطأ غير متوقع'));
       setUploadStatus('');
     } finally {
       setSubmitting(false);
       setTimeout(() => setUploadStatus(''), 4000);
     }
   };
+
+  if (!projectId) {
+    return (
+      <div className="p-8 text-center text-red-500">
+        لا يوجد معرف مشروع (projectId) في الرابط.
+      </div>
+    );
+  }
 
   if (loading) return <div className="p-8 text-center">جاري التحميل...</div>;
   if (error || !project) return <div className="p-8 text-center text-red-500">{error || 'Project not found'}</div>;
@@ -154,10 +210,10 @@ function WorkspaceContent() {
             <div key={src.id} className="p-4 mb-4 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200">
               <h3 className="font-semibold text-blue-600">النص المستخرج:</h3>
               <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 line-clamp-3">{src.raw_text}</p>
-              
+
               {src.title && <p className="text-sm mt-2"><strong>العنوان:</strong> {src.title}</p>}
               {src.authors && <p className="text-sm"><strong>المؤلفون:</strong> {src.authors}</p>}
-              
+
               <div className="mt-4 pt-3 border-t border-gray-200">
                 <p className="text-sm text-green-700"><strong>APA Citation:</strong> {src.parsed_citation_apa || 'قيد التوليد'}</p>
                 <p className="text-sm text-green-700 mt-1"><strong>IEEE Citation:</strong> {src.parsed_citation_ieee || 'قيد التوليد'}</p>

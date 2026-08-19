@@ -51,7 +51,7 @@ export default function AcademicHubPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12">
       <div className="max-w-6xl mx-auto space-y-12">
-        
+
         {/* الترويسة الكبرى */}
         <div className="text-center space-y-4 border-b border-slate-800 pb-10">
           <span className="px-4 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-bold rounded-full">

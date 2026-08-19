@@ -2,7 +2,7 @@ import { EvidencePackage, AcademicReference, RejectedTitleRecord } from '../../t
 import { ParsedAcademicIntent } from '../../types/IntentAnalysisResult';
 
 export class EvidenceCollector {
-  
+
   // Mock internal database for deterministic rule-based evaluation
   private mockReferencesDatabase: AcademicReference[] = [
     { id: 'REF-1', title: 'Artificial Intelligence in Modern Education', year: 2024, citations: 45, journalTier: 'Q1' },
@@ -18,7 +18,7 @@ export class EvidenceCollector {
     // Filter references based on keyword match or return subset deterministically
     const matchedReferences = this.mockReferencesDatabase;
     const currentYear = new Date().getFullYear();
-    
+
     const recentReferences = matchedReferences.filter(r => (currentYear - r.year) <= 5).length;
     const years = matchedReferences.map(r => r.year);
     const oldestReference = years.length > 0 ? Math.min(...years) : currentYear;

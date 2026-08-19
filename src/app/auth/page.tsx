@@ -30,11 +30,12 @@ export default function AuthPage() {
         if (error) throw error;
         if (data.session) {
           localStorage.setItem('waha_user_id', data.session.user.id);
-          router.push('/projects/create');
+          router.push('/research');
         }
       }
-    } catch (err: any) {
-      setMessage(`خطأ: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'حدث خطأ غير متوقع';
+      setMessage(`خطأ: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -60,7 +61,7 @@ export default function AuthPage() {
           <div>
             <label className="block text-xs text-slate-400 mb-1">البريد الإلكتروني</label>
             <input
-              type="email5"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

@@ -10,7 +10,7 @@ describe('AcademicDecisionEngine - Sprint 1 Task 6', () => {
   test('Case 1: Evaluates valid research idea completely', async () => {
     // إضافة await هنا لانتظار النتيجة
     const report = await engine.evaluate('أفكر في أثر الذكاء الاصطناعي على التحصيل الأكاديمي');
-    
+
     expect(report).toBeDefined();
     expect(report.intentResult.intent).toBe('INITIAL_IDEA');
     expect(report.readinessAssessment.isReady).toBe(true);

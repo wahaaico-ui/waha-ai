@@ -1,98 +1,92 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase/client';
+import SiteHeader from '@/components/SiteHeader';
+import ScoreCircle from '@/components/ScoreCircle';
 
-interface SuitabilityLevel {
-  suitable: boolean;
-  level: string;
-  reason: string;
-}
-
-interface TitleSuggestion {
-  title: string;
-  rank: number;
-  reason: string;
-  strength: string;
-}
-
-interface AcademicReport {
-  score: number;
-  isSuitableAsTitle: boolean;
-  suitabilityReason: string;
-  strengths: string[];
-  weaknesses: string[];
-  needsNarrowing: boolean;
-  narrowingAdvice: string | null;
-  suggestedTitles: TitleSuggestion[];
-  finalRecommendation: string;
-  recommendedTitle: string;
-  recommendedTitleReason: string;
-  mastersLevel: SuitabilityLevel;
-  phdLevel: SuitabilityLevel;
-  publicationLevel: SuitabilityLevel;
-  isRejectedTitle: boolean;
-  rejectionAnalysis: string | null;
-  rejectionFixes: string[] | null;
+interface AnalysisData {
+  clarityScore: number;
+  feasibilityScore: number;
+  applicabilityScore: number;
+  diagnosis: string;
+  reportScore: number;
 }
 
 interface ApiResponse {
   success: boolean;
-  message?: string;
-  academicThinking?: {
-    valid: boolean;
-    category: string;
-    reason: string | null;
-    ideaConfidence: number;
-    missingComponents: string[];
-    structure: {
-      independentVariable: string | null;
-      dependentVariable: string | null;
-      population: string | null;
-      location: string | null;
-      studyType: string;
-    };
-  };
-  report?: AcademicReport;
-  context?: {
-    papers?: Array<{
-      title: string;
-      publicationYear: number | null;
-      authors: string;
-      citationCount: number;
-      doi: string;
-    }>;
-    statistics?: {
-      totalPapers: number;
-      latestYear: number | null;
-      oldestYear: number | null;
-    };
-  };
+  error?: string;
+  data?: AnalysisData;
+  saved?: boolean;
 }
 
-function ScoreBadge({ score }: { score: number }) {
-  const color = score >= 80 ? 'text-emerald-400' : score >= 60 ? 'text-amber-400' : 'text-red-400';
-  const bg = score >= 80 ? 'bg-emerald-900/30 border-emerald-700' : score >= 60 ? 'bg-amber-900/30 border-amber-700' : 'bg-red-900/30 border-red-700';
-  return (
-    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${bg}`}>
-      <span className={`text-4xl font-black ${color}`}>{score}</span>
-      <span className="text-slate-400 text-xs">/100</span>
-    </div>
-  );
-}
+interface Paper { title: string; year: number | null; citationCount: number; url: string | null }
 
-function SuitabilityCard({ label, data }: { label: string; data: SuitabilityLevel }) {
-  const color = data.suitable ? 'border-emerald-700 bg-emerald-900/20' : 'border-red-800 bg-red-900/20';
-  const icon = data.suitable ? '✅' : '❌';
-  return (
-    <div className={`rounded-xl border p-3 ${color}`}>
-      <div className="flex items-center gap-2 mb-1">
-        <span>{icon}</span>
-        <span className="text-xs font-bold text-white">{label}</span>
-        <span className="text-xs text-slate-400 mr-auto">{data.level}</span>
-      </div>
-      <p className="text-xs text-slate-300">{data.reason}</p>
-    </div>
-  );
-}
+const FREE_ATTEMPTS = 3;
+const ATTEMPTS_KEY = 'waha_anon_attempts';
+const LANG_KEY = 'waha_lang';
+
+const SAMPLE_IDEA = {
+  ar: 'دراسة أثر التعلم القائم على المشاريع في تنمية مهارات التفكير الناقد لدى طلاب المرحلة الثانوية',
+  en: 'The impact of project-based learning on developing critical thinking skills among high school students',
+};
+
+const COPY = {
+  ar: {
+    attemptsLeft: (n: number) => `${n} محاولات مجانية متبقية`,
+    attemptsExhausted: 'انتهت محاولاتك المجانية',
+    limitTitle: 'استخدمت محاولاتك المجانية الثلاث 🎉',
+    limitSubtitle: 'سجّل دخولك مجاناً لمتابعة تحليل أفكارك البحثية بدون حدود',
+    limitButton: 'تسجيل الدخول للمتابعة',
+    placeholder: 'اكتب فكرتك البحثية، أو عنوانك المرفوض، أو اسألنا...',
+    tryExample: 'جرب مثالاً',
+    analyzeButton: 'تحليل',
+    analyzing: '⏳ جاري التحليل...',
+    savedBadge: '✅ تم حفظ هذا التحليل في حسابك',
+    titlesHeading: 'عناوين مقترحة',
+    titlesLoading: 'جاري توليد عناوين مناسبة لفكرتك...',
+    papersHeading: 'أبحاث ذات صلة',
+    papersLoading: 'جاري البحث عن أوراق أكاديمية ذات صلة...',
+    citations: 'استشهاد',
+    genericError: 'حدث خطأ، يرجى المحاولة مجدداً.',
+    exportPdf: 'تصدير PDF',
+    exporting: 'جاري التصدير...',
+    reportTitle: 'تقرير تحليل أكاديمي',
+    reportIdea: 'الفكرة البحثية',
+    reportScore: 'الدرجة الإجمالية',
+    reportDiagnosis: 'التشخيص الأكاديمي',
+    reportTitles: 'عناوين مقترحة',
+    reportPapers: 'أبحاث ذات صلة',
+    reportGeneratedBy: 'تم إنشاء هذا التقرير بواسطة WAHA AI',
+  },
+  en: {
+    attemptsLeft: (n: number) => `${n} free attempts remaining`,
+    attemptsExhausted: 'Free attempts used up',
+    limitTitle: "You've used your 3 free attempts 🎉",
+    limitSubtitle: 'Sign in for free to keep analyzing your research ideas without limits',
+    limitButton: 'Sign in to continue',
+    placeholder: 'Write your research idea, a rejected title, or ask us...',
+    tryExample: 'Try an example',
+    analyzeButton: 'Analyze',
+    analyzing: '⏳ Analyzing...',
+    savedBadge: '✅ Saved to your account',
+    titlesHeading: 'Suggested Titles',
+    titlesLoading: 'Generating suitable titles for your idea...',
+    papersHeading: 'Related Papers',
+    papersLoading: 'Searching for related academic papers...',
+    citations: 'citations',
+    genericError: 'Something went wrong, please try again.',
+    exportPdf: 'Export PDF',
+    exporting: 'Exporting...',
+    reportTitle: 'Academic Analysis Report',
+    reportIdea: 'Research Idea',
+    reportScore: 'Overall Score',
+    reportDiagnosis: 'Academic Diagnosis',
+    reportTitles: 'Suggested Titles',
+    reportPapers: 'Related Papers',
+    reportGeneratedBy: 'This report was generated by WAHA AI',
+  },
+};
 
 export default function WAHAResearchPage() {
   const [idea, setIdea] = useState('');
@@ -100,229 +94,368 @@ export default function WAHAResearchPage() {
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState('');
 
-  const analyze = async () => {
-    if (!idea.trim()) return;
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
+  const [attemptsUsed, setAttemptsUsed] = useState(0);
+
+  const [titles, setTitles] = useState<string[] | null>(null);
+  const [titlesLoading, setTitlesLoading] = useState(false);
+
+  const [papers, setPapers] = useState<Paper[] | null>(null);
+  const [papersLoading, setPapersLoading] = useState(false);
+  const [papersError, setPapersError] = useState('');
+
+  const [lang, setLang] = useState<'ar' | 'en'>('ar');
+  const [exporting, setExporting] = useState(false);
+  const printableRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const stored = parseInt(localStorage.getItem(ATTEMPTS_KEY) || '0', 10);
+    setAttemptsUsed(Number.isNaN(stored) ? 0 : stored);
+
+    const storedLang = localStorage.getItem(LANG_KEY);
+    if (storedLang === 'ar' || storedLang === 'en') setLang(storedLang);
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsLoggedIn(!!session);
+    });
+  }, []);
+
+  const toggleLang = () => {
+    const next = lang === 'ar' ? 'en' : 'ar';
+    setLang(next);
+    localStorage.setItem(LANG_KEY, next);
+  };
+
+  const t = COPY[lang];
+  const attemptsLeft = Math.max(0, FREE_ATTEMPTS - attemptsUsed);
+  const limitReached = isLoggedIn === false && attemptsLeft <= 0;
+
+  const fetchTitles = async (ideaText: string) => {
+    setTitlesLoading(true);
+    setTitles(null);
+    try {
+      const res = await fetch('/api/suggest-titles', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idea: ideaText }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) setTitles(data.titles);
+    } catch {
+      // silent: title suggestions are a bonus, not critical to the main report
+    } finally {
+      setTitlesLoading(false);
+    }
+  };
+
+  const fetchPapers = async (ideaText: string, isRetry = false) => {
+    if (!isRetry) {
+      setPapersLoading(true);
+      setPapersError('');
+    }
+    try {
+      const res = await fetch('/api/suggest-related-papers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idea: ideaText }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPapers(data.papers);
+        setPapersLoading(false);
+      } else if (!isRetry) {
+        setTimeout(() => fetchPapers(ideaText, true), 1500);
+      } else {
+        setPapersError(data.error || 'تعذر جلب الأبحاث ذات الصلة حالياً');
+        setPapersLoading(false);
+      }
+    } catch {
+      if (!isRetry) {
+        setTimeout(() => fetchPapers(ideaText, true), 1500);
+      } else {
+        setPapersError('تعذر جلب الأبحاث ذات الصلة حالياً');
+        setPapersLoading(false);
+      }
+    }
+  };
+
+  const analyze = async (overrideIdea?: string) => {
+    const text = (overrideIdea ?? idea).trim();
+    if (!text) return;
+    if (limitReached) return;
+
+    if (overrideIdea) setIdea(overrideIdea);
     setLoading(true);
     setResult(null);
+    setTitles(null);
+    setPapers(null);
+    setPapersError('');
     setError('');
     try {
       const res = await fetch('/api/analyze-idea', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ideaText: idea }),
+        body: JSON.stringify({ idea: text }),
       });
       const data = await res.json();
-      setResult(data);
+      if (!res.ok) {
+        setError(data.error || t.genericError);
+      } else {
+        setResult(data);
+        if (isLoggedIn === false) {
+          const next = attemptsUsed + 1;
+          setAttemptsUsed(next);
+          localStorage.setItem(ATTEMPTS_KEY, String(next));
+        }
+        fetchTitles(text);
+        fetchPapers(text);
+      }
     } catch {
-      setError('حدث خطأ، يرجى المحاولة مجدداً.');
+      setError(t.genericError);
     } finally {
       setLoading(false);
     }
   };
 
-  const thinking = result?.academicThinking;
-  const report = result?.report;
-  const papers = result?.context?.papers ?? [];
-  const stats = result?.context?.statistics;
+  const exportPdf = async () => {
+    if (!printableRef.current) return;
+    setExporting(true);
+    try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas'),
+      ]);
+      const canvas = await html2canvas(printableRef.current, { scale: 2, backgroundColor: '#ffffff' });
+      const imgData = canvas.toDataURL('image/png');
+
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let heightLeft = imgHeight;
+      let position = 0;
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      while (heightLeft > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save('waha-ai-report.pdf');
+    } catch {
+      setError(t.genericError);
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const data = result?.data;
+  const dir = lang === 'ar' ? 'rtl' : 'ltr';
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-white font-sans pb-16" dir="rtl">
-      <header className="border-b border-slate-800 py-4 px-6 flex justify-between items-center">
-        <span className="text-xs bg-blue-900 text-blue-300 font-bold px-3 py-1 rounded-full">المشرف الأكاديمي الرقمي</span>
-        <div className="text-xl font-black text-white">WAHA <span className="text-blue-400">AI</span></div>
-      </header>
+    <div className="min-h-screen bg-[#0A0F1C] text-white font-sans pb-20" dir={dir}>
+      <SiteHeader lang={lang} onToggleLang={toggleLang} />
 
-      <main className="max-w-3xl mx-auto px-4 mt-10 space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-extrabold text-white">فحص الفكرة البحثية</h1>
-          <p className="text-slate-400 text-sm mt-2">اكتب فكرتك أو عنوانك — سيحللها WAHA كمشرف أكاديمي حقيقي</p>
+      {isLoggedIn === false && (
+        <div className="border-b border-white/5 bg-white/[0.02]">
+          <p className="max-w-[680px] mx-auto px-4 py-2 text-center text-xs text-slate-500">
+            {limitReached ? t.attemptsExhausted : t.attemptsLeft(attemptsLeft)}
+          </p>
         </div>
+      )}
 
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-          <textarea
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
-            disabled={loading}
-            placeholder="اكتب فكرتك البحثية أو عنوانك أو عنواناً مرفوضاً هنا..."
-            className="w-full h-28 bg-slate-900 border border-slate-700 rounded-xl p-4 text-right text-sm text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 resize-none"
-          />
-          {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
-          <button
-            onClick={analyze}
-            disabled={loading || !idea.trim()}
-            className="w-full mt-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-all text-sm"
-          >
-            {loading ? '⏳ جاري التحليل الأكاديمي...' : '🔬 تحليل أكاديمي شامل'}
-          </button>
-        </div>
+      <main className="max-w-[680px] mx-auto px-4 mt-8 space-y-6">
+        {limitReached ? (
+          <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center space-y-4">
+            <p className="text-white text-sm font-bold">{t.limitTitle}</p>
+            <p className="text-slate-400 text-xs">{t.limitSubtitle}</p>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-l from-blue-500 to-teal-400 text-gray-950 font-bold rounded-xl transition-all text-sm"
+            >
+              {t.limitButton}
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="relative">
+              <textarea
+                value={idea}
+                onChange={(e) => setIdea(e.target.value)}
+                disabled={loading}
+                placeholder={t.placeholder}
+                className="w-full h-52 bg-white/[0.03] border border-white/10 rounded-2xl p-5 pb-8 text-right text-base text-white placeholder-slate-500 placeholder:text-sm focus:outline-none focus:border-teal-500/50 focus:shadow-[0_0_30px_-5px_rgba(45,212,191,0.35)] resize-none transition-all"
+                dir={dir}
+              />
+              <span className="absolute bottom-3 left-4 text-[11px] text-slate-600">{idea.length}</span>
+            </div>
+            {error && <p className="text-red-400 text-xs">{error}</p>}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => analyze()}
+                disabled={loading || !idea.trim()}
+                className="flex-1 bg-gradient-to-l from-blue-500 to-teal-400 hover:from-blue-400 hover:to-teal-300 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 text-gray-950 font-bold py-4 rounded-xl transition-all text-sm"
+              >
+                {loading ? t.analyzing : t.analyzeButton}
+              </button>
+              <button
+                onClick={() => analyze(SAMPLE_IDEA[lang])}
+                disabled={loading}
+                className="shrink-0 border border-white/10 hover:border-white/30 text-slate-300 hover:text-white text-xs font-medium px-4 py-4 rounded-xl transition-all"
+              >
+                {t.tryExample}
+              </button>
+            </div>
+          </div>
+        )}
 
-        {result && (
-          <div className="space-y-5">
+        {data && (
+          <div className="space-y-6">
+            <div className="text-center space-y-4">
+              <div className="flex justify-center">
+                <ScoreCircle score={data.reportScore} />
+              </div>
+              {result?.saved && (
+                <span className="inline-block text-[11px] text-emerald-400 bg-emerald-900/30 border border-emerald-700 px-2 py-1 rounded-full">
+                  {t.savedBadge}
+                </span>
+              )}
+              <div>
+                <button
+                  onClick={exportPdf}
+                  disabled={exporting}
+                  className="inline-flex items-center gap-2 border border-white/15 hover:border-white/30 disabled:opacity-50 text-slate-300 hover:text-white text-xs font-medium px-4 py-2.5 rounded-xl transition-all"
+                >
+                  📄 {exporting ? t.exporting : t.exportPdf}
+                </button>
+              </div>
+            </div>
 
-            {/* رفض أكاديمي */}
-            {!result.success && (
-              <div className="bg-red-900/40 border border-red-700 rounded-2xl p-5">
-                <p className="text-red-300 font-bold text-sm">{result.message}</p>
-                {thinking && (
-                  <div className="mt-3 space-y-1 text-xs text-red-200">
-                    <p>التصنيف: {thinking.category}</p>
-                    <p>السبب: {thinking.reason}</p>
-                    {thinking.missingComponents.length > 0 && (
-                      <p>الناقص: {thinking.missingComponents.join('، ')}</p>
+            <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+              <p className="text-white text-sm leading-relaxed">{data.diagnosis}</p>
+            </div>
+          </div>
+        )}
+
+        {data && (titlesLoading || (titles && titles.length > 0)) && (
+          <div className="space-y-3">
+            <h2 className="text-xs font-bold text-slate-500">{t.titlesHeading}</h2>
+            {titlesLoading ? (
+              <p className="text-slate-500 text-xs">{t.titlesLoading}</p>
+            ) : (
+              <ol className="space-y-2">
+                {titles!.map((ti, i) => (
+                  <li key={i}>
+                    <button
+                      onClick={() => analyze(ti)}
+                      disabled={loading}
+                      className="w-full text-right flex gap-3 bg-white/[0.03] backdrop-blur-xl border border-white/10 hover:border-teal-400/50 hover:bg-white/[0.06] rounded-xl p-4 text-sm text-white leading-relaxed transition-all"
+                    >
+                      <span className="text-teal-400 font-bold shrink-0">{i + 1}</span>
+                      <span>{ti}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        )}
+
+        {data && (papersLoading || (papers && papers.length > 0) || papersError) && (
+          <div className="space-y-3">
+            <h2 className="text-xs font-bold text-slate-500">{t.papersHeading}</h2>
+            {papersLoading ? (
+              <p className="text-slate-500 text-xs">{t.papersLoading}</p>
+            ) : papersError ? (
+              <p className="text-red-400 text-xs">{papersError}</p>
+            ) : (
+              <ul className="space-y-2">
+                {papers!.map((p, i) => (
+                  <li key={i} className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-xl p-4">
+                    {p.url ? (
+                      <a href={p.url} target="_blank" rel="noopener noreferrer" className="text-sm text-teal-300 hover:underline leading-relaxed">
+                        {p.title}
+                      </a>
+                    ) : (
+                      <p className="text-sm text-white leading-relaxed">{p.title}</p>
                     )}
-                  </div>
-                )}
-              </div>
+                    <p className="text-slate-500 text-[11px] mt-1">{p.year || '—'} · {p.citationCount} {t.citations}</p>
+                  </li>
+                ))}
+              </ul>
             )}
-
-            {/* تحليل العنوان المرفوض */}
-            {result.success && report?.isRejectedTitle && (
-              <div className="bg-orange-900/40 border border-orange-700 rounded-2xl p-5">
-                <h2 className="text-sm font-bold text-orange-400 mb-3">⚠️ تحليل العنوان المرفوض</h2>
-                <p className="text-orange-200 text-sm">{report.rejectionAnalysis}</p>
-                {report.rejectionFixes && (
-                  <div className="mt-3">
-                    <p className="text-xs font-bold text-orange-400 mb-2">الحلول المقترحة:</p>
-                    <ul className="space-y-1">
-                      {report.rejectionFixes.map((fix, i) => (
-                        <li key={i} className="text-xs text-orange-200 flex gap-2">
-                          <span className="text-orange-400">←</span> {fix}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* التحليل الأكاديمي */}
-            {result.success && thinking && (
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-                <h2 className="text-sm font-bold text-blue-400 mb-3">🧠 التحليل الأكاديمي</h2>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="bg-slate-900 rounded-xl p-3">
-                    <p className="text-slate-500 mb-1">التصنيف</p>
-                    <p className="font-bold text-white">{thinking.category}</p>
-                  </div>
-                  <div className="bg-slate-900 rounded-xl p-3">
-                    <p className="text-slate-500 mb-1">نوع الدراسة</p>
-                    <p className="font-bold text-white">{thinking.structure.studyType}</p>
-                  </div>
-                  <div className="bg-slate-900 rounded-xl p-3">
-                    <p className="text-slate-500 mb-1">المتغير المستقل</p>
-                    <p className="font-bold text-blue-300">{thinking.structure.independentVariable ?? '—'}</p>
-                  </div>
-                  <div className="bg-slate-900 rounded-xl p-3">
-                    <p className="text-slate-500 mb-1">المتغير التابع</p>
-                    <p className="font-bold text-emerald-300">{thinking.structure.dependentVariable ?? '—'}</p>
-                  </div>
-                  {thinking.structure.population && (
-                    <div className="bg-slate-900 rounded-xl p-3">
-                      <p className="text-slate-500 mb-1">المجتمع</p>
-                      <p className="font-bold text-white">{thinking.structure.population}</p>
-                    </div>
-                  )}
-                  {thinking.structure.location && (
-                    <div className="bg-slate-900 rounded-xl p-3">
-                      <p className="text-slate-500 mb-1">المكان</p>
-                      <p className="font-bold text-white">{thinking.structure.location}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* التقرير الأكاديمي */}
-            {result.success && report && (
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 space-y-5">
-                <h2 className="text-sm font-bold text-blue-400">📊 التقرير الأكاديمي الشامل</h2>
-
-                {/* الدرجة */}
-                <div className="flex items-center gap-4">
-                  <ScoreBadge score={report.score} />
-                  <p className="text-white text-sm font-bold">{report.suitabilityReason}</p>
-                </div>
-
-                {/* قوة وضعف */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-emerald-900/30 border border-emerald-800 rounded-xl p-3">
-                    <p className="text-emerald-400 text-xs font-bold mb-2">✅ نقاط القوة</p>
-                    <ul className="space-y-1">
-                      {report.strengths.map((s, i) => <li key={i} className="text-xs text-emerald-200">{s}</li>)}
-                    </ul>
-                  </div>
-                  <div className="bg-amber-900/30 border border-amber-800 rounded-xl p-3">
-                    <p className="text-amber-400 text-xs font-bold mb-2">⚠️ نقاط الضعف</p>
-                    <ul className="space-y-1">
-                      {report.weaknesses.map((w, i) => <li key={i} className="text-xs text-amber-200">{w}</li>)}
-                    </ul>
-                  </div>
-                </div>
-
-                {/* ملاءمة الدرجات */}
-                <div>
-                  <p className="text-slate-400 text-xs font-bold mb-3">🎓 ملاءمة مستوى الدراسة والنشر</p>
-                  <div className="space-y-2">
-                    <SuitabilityCard label="ماجستير" data={report.mastersLevel} />
-                    <SuitabilityCard label="دكتوراه" data={report.phdLevel} />
-                    <SuitabilityCard label="قابل للنشر" data={report.publicationLevel} />
-                  </div>
-                </div>
-
-                {/* العناوين المقترحة */}
-                <div>
-                  <p className="text-slate-400 text-xs font-bold mb-3">📝 أفضل العناوين المقترحة</p>
-                  <div className="space-y-3">
-                    {report.suggestedTitles.map((t) => (
-                      <div key={t.rank} className={`rounded-xl p-3 border ${t.rank === 1 ? 'border-blue-600 bg-blue-900/30' : 'border-slate-700 bg-slate-900'}`}>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded ${t.strength === 'قوي جداً' ? 'bg-blue-700 text-blue-200' : t.strength === 'قوي' ? 'bg-emerald-800 text-emerald-200' : 'bg-slate-700 text-slate-300'}`}>
-                            {t.strength}
-                          </span>
-                          <span className="text-slate-500 text-xs">#{t.rank}</span>
-                        </div>
-                        <p className="text-white text-sm font-bold">{t.title}</p>
-                        <p className="text-slate-400 text-xs mt-1">{t.reason}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* التوصية النهائية */}
-                <div className="bg-blue-900/40 border border-blue-700 rounded-xl p-4">
-                  <p className="text-blue-400 text-xs font-bold mb-2">🏆 توصية WAHA النهائية</p>
-                  <p className="text-white text-sm font-bold">{report.recommendedTitle}</p>
-                  <p className="text-blue-200 text-xs mt-2">{report.recommendedTitleReason}</p>
-                  <p className="text-slate-300 text-xs mt-2 border-t border-blue-800 pt-2">{report.finalRecommendation}</p>
-                </div>
-              </div>
-            )}
-
-            {/* الأبحاث */}
-            {result.success && papers.length > 0 && (
-              <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5">
-                <h2 className="text-sm font-bold text-blue-400 mb-1">📚 الأبحاث ذات الصلة</h2>
-                {stats && (
-                  <p className="text-slate-500 text-xs mb-4">
-                    {stats.totalPapers} ورقة بحثية · من {stats.oldestYear} إلى {stats.latestYear}
-                  </p>
-                )}
-                <div className="space-y-3 max-h-72 overflow-y-auto" dir="ltr">
-                  {papers.map((p, i) => (
-                    <div key={i} className="border-b border-slate-700 pb-3 last:border-none">
-                      <p className="text-white text-xs font-bold leading-snug">{p.title}</p>
-                      <p className="text-slate-500 text-[10px] mt-1">
-                        {p.authors} · {p.publicationYear ?? '—'} · {p.citationCount} citations
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
           </div>
         )}
       </main>
+
+      {data && (
+        <div style={{ position: 'fixed', left: '-9999px', top: 0 }} aria-hidden="true">
+          <div
+            ref={printableRef}
+            dir={dir}
+            style={{
+              width: '760px',
+              padding: '48px',
+              background: '#ffffff',
+              color: '#0f172a',
+              fontFamily: 'Tahoma, Arial, sans-serif',
+              textAlign: dir === 'rtl' ? 'right' : 'left',
+            }}
+          >
+            <div style={{ borderBottom: '2px solid #0f172a', paddingBottom: '16px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '22px', fontWeight: 900 }}>
+                WAHA <span style={{ color: '#0d9488' }}>AI</span>
+              </div>
+              <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>{t.reportTitle}</div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px' }}>{t.reportIdea}</div>
+              <div style={{ fontSize: '15px', lineHeight: 1.7 }}>{idea}</div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px' }}>{t.reportScore}</div>
+              <div style={{ fontSize: '28px', fontWeight: 900 }}>{data.reportScore}%</div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px' }}>{t.reportDiagnosis}</div>
+              <div style={{ fontSize: '14px', lineHeight: 1.9 }}>{data.diagnosis}</div>
+            </div>
+
+            {titles && titles.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>{t.reportTitles}</div>
+                {titles.map((ti, i) => (
+                  <div key={i} style={{ fontSize: '13px', lineHeight: 1.8, marginBottom: '4px' }}>
+                    {i + 1}. {ti}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {papers && papers.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '8px' }}>{t.reportPapers}</div>
+                {papers.map((p, i) => (
+                  <div key={i} style={{ fontSize: '13px', lineHeight: 1.8, marginBottom: '6px' }}>
+                    {p.title} ({p.year || '—'} · {p.citationCount} {t.citations})
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', marginTop: '32px', fontSize: '11px', color: '#94a3b8' }}>
+              {t.reportGeneratedBy} — {new Date().toLocaleDateString(dir === 'rtl' ? 'ar-SA' : 'en-US')}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

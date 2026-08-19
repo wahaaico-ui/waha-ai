@@ -25,7 +25,7 @@ export default function CentralDashboardPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 p-6 md:p-10">
-      
+
       {/* رأس اللوحة */}
       <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800 pb-6 gap-4">
         <div>
@@ -47,7 +47,7 @@ export default function CentralDashboardPage() {
 
       {/* مؤشرات الحالة العامة */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
+
         {/* حالة العقل الأكاديمي */}
         <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl space-y-3">
           <div className="flex items-center justify-between">

@@ -13,9 +13,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'الموضوع أو ملخصات الأبحاث مفقودة' }, { status: 400 });
     }
 
-    const prompt = `أنت بروفيسور وخبير أكاديمي محترف في كتابة مراجعات الأدبيات (Literature Reviews). 
+    const prompt = `أنت بروفيسور وخبير أكاديمي محترف في كتابة مراجعات الأدبيات (Literature Reviews).
     بناءً على موضوع البحث الرئيسي (${topic})، وملخصات الدراسات والأبحاث التالية:
-    
+
     "${papersNotes}"
 
     قم بكتابة فصل مراجعة أدبيات أكاديمي متكامل ومترابط يتبع الأصول العلمية، متضمنًا العناصر التالية:

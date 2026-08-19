@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 function detectIntent(text: string): string {
   const normalizedText = text.trim().toLowerCase();
-  
+
   const nonAcademicKeywords = ['مرحبا', 'السلام عليكم', 'كيفك', 'بدي اسافر', 'hi', 'hello', 'شلونك', 'اخبارك'];
   const isNonAcademic = nonAcademicKeywords.some(keyword => normalizedText.includes(keyword));
   if (isNonAcademic || normalizedText.length < 5) {
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const userInput = body.text || '';
-    
+
     if (!userInput.trim()) {
       return NextResponse.json({
         success: false,
@@ -40,7 +40,7 @@ export async function POST(request: Request) {
         intent: intent,
         decision: 'STOP',
         message: 'هذا ليس مدخلاً بحثياً. انتهى.'
-      }, { status: 200 }); 
+      }, { status: 200 });
     }
 
     return NextResponse.json({

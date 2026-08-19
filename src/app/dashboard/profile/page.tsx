@@ -22,14 +22,14 @@ export default function ProfilePage() {
         return;
       }
       setUser(session.user);
-      
+
       // جلب بيانات الملف الشخصي إن وجدت
       const { data } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
-        
+
       if (data) {
         setUniversity(data.university || '');
         setDegree(data.degree || 'ماجستير');

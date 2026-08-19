@@ -13,7 +13,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'رسائل المحادثة مفقودة' }, { status: 400 });
     }
 
-    const systemInstruction = `أنت مساعد أكاديمي ذكي ومحكم بحثي خبير مدعوم بنظام WAHA. 
+    const systemInstruction = `أنت مساعد أكاديمي ذكي ومحكم بحثي خبير مدعوم بنظام WAHA.
     سياق المشروع الحالي للباحث هو: "${projectContext || 'مشروع بحثي أكاديمي عام'}".
     قم بإجابة الباحث بدقة علمية، واحترافية، وباللغة العربية الفصحى، مع تقديم استشارات دقيقة تدعم مساره البحثي.`;
 

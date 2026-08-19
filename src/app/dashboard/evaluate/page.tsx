@@ -52,7 +52,7 @@ export default function AcademicEvaluatePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12 font-sans" dir="rtl">
       <div className="max-w-5xl mx-auto space-y-8">
-        
+
         {/* Header */}
         <div className="text-center space-y-3">
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
@@ -105,7 +105,7 @@ export default function AcademicEvaluatePage() {
         {/* Results Section */}
         {report && (
           <div className="space-y-6 animate-fade-in">
-            
+
             {/* Verdict Card */}
             <div className="bg-gradient-to-r from-slate-900 to-slate-870 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="space-y-2 text-center md:text-right">

@@ -47,7 +47,7 @@ export default function AbstractGeneratorPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 p-6 md:p-10">
-      
+
       <div className="flex items-center justify-between border-b border-slate-800 pb-6">
         <div>
           <span className="px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-xs font-semibold rounded-full">
@@ -95,7 +95,7 @@ export default function AbstractGeneratorPage() {
 
       {result && (
         <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl space-y-6">
-          
+
           {/* العناوين المقترحة */}
           <div className="space-y-3">
             <h3 className="text-lg font-bold text-indigo-400 border-b border-slate-800 pb-2">العناوين البحثية المقترحة ذات التأثير العالي</h3>

@@ -42,7 +42,7 @@ export default function SeminarBuilderPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
       <div className="max-w-5xl mx-auto space-y-8">
-        
+
         <div className="flex items-center justify-between border-b border-slate-800 pb-6">
           <div>
             <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold rounded-full">
@@ -104,7 +104,7 @@ export default function SeminarBuilderPage() {
 
         {seminarResult && (
           <div className="space-y-8">
-            
+
             {/* Executive Summary */}
             <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl space-y-3">
               <h3 className="text-lg font-bold text-amber-400">الملخص التنفيذي لمقترح البحث</h3>

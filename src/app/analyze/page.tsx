@@ -12,7 +12,7 @@ export default function AnalyzePage() {
   const handleAnalyze = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    
+
     // محاكاة تحليل المحرك الأكاديمي السريع للوصول للهدف مباشرة
     setTimeout(() => {
       setResult({
@@ -30,7 +30,7 @@ export default function AnalyzePage() {
       <div className="mx-auto max-w-3xl rounded-xl bg-white p-8 shadow-sm border border-slate-200">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-xl font-bold text-slate-900">محرك التحليل الأكاديمي (WAHA)</h1>
-          <button 
+          <button
             onClick={() => router.push('/projects/create')}
             className="text-sm text-blue-600 hover:underline"
           >

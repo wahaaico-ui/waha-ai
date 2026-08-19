@@ -14,7 +14,7 @@ interface ExtendedResearchContext {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    
+
     // تحويل السياق القادم إلى واجهة مرنة (Extended Context) لمنع خطأ Property does not exist
     const context: ExtendedResearchContext = body.context || {};
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     const generatedQueries = context.retrieval?.generatedQueries || [];
     const hasRetrievalData = !!context.retrieval;
     const extractedKeywords = context.extractedKeywords || [];
-    
+
     const totalQueriesCount = generatedQueries.length;
     const hasKeywords = extractedKeywords.length > 0;
 

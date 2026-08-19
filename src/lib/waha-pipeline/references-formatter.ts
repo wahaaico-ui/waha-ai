@@ -26,7 +26,7 @@ export function formatAcademicReferences(papers: AcademicEvidence[]): Formatting
 
     // تنسيق APA 7 النسق القياسي للمجلات العلمية المحكمة
     const apaString = `${authors} et al. (${year}). ${title}. المجلة الأكاديمية العالمية للبحوث المتقدمة، ${year > 2022 ? '15(2)' : '12(4)'}, 45-62. ${doi}`;
-    
+
     // التوثيق داخل النص
     const inTextCitation = `(${authors} et al., ${year})`;
 

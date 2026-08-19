@@ -12,7 +12,7 @@ export class OpenAlexService {
   public static async searchWorks(query: string, perPage: number = 10): Promise<OpenAlexPaper[]> {
     const email = process.env.OPENALEX_EMAIL || 'researcher@waha.ai';
     const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${perPage}`;
-    
+
     const response = await fetch(url, {
       headers: {
         'User-Agent': `WahaAcademicEngine/1.0 (mailto:${email})`

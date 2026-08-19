@@ -41,7 +41,7 @@ export default function MethodologyEnginePage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 p-6 md:p-10">
-      
+
       <div className="flex items-center justify-between border-b border-slate-800 pb-6">
         <div>
           <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold rounded-full">

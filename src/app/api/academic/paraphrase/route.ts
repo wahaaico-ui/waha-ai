@@ -45,7 +45,7 @@ Output ONLY the corrected text itself. Do not add explanations, options, headers
 
 Text to correct:
 ${textToImprove}`;
-    
+
     const { output, confidenceLabel } = await generateStructured({
       prompt,
       projectId: currentDoc.project_id,

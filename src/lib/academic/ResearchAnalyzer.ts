@@ -13,7 +13,7 @@ export interface ResearchAnalysis {
 export class ResearchAnalyzer {
   static analyze(papers: ResearchEvidence[]): ResearchAnalysis {
     const totalPapers = papers ? papers.length : 0;
-    
+
     const countries = new Set(papers?.map(p => p.country || p.geo || p.location).filter(Boolean));
     const numberOfCountries = countries.size > 0 ? countries.size : 1;
 

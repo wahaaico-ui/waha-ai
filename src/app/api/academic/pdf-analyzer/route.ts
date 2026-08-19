@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     }
 
     const analysisPrompt = `Analyze the following academic text/PDF content and extract key insights and summary:\n\n${rawText}`;
-    
+
     const { output, confidenceLabel } = await generateStructured({
       prompt: analysisPrompt,
       projectId,

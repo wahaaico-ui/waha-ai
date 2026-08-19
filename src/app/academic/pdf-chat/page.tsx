@@ -68,7 +68,7 @@ export default function LocalPdfChatPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
       <div className="max-w-4xl mx-auto space-y-8">
-        
+
         <div className="flex items-center justify-between border-b border-slate-800 pb-6">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight text-white">محادثة وتحليل ملفات الـ PDF المحلية</h1>
@@ -80,7 +80,7 @@ export default function LocalPdfChatPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl space-y-6">
-          
+
           <div className="space-y-2">
             <label className="block text-sm font-bold text-slate-200">اختر ملف PDF من جهازك</label>
             <input

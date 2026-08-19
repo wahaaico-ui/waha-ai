@@ -42,7 +42,7 @@ export default function TitleEnginePage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
       <div className="max-w-5xl mx-auto space-y-8">
-        
+
         <div className="flex items-center justify-between border-b border-slate-800 pb-6">
           <div>
             <span className="px-3 py-1 bg-pink-500/10 text-pink-400 border border-pink-500/20 text-xs font-semibold rounded-full">
@@ -105,7 +105,7 @@ export default function TitleEnginePage() {
         {titlesResult.length > 0 && (
           <div className="space-y-6">
             <h3 className="text-xl font-bold text-pink-400 border-b border-slate-800 pb-3">العناوين الأكاديمية المقترحة</h3>
-            
+
             <div className="grid grid-cols-1 gap-6">
               {titlesResult.map((item: any) => (
                 <div key={item.id} className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl space-y-4">

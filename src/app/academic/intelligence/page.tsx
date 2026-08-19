@@ -54,7 +54,7 @@ export default function ResearchIntelligenceTestPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
       <div className="max-w-4xl mx-auto space-y-8">
-        
+
         <div className="flex items-center justify-between border-b border-slate-800 pb-6">
           <div>
             <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs font-semibold rounded-full">
@@ -93,7 +93,7 @@ export default function ResearchIntelligenceTestPage() {
 
         {result && (
           <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl space-y-6">
-            
+
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
               <div>
                 <span className="text-xs text-slate-400">الاتجاه العام:</span>

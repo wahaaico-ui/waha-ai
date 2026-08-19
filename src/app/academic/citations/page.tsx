@@ -46,7 +46,7 @@ export default function CitationsPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 p-6 md:p-10">
-      
+
       <div className="flex items-center justify-between border-b border-slate-800 pb-6">
         <div>
           <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs font-semibold rounded-full">
@@ -87,7 +87,7 @@ export default function CitationsPage() {
           <h3 className="text-xl font-bold text-cyan-400 border-b border-slate-800 pb-4">نتائج التوثيق الأكاديمي للمصدر</h3>
 
           <div className="grid grid-cols-1 gap-4">
-            
+
             {/* APA */}
             <div className="bg-slate-950 p-5 rounded-xl border border-slate-800 flex items-center justify-between gap-4">
               <div>

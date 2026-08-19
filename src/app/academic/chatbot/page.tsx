@@ -44,7 +44,7 @@ export default function ChatbotPage() {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6 p-6 md:p-10">
-      
+
       <div className="flex items-center justify-between border-b border-slate-800 pb-4">
         <div>
           <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 text-xs font-semibold rounded-full">
@@ -70,7 +70,7 @@ export default function ChatbotPage() {
 
       {/* صندوق المحادثة */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 flex flex-col h-[500px] justify-between">
-        
+
         {/* الرسائل */}
         <div className="overflow-y-auto space-y-4 pr-2 flex-1">
           {messages.map((m, idx) => (

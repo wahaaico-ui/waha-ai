@@ -10,7 +10,7 @@ export async function POST(req: Request) {
     }
 
     const prompt = `أنت محرك اتخاذ القرار الأكاديمي الاستراتيجي (Decision Engine). بناءً على مخرجات التحليل، الجاهزية، وذكاء الأبحاث، قم بإعطاء القرار النهائي الحاسم للباحث.
-    
+
     بيانات التحليل والجاهزية وذكاء الأبحاث:
     - تحليل المدخل: ${JSON.stringify(analysis || {})}
     - الجاهزية: ${JSON.stringify(readiness || {})}

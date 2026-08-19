@@ -27,7 +27,7 @@ export default function ReadinessCheckerTestPage() {
         body: JSON.stringify({ text }),
       });
       const dataAnalysis = await resAnalysis.json();
-      
+
       if (!dataAnalysis.success) {
         throw new Error(dataAnalysis.error || 'فشل التحليل');
       }
@@ -56,7 +56,7 @@ export default function ReadinessCheckerTestPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-10">
       <div className="max-w-4xl mx-auto space-y-8">
-        
+
         <div className="flex items-center justify-between border-b border-slate-800 pb-6">
           <div>
             <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-xs font-semibold rounded-full">
@@ -95,7 +95,7 @@ export default function ReadinessCheckerTestPage() {
         {/* عرض نتيجة الفحص */}
         {readiness && (
           <div className={`border p-8 rounded-2xl shadow-2xl space-y-6 ${readiness.isReady ? 'bg-emerald-950/20 border-emerald-500/30' : 'bg-red-950/20 border-red-500/30'}`}>
-            
+
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div>
                 <span className={`px-3 py-1 text-xs font-bold rounded-full ${readiness.isReady ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>

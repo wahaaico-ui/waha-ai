@@ -8,7 +8,7 @@ describe("AcademicReportGenerator", () => {
       score: 95,
       notes: "بدون ملاحظات"
     };
-    
+
     const result = generator.generateReport(mockReport);
     expect(result).toContain("التقرير الأكاديمي الاحترافي");
   });

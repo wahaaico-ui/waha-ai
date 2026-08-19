@@ -2,8 +2,8 @@ import './globals.css';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'منصة الأبحاث الذكية',
-  description: 'منصة أكاديمية لتحليل الفجوات وإدارة الأبحاث بالذكاء الاصطناعي',
+  title: 'WAHA AI',
+  description: 'WAHA AI — المشرف الأكاديمي الرقمي: منصة أكاديمية لتحليل الفجوات وإدارة الأبحاث بالذكاء الاصطناعي',
 };
 
 export default function RootLayout({

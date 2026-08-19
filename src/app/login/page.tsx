@@ -26,7 +26,7 @@ export default function LoginPage() {
       setError(loginError.message);
       setLoading(false);
     } else {
-      router.push('/projects/create');
+      router.push('/research');
       router.refresh();
     }
   };

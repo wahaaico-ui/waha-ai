@@ -10,7 +10,7 @@ export async function POST(req: Request) {
 
     const email = process.env.OPENALEX_EMAIL || 'waha.ai.co@gmail.com';
     const encodedQuery = encodeURIComponent(query);
-    
+
     // جلب الأبحاث بالتوازي من OpenAlex ومصادر أكاديمية عالمية
     const openAlexPromise = fetch(`https://api.openalex.org/works?search=${encodedQuery}&per_page=10&mailto=${email}`)
       .then(res => res.json())

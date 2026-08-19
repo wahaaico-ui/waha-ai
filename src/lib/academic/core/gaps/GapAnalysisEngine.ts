@@ -9,7 +9,7 @@ export class GapAnalysisEngine {
     evidence: EvidencePackage,
     intelligence: IntelligenceReport
   ): GapAnalysisResult {
-    
+
     // Deterministic gap identification based on field saturation and known gaps
     const identifiedGaps: ResearchGap[] = intelligence.knownGaps.map((gapDesc, index) => ({
       id: `GAP-${index + 1}`,

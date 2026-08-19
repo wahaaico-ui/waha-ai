@@ -38,7 +38,7 @@ export default function ProfessionalDashboard() {
     }
 
     loadUserData();
-  }, [router, supabase]);
+  }, [router]);
 
   if (loading) {
     return (
@@ -62,7 +62,7 @@ export default function ProfessionalDashboard() {
           <span className="bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-sm font-medium text-slate-300">
             مرحباً، <strong className="text-white">{userName}</strong>
           </span>
-          <button 
+          <button
             onClick={async () => { await supabase.auth.signOut(); router.push('/login'); }}
             className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 px-4 py-2 rounded-xl text-sm font-medium transition-all"
           >
@@ -73,7 +73,7 @@ export default function ProfessionalDashboard() {
 
       {/* المحتوى الرئيسي */}
       <main className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
-        
+
         {/* كرت الرصيد */}
         <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800/80 p-6 rounded-2xl shadow-xl flex flex-col justify-between">
           <div>
@@ -99,7 +99,7 @@ export default function ProfessionalDashboard() {
             <span className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-lg">
               النظام متصل وجاهز للعمل
             </span>
-            <button 
+            <button
               onClick={() => setMessage('جاري تهيئة محرك الذكاء الاصطناعي...')}
               className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-sm font-medium shadow-lg shadow-blue-600/20 transition-all"
             >

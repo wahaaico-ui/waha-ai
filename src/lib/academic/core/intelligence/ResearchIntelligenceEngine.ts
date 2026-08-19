@@ -6,10 +6,10 @@ export class ResearchIntelligenceEngine {
   public analyze(intent: ParsedAcademicIntent, evidence: EvidencePackage): IntelligenceReport {
     // Deterministic intelligence calculations based on evidence counts and field norms
     const referenceCount = evidence.referenceCount;
-    
+
     // Saturation increases if there are many references or citations
     const fieldSaturation = Math.min(referenceCount / 10, 0.95);
-    
+
     // Trend score based on recent references ratio
     const recentRatio = referenceCount > 0 ? evidence.recentReferences / referenceCount : 0.5;
     const trendScore = Number((0.4 + (recentRatio * 0.5)).toFixed(2));

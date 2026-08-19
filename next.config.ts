@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
 
+  // pdf-parse (وتبعيته pdfjs-dist) يحمّلان ملف worker عبر مسار نسبي وقت التشغيل.
+  // إذا قام Next بتجميع الحزمة داخل الـ bundle الخاص بالسيرفر يفشل هذا المسار،
+  // لذا نستثنيها من التجميع وتبقى تُحمَّل عبر require() الطبيعي من node_modules.
+  serverExternalPackages: ['pdf-parse', 'pdfjs-dist'],
+
   typescript: {
     // أخطاء الأنواع يجب أن تظهر لا أن تُخفى — المشروع يعبر tsc بنجاح حالياً.
     ignoreBuildErrors: false,

@@ -2,7 +2,7 @@ import { IntentAnalysisResult, ResearchIntentType, DetectedLanguage } from '../.
 import { INTENT_PATTERNS, REGEX_PATTERNS } from './patterns';
 
 export class ResearchIntentEngine {
-  
+
   public analyze(text: string): IntentAnalysisResult {
     if (!text || text.trim().length === 0) {
       return this.buildDefaultResult('NON_RESEARCH', 100, 'mixed');
@@ -11,13 +11,13 @@ export class ResearchIntentEngine {
     const cleanText = text.toLowerCase().trim();
     const language = this.detectLanguage(cleanText);
     const { intent, confidence } = this.detectIntent(cleanText);
-    
+
     const independentVariable = this.extractRegex(cleanText, REGEX_PATTERNS.independentVarAr);
     const dependentVariable = this.extractRegex(cleanText, REGEX_PATTERNS.dependentVarAr);
     const location = this.extractRegex(cleanText, REGEX_PATTERNS.locationAr);
     const population = this.extractRegex(cleanText, REGEX_PATTERNS.populationAr);
     const academicLevel = this.extractRegex(cleanText, REGEX_PATTERNS.academicLevel);
-    
+
     const discipline = cleanText.includes('تعليم') || cleanText.includes('تحصيل') ? 'التربية والتعليم' : null;
 
     let missingParts: string[] = [];
@@ -60,7 +60,7 @@ export class ResearchIntentEngine {
     for (const [intentType, data] of Object.entries(INTENT_PATTERNS)) {
       const allKeywords = [...data.ar, ...data.en];
       const match = allKeywords.some(keyword => text.includes(keyword.toLowerCase()));
-      
+
       if (match && data.score > highestScore) {
         highestScore = data.score;
         detectedIntent = intentType as ResearchIntentType;

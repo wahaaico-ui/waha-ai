@@ -53,9 +53,9 @@ export default function CreateProjectPage() {
       } else {
         router.push('/projects/workspace');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || 'حدث خطأ أثناء إنشاء المشروع');
+      setError(err instanceof Error ? err.message : 'حدث خطأ أثناء إنشاء المشروع');
     } finally {
       setLoading(false);
     }

@@ -10,7 +10,7 @@ export interface SemanticPaper {
 export class SemanticScholarService {
   public static async searchPapers(query: string, limit: number = 10): Promise<SemanticPaper[]> {
     const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=title,abstract,year,citationCount,url`;
-    
+
     const response = await fetch(url);
 
     if (!response.ok) {

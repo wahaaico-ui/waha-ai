@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       الاستشهادات: ${p.citedByCount || 0}
     `).join('\n---\n');
 
-    const prompt = `أنت خبير علمي في تحليل ومؤشرات الذكاء الأكاديمي (Research Intelligence Expert). 
+    const prompt = `أنت خبير علمي في تحليل ومؤشرات الذكاء الأكاديمي (Research Intelligence Expert).
     قم بتحليل عينة الأبحاث التالية المتعلقة بموضوع "${topic || 'الموضوع البحثي'}" واستخرج تقريراً تحليلياً استراتيجياً يتضمن:
     1. الاتجاه العام للموضوع (صعود Rising، انخفاض Declining، أو استقرار Stable).
     2. هل الموضوع مكرر بكثافة أم يمتلك حداثة ابتكارية (isRepetitive: true/false).
