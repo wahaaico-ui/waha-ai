@@ -32,8 +32,41 @@ async function fetchGeminiWithRetry(url: string, body: string): Promise<Response
   throw lastError;
 }
 
+interface RelatedPaper {
+  title: string;
+  year: number | null;
+  citationCount: number;
+  url: string | null;
+}
+
+// Semantic Scholar search runs before Gemini so the model analyzes the idea
+// against real papers (their titles, years, citation counts) instead of relying
+// only on its internal training. If the search fails or returns nothing, we
+// continue without papers — the analysis still works, it just won't cite evidence.
+async function fetchRelatedPapers(idea: string, limit: number): Promise<RelatedPaper[]> {
+  try {
+    const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
+    const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(idea)}&limit=${limit}&fields=title,year,citationCount,url`;
+    const response = await fetch(url, {
+      headers: apiKey ? { 'x-api-key': apiKey } : {},
+    });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.data || []).map((p: Record<string, unknown>) => ({
+      title: (p.title as string) || 'عنوان غير متوفر',
+      year: (p.year as number) || null,
+      citationCount: (p.citationCount as number) || 0,
+      url: (p.url as string) || null,
+    }));
+  } catch (err) {
+    console.error('Semantic Scholar fetch failed:', err);
+    return [];
+  }
+}
+
 const RATE_LIMIT_MAX = 5;
 const RATE_LIMIT_WINDOW_SECONDS = 60;
+const RELATED_PAPERS_LIMIT = 5;
 
 export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -68,6 +101,17 @@ export async function POST(request: Request) {
 
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey) return NextResponse.json({ error: 'مفتاح API غير موجود' }, { status: 500 });
+
+    // Fetch related papers first so the Gemini prompt can cite them as evidence.
+    const papers = await fetchRelatedPapers(idea, RELATED_PAPERS_LIMIT);
+    const papersEvidenceBlock = papers.length > 0
+      ? `\n\nبيانات مرجعية حقيقية من Semantic Scholar (${papers.length} أوراق ذات صلة، هذه هي البيانات الوحيدة الموثقة المتوفرة لك، لا تضف عليها):\n${papers
+          .map(
+            (p, i) =>
+              `${i + 1}. "${p.title}" (${p.year || 'سنة غير محددة'}, ${p.citationCount} استشهاد)`
+          )
+          .join('\n')}\n\nاستخدم هذه الأوراق كأدلة فعلية في تحليلك. يمكنك الإشارة إليها بأرقامها (مثال: "الورقة رقم 2 من عام كذا تشير إلى..."). ممنوع اختلاق تفاصيل عن منهجية أو نتائج هذه الأوراق لأنك تملك فقط عناوينها وسنواتها وعدد استشهاداتها، لا محتواها الكامل.`
+      : `\n\nملاحظة: لم يتم العثور على أوراق ذات صلة في قاعدة Semantic Scholar لهذا البحث. اذكر ذلك في التحليل بشفافية، ولا تختلق أوراقاً أو دراسات وهمية.`;
 
     // gemini-2.0-flash / gemini-2.5-flash are retired for this key (404 from Google).
     // gemini-3.6-flash hits its free-tier daily quota (20 requests/day/project) almost
@@ -113,12 +157,12 @@ export async function POST(request: Request) {
 - نص غير مفهوم/عشوائي: اجعل الدرجات الثلاث أقل من 15 واذكر بوضوح أنه غير قابل للتقييم أكاديمياً ولماذا تحديداً.
 - خلل أكاديمي جوهري (تناقض منطقي، خلط متغيرات، استحالة قياس): اذكره صراحة كسبب رئيسي يمنع المتابعة قبل أي شيء آخر.
 
-اكتب diagnosis كفقرة واحدة متماسكة بالعربية الفصحى الأكاديمية، بأسلوب مشرف خبير مباشر وحاسم، تغطي جميع العناصر الخمسة أعلاه دائماً.
+اكتب diagnosis كفقرة واحدة متماسكة بالعربية الفصحى الأكاديمية، بأسلوب مشرف خبير مباشر وحاسم، تغطي جميع العناصر الخمسة أعلاه دائماً. إذا توفرت أوراق مرجعية أدناه، ادمج الإشارة إليها ضمن التحليل بشكل طبيعي كأدلة داعمة.
 
 أجب بـ JSON فقط بدون أي نص إضافي أو markdown، بالشكل التالي (استبدل كل placeholder بتقييمك الفعلي):
 {"clarityScore": <رقم من 0 إلى 100>, "feasibilityScore": <رقم من 0 إلى 100>, "applicabilityScore": <رقم من 0 إلى 100>, "diagnosis": "<فقرة تحليل أكاديمي خبير مفصلة>"}
 
-النص المُدخل: "${idea}"`
+النص المُدخل: "${idea}"${papersEvidenceBlock}`
           }]
         }],
         generationConfig: {
@@ -163,6 +207,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       data: { ...analysisData, reportScore },
+      papers,
       saved,
     });
 
