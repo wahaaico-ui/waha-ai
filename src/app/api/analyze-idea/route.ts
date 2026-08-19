@@ -32,7 +32,36 @@ async function fetchGeminiWithRetry(url: string, body: string): Promise<Response
   throw lastError;
 }
 
+const RATE_LIMIT_MAX = 5;
+const RATE_LIMIT_WINDOW_SECONDS = 60;
+
 export async function POST(request: Request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+
+  const serviceClient = createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Rate limit is enforced in Supabase (Postgres RPC), not in memory, because
+  // Vercel serverless functions do not guarantee a shared instance/memory
+  // between consecutive requests — an in-memory counter resets per invocation.
+  const { data: allowed, error: rateLimitError } = await serviceClient.rpc('check_rate_limit', {
+    p_ip: ip,
+    p_max_requests: RATE_LIMIT_MAX,
+    p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
+  });
+
+  if (rateLimitError) {
+    console.error('Rate limit check failed:', rateLimitError);
+    // Fail open: if the rate-limit check itself is broken, don't block real users.
+  } else if (allowed === false) {
+    return NextResponse.json(
+      { error: 'عدد كبير من الطلبات، حاول بعد دقيقة' },
+      { status: 429 }
+    );
+  }
+
   try {
     const { idea } = await request.json();
     if (!idea) return NextResponse.json({ error: 'الفكرة مطلوبة' }, { status: 400 });
@@ -60,7 +89,7 @@ export async function POST(request: Request) {
 - 70–85: جيد — متغيرات محددة، قابل للتنفيذ، يحتاج تحسينات طفيفة فقط.
 - 85–100: ممتاز — محدد بدقة تامة (متغيرات + مجتمع + مكان واضحون)، أصيل، فجوة بحثية واضحة.
 لا تعطِ فكرة غامضة درجة عالية في أي محور، ولا تعطِ فكرة محددة بدقة تامة درجة منخفضة.
-لا تخفّض الدرجة بسبب وجود أدبيات عامة في مجال الفكرة إذا كانت الفكرة نفسها محددة بدقة تامة (متغيرات + مجتمع + مكان واضحون وقابلة للتنفيذ فعلياً) — التشبع البحثي في هذه الحالة يُذكر فقط كملاحظة إثرائية للتوجيه النظري، ولا يمنع الدرجة الإجمالية من الوصول إلى نطاق 85-100.
+لا تخفّض الدرجة بسبب وجود أدبيات عامة في مجال الفكرة إذا كانت الفكرة نفسها محددة بدقة تامة (متغيرات + مجتمع + مكان واضحونوقابلة للتنفيذ فعلياً) — التشبع البحثي في هذه الحالة يُذكر فقط كملاحظة إثرائية للتوجيه النظري، ولا يمنع الدرجة الإجمالية من الوصول إلى نطاق 85-100.
 
 قواعد صارمة لكتابة diagnosis (يُمنع استخدام عبارات عامة فضفاضة مثل "الفكرة واسعة" بدون تفصيل):
 
@@ -123,10 +152,6 @@ export async function POST(request: Request) {
 
     let saved = false;
     if (user) {
-      const serviceClient = createServiceClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
       await serviceClient.from('users_usage').insert({
         user_id: user.id,
         idea_text: idea,
