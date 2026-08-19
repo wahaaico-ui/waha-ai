@@ -17,6 +17,7 @@ interface ApiResponse {
   success: boolean;
   error?: string;
   data?: AnalysisData;
+  papers?: Paper[];
   saved?: boolean;
 }
 
@@ -189,6 +190,7 @@ export default function WAHAResearchPage() {
     setResult(null);
     setTitles(null);
     setPapers(null);
+    setPapersLoading(true);
     setPapersError('');
     setError('');
     try {
@@ -207,8 +209,10 @@ export default function WAHAResearchPage() {
           setAttemptsUsed(next);
           localStorage.setItem(ATTEMPTS_KEY, String(next));
         }
+        // Papers now come from analyze-idea directly (same call, no separate fetch).
+        setPapers(Array.isArray(data.papers) ? data.papers : []);
+        setPapersLoading(false);
         fetchTitles(text);
-        fetchPapers(text);
       }
     } catch {
       setError(t.genericError);
