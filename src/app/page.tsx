@@ -24,7 +24,8 @@ const COPY = {
     h1a: 'من الفكرة إلى النشر',
     h1b: 'بذكاء أكاديمي حقيقي',
     subtitle: 'WAHA AI يرافقك في كل خطوة من رحلتك البحثية — تحليل ذكي، بناء وثائق، وإدارة مراجع بأعلى معايير الجودة الأكاديمية.',
-    cta1: 'ابدأ بحثك الآن ←',
+    ctaVerify: 'افحص فكرتك أولاً · المرحلة صفر',
+    cta1: 'ابدأ بحثك مباشرةً ←',
     cta2: 'شاهد العرض التوضيحي 👁',
     trusted: 'موثوق لدى أفضل الجامعات',
     howTitle: 'كيف يعمل WAHA AI',
@@ -39,7 +40,8 @@ const COPY = {
     h1a: 'From idea to publication',
     h1b: 'with real academic intelligence',
     subtitle: 'WAHA AI walks with you through every step of your research journey — smart analysis, document building, and reference management at the highest academic quality standards.',
-    cta1: 'Start your research →',
+    ctaVerify: 'Verify your idea first · Phase 0',
+    cta1: 'Skip to research →',
     cta2: 'Watch the demo 👁',
     trusted: 'Trusted by leading universities',
     howTitle: 'How WAHA AI works',
@@ -107,6 +109,12 @@ export default function WahaLandingPage() {
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link
+            href="/verify-idea"
+            className="w-full sm:w-auto px-8 py-4 bg-gradient-to-l from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold rounded-2xl transition-all shadow-xl shadow-emerald-500/30 text-base ring-2 ring-emerald-400/40"
+          >
+            {t.ctaVerify}
+          </Link>
           <Link
             href="/research"
             className="w-full sm:w-auto px-8 py-4 bg-gradient-to-l from-blue-500 to-teal-400 hover:from-blue-400 hover:to-teal-300 text-gray-950 font-bold rounded-2xl transition-all shadow-xl shadow-teal-500/20 text-base"
