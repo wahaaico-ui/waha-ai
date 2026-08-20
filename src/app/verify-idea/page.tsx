@@ -1,11 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 
 // ============================================================
 // TYPES (mirror API response)
 // ============================================================
+interface HistoryItem {
+  id: string;
+  topic: string;
+  acceptance_score: number;
+  decision: string;
+  total_papers: number;
+  created_at: string;
+}
+
 interface Paper {
   title: string;
   year: number;
@@ -86,6 +95,14 @@ export default function VerifyIdeaPage() {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<VerifyReport | null>(null);
   const [error, setError] = useState('');
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  useEffect(() => {
+    fetch('/api/verify-idea/history')
+      .then(r => r.json())
+      .then(d => setHistory(d.items || []))
+      .catch(() => {});
+  }, [report]); // Refresh after each new verification
 
   const handleVerify = async () => {
     if (!topic.trim() || topic.trim().length < 5) {
@@ -134,6 +151,42 @@ export default function VerifyIdeaPage() {
             أم أنها مشبعة أو ضعيفة؟
           </p>
         </div>
+
+        {/* HISTORY */}
+        {history.length > 0 && !report && !loading && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-slate-800 text-sm">فحوصاتك السابقة</h3>
+              <span className="text-xs text-slate-500">{history.length} فحص</span>
+            </div>
+            <div className="space-y-2">
+              {history.slice(0, 5).map((h) => {
+                const scoreColor = h.acceptance_score >= 60 ? 'text-emerald-600' : h.acceptance_score >= 30 ? 'text-amber-600' : 'text-rose-600';
+                const decisionLabel = h.decision === 'proceed' ? 'قوية' : h.decision === 'improve' ? 'تحتاج تحسين' : 'ضعيفة';
+                const decisionBg = h.decision === 'proceed' ? 'bg-emerald-50 text-emerald-700' : h.decision === 'improve' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700';
+                const date = new Date(h.created_at).toLocaleDateString('ar', { day: 'numeric', month: 'short' });
+                return (
+                  <button
+                    key={h.id}
+                    onClick={() => setTopic(h.topic)}
+                    className="w-full text-right p-3 rounded-lg border border-slate-200 hover:border-teal-300 hover:bg-slate-50 transition group"
+                  >
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${decisionBg}`}>{decisionLabel}</span>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span className={`font-bold ${scoreColor}`}>{h.acceptance_score}/100</span>
+                        <span>·</span>
+                        <span>{date}</span>
+                      </div>
+                    </div>
+                    <div className="text-sm text-slate-700 line-clamp-1 group-hover:text-teal-700">{h.topic}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-slate-400 text-center mt-3">اضغط على أي فحص لإعادة تعبئته</p>
+          </div>
+        )}
 
         {/* INPUT */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">

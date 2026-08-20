@@ -355,6 +355,38 @@ async function checkRateLimit(ip: string): Promise<boolean> {
   }
 }
 
+
+// ============================================================
+// SAVE VERIFICATION TO DATABASE (non-blocking)
+// ============================================================
+async function saveVerification(
+  ip: string,
+  topic: string,
+  translatedQuery: string | undefined,
+  score: number,
+  decision: string,
+  totalPapers: number,
+  gapsCount: number
+): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) return;
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    await supabase.from('idea_verifications').insert({
+      user_ip: ip,
+      topic,
+      translated_query: translatedQuery || null,
+      acceptance_score: score,
+      decision,
+      total_papers: totalPapers,
+      gaps_count: gapsCount,
+    });
+  } catch {
+    // Silent fail — saving is not critical for the response
+  }
+}
+
 // ============================================================
 // MAIN HANDLER
 // ============================================================
@@ -438,6 +470,9 @@ export async function POST(request: Request) {
       improvements: decision.improvements,
       topPapers,
     };
+
+    // Save verification asynchronously (do not await — non-blocking)
+    saveVerification(ip, topic, englishQuery, score, decision.decision, merged.length, gaps.length).catch(() => {});
 
     return NextResponse.json(report);
   } catch (err: any) {
