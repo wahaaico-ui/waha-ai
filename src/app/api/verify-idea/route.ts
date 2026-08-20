@@ -51,17 +51,21 @@ async function translateToAcademicEnglish(arabicTopic: string): Promise<string> 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return arabicTopic;
 
-  const prompt = `You are an academic librarian. Translate this Arabic research topic into a concise English search query suitable for academic databases like Semantic Scholar and OpenAlex.
+  const prompt = `You are an academic librarian evaluating research topics.
 
-Rules:
+STEP 1 — Validity check:
+If the input is NOT a genuine research topic (gibberish, repeated letters, random characters, single word, promotional text, or nonsense), respond with EXACTLY this single word: INVALID
+Do not explain. Do not translate. Just output: INVALID
+
+STEP 2 — If input IS a genuine research topic:
+Translate it into a concise English academic search query.
 - Return ONLY the English query, no explanations, no quotes, no punctuation at the end
 - Keep it 4-10 words, focused on key academic concepts
 - Use standard academic terminology
-- Do not add anything before or after the query
 
 Arabic topic: ${arabicTopic}
 
-English query:`;
+Response:`;
 
   try {
     const res = await fetch(
@@ -372,14 +376,28 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' }, { status: 400 });
     }
 
-    // If Arabic, translate first for better academic search
+    // If Arabic, translate first for better academic search + validity gate
     let englishQuery: string | undefined = undefined;
     const queries: string[] = [topic];
     if (isArabic(topic)) {
       const translated = await translateToAcademicEnglish(topic);
+      // Validity gate: reject non-genuine topics immediately
+      if (translated && translated.trim().toUpperCase().startsWith('INVALID')) {
+        return NextResponse.json({
+          error: 'الموضوع الذي أدخلته لا يبدو موضوعاً بحثياً حقيقياً. الرجاء إدخال فكرة بحثية واضحة (مثل: أثر التعلم الإلكتروني على التحصيل الدراسي).',
+        }, { status: 400 });
+      }
       if (translated && translated !== topic) {
         englishQuery = translated;
         queries.push(translated);
+      }
+    } else {
+      // Also apply gate for English/other inputs via a second check
+      const check = await translateToAcademicEnglish(topic);
+      if (check && check.trim().toUpperCase().startsWith('INVALID')) {
+        return NextResponse.json({
+          error: 'The input does not appear to be a genuine research topic. Please enter a clear research idea.',
+        }, { status: 400 });
       }
     }
 
