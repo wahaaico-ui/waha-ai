@@ -1,6 +1,17 @@
 "use client";
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+
+// Child component that reads the URL param — must be inside <Suspense>
+function TopicAutoFill({ onTopic }: { onTopic: (t: string) => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const t = searchParams.get('topic');
+    if (t && t.trim().length > 0) onTopic(t.trim());
+  }, [searchParams, onTopic]);
+  return null;
+}
+
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
 import SiteHeader from '@/components/SiteHeader';
@@ -92,14 +103,6 @@ const COPY = {
 
 export default function WAHAResearchPage() {
   const [idea, setIdea] = useState('');
-  // Auto-fill from verify-idea page
-  const searchParams = useSearchParams();
-  useEffect(() => {
-    const topicFromUrl = searchParams.get('topic');
-    if (topicFromUrl && topicFromUrl.trim().length > 0) {
-      setIdea(topicFromUrl.trim());
-    }
-  }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState('');
@@ -271,6 +274,7 @@ export default function WAHAResearchPage() {
 
   return (
     <div className="min-h-screen bg-[#0A0F1C] text-white font-sans pb-20" dir={dir}>
+      <Suspense fallback={null}><TopicAutoFill onTopic={setIdea} /></Suspense>
       <SiteHeader lang={lang} onToggleLang={toggleLang} />
 
       {isLoggedIn === false && (
