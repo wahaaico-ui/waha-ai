@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import JourneyProgress from '@/components/JourneyProgress';
 
 // ============================================================
 // TYPES (mirror API response)
@@ -118,6 +119,7 @@ export default function VerifyIdeaPage() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <JourneyProgress current="verify" lang="ar" />
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* HEADER */}
         <div className="mb-10 text-center">

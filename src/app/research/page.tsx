@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, Suspense } from 'react';
+import JourneyProgress from '@/components/JourneyProgress';
 import { useSearchParams } from 'next/navigation';
 
 // Child component that reads the URL param — must be inside <Suspense>
@@ -275,6 +276,7 @@ export default function WAHAResearchPage() {
   return (
     <div className="min-h-screen bg-[#0A0F1C] text-white font-sans pb-20" dir={dir}>
       <Suspense fallback={null}><TopicAutoFill onTopic={setIdea} /></Suspense>
+      <JourneyProgress current="title" lang="ar" />
       <SiteHeader lang={lang} onToggleLang={toggleLang} />
 
       {isLoggedIn === false && (
