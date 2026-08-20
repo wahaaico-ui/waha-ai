@@ -276,7 +276,7 @@ export default function VerifyIdeaPage() {
                 <div className="text-emerald-800 font-semibold mb-3">
                   فكرتك قوية. الخطوة التالية: صياغة العنوان.
                 </div>
-                <a href="/research" className="inline-block px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition">
+                <a href={`/research?topic=${encodeURIComponent(report.topic)}`} className="inline-block px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition">
                   انتقل إلى صياغة العنوان ←
                 </a>
               </div>

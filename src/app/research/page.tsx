@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
 import SiteHeader from '@/components/SiteHeader';
@@ -91,6 +92,14 @@ const COPY = {
 
 export default function WAHAResearchPage() {
   const [idea, setIdea] = useState('');
+  // Auto-fill from verify-idea page
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const topicFromUrl = searchParams.get('topic');
+    if (topicFromUrl && topicFromUrl.trim().length > 0) {
+      setIdea(topicFromUrl.trim());
+    }
+  }, [searchParams]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ApiResponse | null>(null);
   const [error, setError] = useState('');
