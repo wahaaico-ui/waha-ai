@@ -14,11 +14,11 @@ interface Paper {
   authors?: string[];
   venue?: string;
   countries?: string[];
-  methodology?: string;
 }
 
 interface VerifyReport {
   topic: string;
+  translatedQuery?: string;
   totalPapers: number;
   yearDistribution: { year: number; count: number }[];
   geographicDistribution: { region: string; count: number }[];
@@ -41,12 +41,62 @@ interface VerifyReport {
 }
 
 // ============================================================
-// SOURCE FETCHERS (parallel)
+// TRANSLATE ARABIC TOPIC TO ENGLISH ACADEMIC QUERY
+// ============================================================
+function isArabic(text: string): boolean {
+  return /[؀-ۿ]/.test(text);
+}
+
+async function translateToAcademicEnglish(arabicTopic: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return arabicTopic;
+
+  const prompt = `You are an academic librarian. Translate this Arabic research topic into a concise English search query suitable for academic databases like Semantic Scholar and OpenAlex.
+
+Rules:
+- Return ONLY the English query, no explanations, no quotes, no punctuation at the end
+- Keep it 4-10 words, focused on key academic concepts
+- Use standard academic terminology
+- Do not add anything before or after the query
+
+Arabic topic: ${arabicTopic}
+
+English query:`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 60 },
+        }),
+        signal: AbortSignal.timeout(10000),
+      }
+    );
+    if (!res.ok) return arabicTopic;
+    const data = await res.json();
+    const translated = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    // Clean up common artifacts
+    return translated.replace(/^["']|["']$|\.$/g, '').trim() || arabicTopic;
+  } catch {
+    return arabicTopic;
+  }
+}
+
+// ============================================================
+// SOURCE FETCHERS (with API keys for higher limits)
 // ============================================================
 async function fetchSemanticScholar(query: string, limit = 20): Promise<Paper[]> {
   const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=title,abstract,year,citationCount,url,authors,venue`;
+  const headers: Record<string, string> = {};
+  const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
+  if (apiKey) headers['x-api-key'] = apiKey;
+
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
     if (!res.ok) return [];
     const data = await res.json();
     if (!data.data) return [];
@@ -66,14 +116,15 @@ async function fetchSemanticScholar(query: string, limit = 20): Promise<Paper[]>
 }
 
 async function fetchOpenAlex(query: string, limit = 20): Promise<Paper[]> {
-  const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${limit}&select=title,abstract_inverted_index,publication_year,cited_by_count,doi,authorships,primary_location`;
+  const email = process.env.OPENALEX_EMAIL;
+  const mailtoParam = email ? `&mailto=${encodeURIComponent(email)}` : '';
+  const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${limit}&select=title,abstract_inverted_index,publication_year,cited_by_count,doi,authorships,primary_location${mailtoParam}`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
     if (!res.ok) return [];
     const data = await res.json();
     if (!data.results) return [];
     return data.results.map((p: any) => {
-      // Reconstruct abstract from inverted index
       let abstract = '';
       if (p.abstract_inverted_index) {
         const words: { [pos: number]: string } = {};
@@ -84,7 +135,6 @@ async function fetchOpenAlex(query: string, limit = 20): Promise<Paper[]> {
         }
         abstract = Object.keys(words).sort((a, b) => Number(a) - Number(b)).map(k => words[Number(k)]).join(' ');
       }
-      // Extract countries from authorships
       const countries: string[] = [];
       (p.authorships || []).forEach((a: any) => {
         (a.institutions || []).forEach((inst: any) => {
@@ -115,22 +165,19 @@ function normalizeTitle(t: string): string {
   return t.toLowerCase().replace(/[^a-z؀-ۿ0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
-function mergePapers(ss: Paper[], oa: Paper[]): Paper[] {
+function mergePapers(...lists: Paper[][]): Paper[] {
   const seen = new Map<string, Paper>();
-  for (const p of ss) {
-    if (!p.title) continue;
-    const key = normalizeTitle(p.title);
-    if (key) seen.set(key, p);
-  }
-  for (const p of oa) {
-    if (!p.title) continue;
-    const key = normalizeTitle(p.title);
-    if (!key) continue;
-    if (seen.has(key)) {
-      const existing = seen.get(key)!;
-      seen.set(key, { ...existing, source: 'both', countries: p.countries || existing.countries });
-    } else {
-      seen.set(key, p);
+  for (const list of lists) {
+    for (const p of list) {
+      if (!p.title) continue;
+      const key = normalizeTitle(p.title);
+      if (!key) continue;
+      if (seen.has(key)) {
+        const existing = seen.get(key)!;
+        seen.set(key, { ...existing, source: 'both', countries: p.countries || existing.countries });
+      } else {
+        seen.set(key, p);
+      }
     }
   }
   return Array.from(seen.values());
@@ -148,7 +195,6 @@ function computeScore(papers: Paper[], currentYear: number): {
 } {
   const gaps: string[] = [];
 
-  // Year distribution
   const yearMap = new Map<number, number>();
   papers.forEach(p => {
     if (p.year > 0) yearMap.set(p.year, (yearMap.get(p.year) || 0) + 1);
@@ -157,11 +203,9 @@ function computeScore(papers: Paper[], currentYear: number): {
     .map(([year, count]) => ({ year, count }))
     .sort((a, b) => b.year - a.year);
 
-  // Recent papers (last 3 years)
   const recentCount = papers.filter(p => p.year >= currentYear - 3).length;
   const recentRatio = papers.length > 0 ? recentCount / papers.length : 0;
 
-  // Geographic distribution
   const geoMap = new Map<string, number>();
   papers.forEach(p => {
     (p.countries || []).forEach(c => geoMap.set(c, (geoMap.get(c) || 0) + 1));
@@ -170,12 +214,10 @@ function computeScore(papers: Paper[], currentYear: number): {
     .map(([region, count]) => ({ region, count }))
     .sort((a, b) => b.count - a.count);
 
-  // Check for Arab context
   const arabCountries = ['SA', 'EG', 'JO', 'AE', 'KW', 'OM', 'QA', 'BH', 'LB', 'IQ', 'SY', 'YE', 'PS', 'MA', 'DZ', 'TN', 'LY', 'SD'];
   const arabPapers = papers.filter(p => (p.countries || []).some(c => arabCountries.includes(c))).length;
   const arabRatio = papers.length > 0 ? arabPapers / papers.length : 0;
 
-  // --- SCORING (100 total) ---
   const breakdown = {
     gapExists: 0,
     recency: 0,
@@ -185,7 +227,6 @@ function computeScore(papers: Paper[], currentYear: number): {
     consistency: 0,
   };
 
-  // 25 pts: gap exists (fewer papers or lack of Arab context = bigger gap)
   if (papers.length === 0) {
     breakdown.gapExists = 25;
     gaps.push('لا توجد دراسات مباشرة في هذا الموضوع — فرصة بحثية واسعة، لكن تحقق أن الفكرة قابلة للبحث فعلاً');
@@ -201,7 +242,6 @@ function computeScore(papers: Paper[], currentYear: number): {
     gaps.push(`عدد كبير من الدراسات (${papers.length}) — الموضوع مشبع، فكّر في زاوية أضيق أو سياق مختلف`);
   }
 
-  // 20 pts: recency
   if (recentRatio >= 0.5) breakdown.recency = 20;
   else if (recentRatio >= 0.3) breakdown.recency = 15;
   else if (recentRatio >= 0.15) breakdown.recency = 10;
@@ -211,8 +251,6 @@ function computeScore(papers: Paper[], currentYear: number): {
     gaps.push('لا توجد دراسات حديثة (آخر 3 سنوات) — قد يكون الموضوع خامداً أو تحتاج مصادر أوسع');
   }
 
-  // 20 pts: method diversity (placeholder — real analysis needs Gemini call)
-  // For now, estimate from abstracts keyword presence
   const abstracts = papers.map(p => (p.abstract || '').toLowerCase()).join(' ');
   const methodKeywords = {
     quantitative: /quantitative|survey|statistic|regression|correlation|كمي|استبانة|إحصائ/,
@@ -227,12 +265,10 @@ function computeScore(papers: Paper[], currentYear: number): {
     gaps.push('غالبية الدراسات تستخدم منهجية واحدة — فرصة لمنهجية مختلفة');
   }
 
-  // 15 pts: geographic diversity + Arab context bonus
   if (geoDist.length >= 10) breakdown.geoDiversity = 10;
   else if (geoDist.length >= 5) breakdown.geoDiversity = 7;
   else if (geoDist.length >= 2) breakdown.geoDiversity = 4;
   else breakdown.geoDiversity = 2;
-  // Bonus for Arab context gap
   if (arabRatio < 0.1 && papers.length > 5) {
     breakdown.geoDiversity = Math.min(15, breakdown.geoDiversity + 5);
     gaps.push('تمثيل ضعيف للسياق العربي — فرصة قوية للباحث العربي');
@@ -241,13 +277,11 @@ function computeScore(papers: Paper[], currentYear: number): {
     gaps.push('تمثيل محدود للسياق العربي');
   }
 
-  // 10 pts: sufficient references
   if (papers.length >= 10) breakdown.sufficientRefs = 10;
   else if (papers.length >= 5) breakdown.sufficientRefs = 7;
   else if (papers.length >= 2) breakdown.sufficientRefs = 4;
   else breakdown.sufficientRefs = 1;
 
-  // 10 pts: internal consistency (papers cite each other well = high citation counts)
   const avgCitations = papers.length > 0 ? papers.reduce((sum, p) => sum + p.citations, 0) / papers.length : 0;
   if (avgCitations >= 20) breakdown.consistency = 10;
   else if (avgCitations >= 10) breakdown.consistency = 7;
@@ -297,12 +331,12 @@ function makeDecision(score: number, gaps: string[]): {
 }
 
 // ============================================================
-// RATE LIMITING (reuse existing pattern)
+// RATE LIMITING
 // ============================================================
 async function checkRateLimit(ip: string): Promise<boolean> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) return true; // fail-open
+  if (!supabaseUrl || !supabaseKey) return true;
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data, error } = await supabase.rpc('check_rate_limit', {
@@ -310,7 +344,7 @@ async function checkRateLimit(ip: string): Promise<boolean> {
       p_max_requests: 5,
       p_window_seconds: 60,
     });
-    if (error) return true; // fail-open on RPC error
+    if (error) return true;
     return data === true;
   } catch {
     return true;
@@ -325,44 +359,43 @@ export async function POST(request: Request) {
 
   const allowed = await checkRateLimit(ip);
   if (!allowed) {
-    return NextResponse.json(
-      { error: 'تجاوزت الحد المسموح. حاول بعد دقيقة.' },
-      { status: 429 }
-    );
+    return NextResponse.json({ error: 'تجاوزت الحد المسموح. حاول بعد دقيقة.' }, { status: 429 });
   }
 
   try {
     const body = await request.json();
     const topic = (body.topic || '').trim();
     if (!topic || topic.length < 5) {
-      return NextResponse.json(
-        { error: 'الرجاء إدخال موضوع بحثي واضح (5 أحرف على الأقل)' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'الرجاء إدخال موضوع بحثي واضح (5 أحرف على الأقل)' }, { status: 400 });
     }
     if (topic.length > 500) {
-      return NextResponse.json(
-        { error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' }, { status: 400 });
     }
 
-    // Fetch from both sources in parallel
-    const [ssPapers, oaPapers] = await Promise.all([
-      fetchSemanticScholar(topic, 20),
-      fetchOpenAlex(topic, 20),
-    ]);
+    // If Arabic, translate first for better academic search
+    let englishQuery: string | undefined = undefined;
+    const queries: string[] = [topic];
+    if (isArabic(topic)) {
+      const translated = await translateToAcademicEnglish(topic);
+      if (translated && translated !== topic) {
+        englishQuery = translated;
+        queries.push(translated);
+      }
+    }
 
-    const merged = mergePapers(ssPapers, oaPapers);
+    // Fetch from both sources for each query in parallel
+    const fetchPromises: Promise<Paper[]>[] = [];
+    for (const q of queries) {
+      fetchPromises.push(fetchSemanticScholar(q, 20));
+      fetchPromises.push(fetchOpenAlex(q, 20));
+    }
+    const results = await Promise.all(fetchPromises);
+    const merged = mergePapers(...results);
 
-    // Score
     const currentYear = new Date().getFullYear();
     const { score, breakdown, gaps, yearDist, geoDist } = computeScore(merged, currentYear);
-
-    // Decision
     const decision = makeDecision(score, gaps);
 
-    // Top 5 papers by citations + recency
     const topPapers = [...merged]
       .sort((a, b) => {
         const scoreA = Math.log1p(a.citations) * 10 + Math.max(0, 10 - (currentYear - a.year) * 0.5) + (a.source === 'both' ? 5 : 0);
@@ -373,10 +406,11 @@ export async function POST(request: Request) {
 
     const report: VerifyReport = {
       topic,
+      translatedQuery: englishQuery,
       totalPapers: merged.length,
       yearDistribution: yearDist.slice(0, 10),
       geographicDistribution: geoDist.slice(0, 10),
-      methodologyDistribution: [], // simplified for MVP
+      methodologyDistribution: [],
       gaps,
       acceptanceScore: score,
       scoreBreakdown: breakdown,
