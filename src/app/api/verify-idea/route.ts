@@ -1,0 +1,397 @@
+import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+// ============================================================
+// TYPES
+// ============================================================
+interface Paper {
+  title: string;
+  abstract: string;
+  year: number;
+  citations: number;
+  url: string;
+  source: 'semanticscholar' | 'openalex' | 'both';
+  authors?: string[];
+  venue?: string;
+  countries?: string[];
+  methodology?: string;
+}
+
+interface VerifyReport {
+  topic: string;
+  totalPapers: number;
+  yearDistribution: { year: number; count: number }[];
+  geographicDistribution: { region: string; count: number }[];
+  methodologyDistribution: { type: string; count: number }[];
+  gaps: string[];
+  acceptanceScore: number;
+  scoreBreakdown: {
+    gapExists: number;
+    recency: number;
+    methodDiversity: number;
+    geoDiversity: number;
+    sufficientRefs: number;
+    consistency: number;
+  };
+  decision: 'reject' | 'improve' | 'proceed';
+  decisionMessage: string;
+  alternativeAngles?: string[];
+  improvements?: string[];
+  topPapers: Paper[];
+}
+
+// ============================================================
+// SOURCE FETCHERS (parallel)
+// ============================================================
+async function fetchSemanticScholar(query: string, limit = 20): Promise<Paper[]> {
+  const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=title,abstract,year,citationCount,url,authors,venue`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data.data) return [];
+    return data.data.map((p: any) => ({
+      title: p.title || '',
+      abstract: p.abstract || '',
+      year: p.year || 0,
+      citations: p.citationCount || 0,
+      url: p.url || '',
+      source: 'semanticscholar' as const,
+      authors: (p.authors || []).map((a: any) => a.name).filter(Boolean),
+      venue: p.venue || '',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchOpenAlex(query: string, limit = 20): Promise<Paper[]> {
+  const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${limit}&select=title,abstract_inverted_index,publication_year,cited_by_count,doi,authorships,primary_location`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data.results) return [];
+    return data.results.map((p: any) => {
+      // Reconstruct abstract from inverted index
+      let abstract = '';
+      if (p.abstract_inverted_index) {
+        const words: { [pos: number]: string } = {};
+        for (const [word, positions] of Object.entries(p.abstract_inverted_index)) {
+          for (const pos of positions as number[]) {
+            words[pos] = word;
+          }
+        }
+        abstract = Object.keys(words).sort((a, b) => Number(a) - Number(b)).map(k => words[Number(k)]).join(' ');
+      }
+      // Extract countries from authorships
+      const countries: string[] = [];
+      (p.authorships || []).forEach((a: any) => {
+        (a.institutions || []).forEach((inst: any) => {
+          if (inst.country_code) countries.push(inst.country_code);
+        });
+      });
+      return {
+        title: p.title || '',
+        abstract: abstract,
+        year: p.publication_year || 0,
+        citations: p.cited_by_count || 0,
+        url: p.doi ? `https://doi.org/${p.doi.replace('https://doi.org/', '')}` : '',
+        source: 'openalex' as const,
+        authors: (p.authorships || []).map((a: any) => a.author?.display_name).filter(Boolean),
+        venue: p.primary_location?.source?.display_name || '',
+        countries: [...new Set(countries)],
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+// ============================================================
+// MERGE + DEDUPE
+// ============================================================
+function normalizeTitle(t: string): string {
+  return t.toLowerCase().replace(/[^a-z؀-ۿ0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function mergePapers(ss: Paper[], oa: Paper[]): Paper[] {
+  const seen = new Map<string, Paper>();
+  for (const p of ss) {
+    if (!p.title) continue;
+    const key = normalizeTitle(p.title);
+    if (key) seen.set(key, p);
+  }
+  for (const p of oa) {
+    if (!p.title) continue;
+    const key = normalizeTitle(p.title);
+    if (!key) continue;
+    if (seen.has(key)) {
+      const existing = seen.get(key)!;
+      seen.set(key, { ...existing, source: 'both', countries: p.countries || existing.countries });
+    } else {
+      seen.set(key, p);
+    }
+  }
+  return Array.from(seen.values());
+}
+
+// ============================================================
+// SCORING (transparent formula from Waha document)
+// ============================================================
+function computeScore(papers: Paper[], currentYear: number): {
+  score: number;
+  breakdown: VerifyReport['scoreBreakdown'];
+  gaps: string[];
+  yearDist: { year: number; count: number }[];
+  geoDist: { region: string; count: number }[];
+} {
+  const gaps: string[] = [];
+
+  // Year distribution
+  const yearMap = new Map<number, number>();
+  papers.forEach(p => {
+    if (p.year > 0) yearMap.set(p.year, (yearMap.get(p.year) || 0) + 1);
+  });
+  const yearDist = Array.from(yearMap.entries())
+    .map(([year, count]) => ({ year, count }))
+    .sort((a, b) => b.year - a.year);
+
+  // Recent papers (last 3 years)
+  const recentCount = papers.filter(p => p.year >= currentYear - 3).length;
+  const recentRatio = papers.length > 0 ? recentCount / papers.length : 0;
+
+  // Geographic distribution
+  const geoMap = new Map<string, number>();
+  papers.forEach(p => {
+    (p.countries || []).forEach(c => geoMap.set(c, (geoMap.get(c) || 0) + 1));
+  });
+  const geoDist = Array.from(geoMap.entries())
+    .map(([region, count]) => ({ region, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // Check for Arab context
+  const arabCountries = ['SA', 'EG', 'JO', 'AE', 'KW', 'OM', 'QA', 'BH', 'LB', 'IQ', 'SY', 'YE', 'PS', 'MA', 'DZ', 'TN', 'LY', 'SD'];
+  const arabPapers = papers.filter(p => (p.countries || []).some(c => arabCountries.includes(c))).length;
+  const arabRatio = papers.length > 0 ? arabPapers / papers.length : 0;
+
+  // --- SCORING (100 total) ---
+  const breakdown = {
+    gapExists: 0,
+    recency: 0,
+    methodDiversity: 0,
+    geoDiversity: 0,
+    sufficientRefs: 0,
+    consistency: 0,
+  };
+
+  // 25 pts: gap exists (fewer papers or lack of Arab context = bigger gap)
+  if (papers.length === 0) {
+    breakdown.gapExists = 25;
+    gaps.push('لا توجد دراسات مباشرة في هذا الموضوع — فرصة بحثية واسعة، لكن تحقق أن الفكرة قابلة للبحث فعلاً');
+  } else if (papers.length < 10) {
+    breakdown.gapExists = 22;
+    gaps.push(`عدد محدود من الدراسات (${papers.length}) — فرصة جيدة لسدّ فجوة`);
+  } else if (papers.length < 30) {
+    breakdown.gapExists = 15;
+  } else if (papers.length < 100) {
+    breakdown.gapExists = 8;
+  } else {
+    breakdown.gapExists = 3;
+    gaps.push(`عدد كبير من الدراسات (${papers.length}) — الموضوع مشبع، فكّر في زاوية أضيق أو سياق مختلف`);
+  }
+
+  // 20 pts: recency
+  if (recentRatio >= 0.5) breakdown.recency = 20;
+  else if (recentRatio >= 0.3) breakdown.recency = 15;
+  else if (recentRatio >= 0.15) breakdown.recency = 10;
+  else if (recentRatio > 0) breakdown.recency = 5;
+  else {
+    breakdown.recency = 2;
+    gaps.push('لا توجد دراسات حديثة (آخر 3 سنوات) — قد يكون الموضوع خامداً أو تحتاج مصادر أوسع');
+  }
+
+  // 20 pts: method diversity (placeholder — real analysis needs Gemini call)
+  // For now, estimate from abstracts keyword presence
+  const abstracts = papers.map(p => (p.abstract || '').toLowerCase()).join(' ');
+  const methodKeywords = {
+    quantitative: /quantitative|survey|statistic|regression|correlation|كمي|استبانة|إحصائ/,
+    qualitative: /qualitative|interview|ethnograph|case study|نوعي|مقابلة|دراسة حالة/,
+    mixed: /mixed method|mixed-method|مختلط/,
+    experimental: /experiment|trial|randomized|تجريب|تجربة/,
+  };
+  let methodsFound = 0;
+  Object.values(methodKeywords).forEach(regex => { if (regex.test(abstracts)) methodsFound++; });
+  breakdown.methodDiversity = Math.min(20, methodsFound * 5);
+  if (methodsFound <= 1 && papers.length > 5) {
+    gaps.push('غالبية الدراسات تستخدم منهجية واحدة — فرصة لمنهجية مختلفة');
+  }
+
+  // 15 pts: geographic diversity + Arab context bonus
+  if (geoDist.length >= 10) breakdown.geoDiversity = 10;
+  else if (geoDist.length >= 5) breakdown.geoDiversity = 7;
+  else if (geoDist.length >= 2) breakdown.geoDiversity = 4;
+  else breakdown.geoDiversity = 2;
+  // Bonus for Arab context gap
+  if (arabRatio < 0.1 && papers.length > 5) {
+    breakdown.geoDiversity = Math.min(15, breakdown.geoDiversity + 5);
+    gaps.push('تمثيل ضعيف للسياق العربي — فرصة قوية للباحث العربي');
+  } else if (arabRatio < 0.2) {
+    breakdown.geoDiversity = Math.min(15, breakdown.geoDiversity + 3);
+    gaps.push('تمثيل محدود للسياق العربي');
+  }
+
+  // 10 pts: sufficient references
+  if (papers.length >= 10) breakdown.sufficientRefs = 10;
+  else if (papers.length >= 5) breakdown.sufficientRefs = 7;
+  else if (papers.length >= 2) breakdown.sufficientRefs = 4;
+  else breakdown.sufficientRefs = 1;
+
+  // 10 pts: internal consistency (papers cite each other well = high citation counts)
+  const avgCitations = papers.length > 0 ? papers.reduce((sum, p) => sum + p.citations, 0) / papers.length : 0;
+  if (avgCitations >= 20) breakdown.consistency = 10;
+  else if (avgCitations >= 10) breakdown.consistency = 7;
+  else if (avgCitations >= 3) breakdown.consistency = 5;
+  else breakdown.consistency = 3;
+
+  const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
+
+  return { score, breakdown, gaps, yearDist, geoDist };
+}
+
+// ============================================================
+// DECISION LOGIC
+// ============================================================
+function makeDecision(score: number, gaps: string[]): {
+  decision: VerifyReport['decision'];
+  message: string;
+  alternatives?: string[];
+  improvements?: string[];
+} {
+  if (score < 30) {
+    return {
+      decision: 'reject',
+      message: 'الفكرة بصيغتها الحالية ضعيفة أكاديمياً. لا نوصي بالاستثمار فيها كما هي. راجع الزوايا البديلة أدناه.',
+      alternatives: [
+        'ركّز على سياق عربي أو خليجي محدد بدل السياق العام',
+        'ادمج متغيراً حديثاً (تقنية، ذكاء اصطناعي، جائحة، تحول رقمي) مع الفكرة الأساسية',
+        'انتقل من دراسة كمّية إلى دراسة نوعية معمّقة لعدد أصغر من الحالات',
+      ],
+    };
+  }
+  if (score < 60) {
+    return {
+      decision: 'improve',
+      message: 'الفكرة تحمل إمكانية، لكنها تحتاج تحسينات قبل الاعتماد. طبّق المقترحات ثم أعد الفحص.',
+      improvements: [
+        gaps[0] || 'راجع الفجوات المكتشفة أعلاه وحاول تضييق النطاق',
+        'حدّد سياقاً جغرافياً أو منهجياً واضحاً يميّز فكرتك',
+        'ابحث عن متغير وسيط أو معدّل يعطي الفكرة عمقاً إضافياً',
+      ],
+    };
+  }
+  return {
+    decision: 'proceed',
+    message: 'الفكرة قوية وتستحق الاستثمار. يمكنك الانتقال إلى صياغة العنوان.',
+  };
+}
+
+// ============================================================
+// RATE LIMITING (reuse existing pattern)
+// ============================================================
+async function checkRateLimit(ip: string): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) return true; // fail-open
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { data, error } = await supabase.rpc('check_rate_limit', {
+      p_ip: ip,
+      p_max_requests: 5,
+      p_window_seconds: 60,
+    });
+    if (error) return true; // fail-open on RPC error
+    return data === true;
+  } catch {
+    return true;
+  }
+}
+
+// ============================================================
+// MAIN HANDLER
+// ============================================================
+export async function POST(request: Request) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+
+  const allowed = await checkRateLimit(ip);
+  if (!allowed) {
+    return NextResponse.json(
+      { error: 'تجاوزت الحد المسموح. حاول بعد دقيقة.' },
+      { status: 429 }
+    );
+  }
+
+  try {
+    const body = await request.json();
+    const topic = (body.topic || '').trim();
+    if (!topic || topic.length < 5) {
+      return NextResponse.json(
+        { error: 'الرجاء إدخال موضوع بحثي واضح (5 أحرف على الأقل)' },
+        { status: 400 }
+      );
+    }
+    if (topic.length > 500) {
+      return NextResponse.json(
+        { error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch from both sources in parallel
+    const [ssPapers, oaPapers] = await Promise.all([
+      fetchSemanticScholar(topic, 20),
+      fetchOpenAlex(topic, 20),
+    ]);
+
+    const merged = mergePapers(ssPapers, oaPapers);
+
+    // Score
+    const currentYear = new Date().getFullYear();
+    const { score, breakdown, gaps, yearDist, geoDist } = computeScore(merged, currentYear);
+
+    // Decision
+    const decision = makeDecision(score, gaps);
+
+    // Top 5 papers by citations + recency
+    const topPapers = [...merged]
+      .sort((a, b) => {
+        const scoreA = Math.log1p(a.citations) * 10 + Math.max(0, 10 - (currentYear - a.year) * 0.5) + (a.source === 'both' ? 5 : 0);
+        const scoreB = Math.log1p(b.citations) * 10 + Math.max(0, 10 - (currentYear - b.year) * 0.5) + (b.source === 'both' ? 5 : 0);
+        return scoreB - scoreA;
+      })
+      .slice(0, 5);
+
+    const report: VerifyReport = {
+      topic,
+      totalPapers: merged.length,
+      yearDistribution: yearDist.slice(0, 10),
+      geographicDistribution: geoDist.slice(0, 10),
+      methodologyDistribution: [], // simplified for MVP
+      gaps,
+      acceptanceScore: score,
+      scoreBreakdown: breakdown,
+      decision: decision.decision,
+      decisionMessage: decision.message,
+      alternativeAngles: decision.alternatives,
+      improvements: decision.improvements,
+      topPapers,
+    };
+
+    return NextResponse.json(report);
+  } catch (err: any) {
+    return NextResponse.json(
+      { error: 'حدث خطأ أثناء الفحص. حاول مرة أخرى.', details: err?.message || String(err) },
+      { status: 500 }
+    );
+  }
+}
