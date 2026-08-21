@@ -112,33 +112,11 @@ JSON:`;
 }
 
 // Backward-compatible wrapper (in case anything still references old name)
+// Backward-compatible wrapper — delegates to planSearchQueries
 async function translateToAcademicEnglish(arabicTopic: string): Promise<string> {
   const plan = await planSearchQueries(arabicTopic);
   if (!plan.isValid) return 'INVALID';
   return plan.queries[0] || arabicTopic;
-}
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 60 },
-        }),
-        signal: AbortSignal.timeout(10000),
-      }
-    );
-    if (!res.ok) return arabicTopic;
-    const data = await res.json();
-    const translated = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-    // Clean up common artifacts
-    return translated.replace(/^["']|["']$|\.$/g, '').trim() || arabicTopic;
-  } catch {
-    return arabicTopic;
-  }
 }
 
 // ============================================================
