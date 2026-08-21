@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
+import SmartWelcome from '@/components/SmartWelcome';
 
 const LANG_KEY = 'waha_lang';
 
@@ -78,6 +79,7 @@ export default function WahaLandingPage() {
       `}</style>
 
       <SiteHeader lang={lang} onToggleLang={toggleLang} />
+      <SmartWelcome lang={lang} />
 
       <main className="relative max-w-4xl mx-auto px-6 pt-32 pb-24 text-center overflow-hidden">
         <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
