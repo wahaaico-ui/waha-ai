@@ -47,25 +47,76 @@ function isArabic(text: string): boolean {
   return /[؀-ۿ]/.test(text);
 }
 
-async function translateToAcademicEnglish(arabicTopic: string): Promise<string> {
+interface QueryPlan {
+  isValid: boolean;
+  queries: string[];  // 1-3 English search queries at different scopes
+}
+
+async function planSearchQueries(userTopic: string): Promise<QueryPlan> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return arabicTopic;
+  if (!apiKey) return { isValid: true, queries: [userTopic] };
 
-  const prompt = `You are an academic librarian evaluating research topics.
+  const prompt = `You are an academic search strategist. Analyze this research topic and produce a JSON plan.
 
-STEP 1 — Validity check:
-If the input is NOT a genuine research topic (gibberish, repeated letters, random characters, single word, promotional text, or nonsense), respond with EXACTLY this single word: INVALID
-Do not explain. Do not translate. Just output: INVALID
+TOPIC: ${userTopic}
 
-STEP 2 — If input IS a genuine research topic:
-Translate it into a concise English academic search query.
-- Return ONLY the English query, no explanations, no quotes, no punctuation at the end
-- Keep it 4-10 words, focused on key academic concepts
-- Use standard academic terminology
+Rules:
+1. First decide: is this a GENUINE research topic (has a subject, even if broad)?
+   - Reject only: gibberish, repeated random letters (لللنن), promotional text, or empty input.
+   - A single meaningful word like "التعليم" or "diabetes" IS valid — accept it.
+   - An academic sentence in any language IS valid — accept it.
 
-Arabic topic: ${arabicTopic}
+2. If valid, produce THREE English search queries at different scopes:
+   - FULL: full academic translation (7-12 words)
+   - FOCUSED: core variables only (3-5 words)  
+   - BROAD: main concept only (1-3 words)
 
-Response:`;
+Return ONLY valid JSON, no markdown, no explanation:
+{"valid": true, "full": "...", "focused": "...", "broad": "..."}
+
+Or for invalid input:
+{"valid": false}
+
+JSON:`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 200, responseMimeType: 'application/json' },
+        }),
+        signal: AbortSignal.timeout(12000),
+      }
+    );
+    if (!res.ok) return { isValid: true, queries: [userTopic] };
+    const data = await res.json();
+    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    // Strip any markdown fences just in case
+    const clean = raw.replace(/^```json\s*|```\s*$/g, '').trim();
+    const parsed = JSON.parse(clean);
+    if (parsed.valid === false) return { isValid: false, queries: [] };
+    const queries: string[] = [];
+    if (parsed.full && typeof parsed.full === 'string') queries.push(parsed.full);
+    if (parsed.focused && typeof parsed.focused === 'string' && parsed.focused !== parsed.full) queries.push(parsed.focused);
+    if (parsed.broad && typeof parsed.broad === 'string' && parsed.broad !== parsed.focused && parsed.broad !== parsed.full) queries.push(parsed.broad);
+    if (queries.length === 0) queries.push(userTopic);
+    return { isValid: true, queries };
+  } catch {
+    // On any parse/network error, fail open: treat as valid, use original topic
+    return { isValid: true, queries: [userTopic] };
+  }
+}
+
+// Backward-compatible wrapper (in case anything still references old name)
+async function translateToAcademicEnglish(arabicTopic: string): Promise<string> {
+  const plan = await planSearchQueries(arabicTopic);
+  if (!plan.isValid) return 'INVALID';
+  return plan.queries[0] || arabicTopic;
+}
 
   try {
     const res = await fetch(
@@ -408,29 +459,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' }, { status: 400 });
     }
 
-    // If Arabic, translate first for better academic search + validity gate
-    let englishQuery: string | undefined = undefined;
+    // Smart query planning via Gemini: validity gate + multi-scope queries
+    const plan = await planSearchQueries(topic);
+    if (!plan.isValid) {
+      const isAr = isArabic(topic);
+      return NextResponse.json({
+        error: isAr
+          ? 'الموضوع الذي أدخلته لا يبدو موضوعاً بحثياً حقيقياً. الرجاء إدخال فكرة بحثية واضحة (مثل: أثر التعلم الإلكتروني على التحصيل الدراسي).'
+          : 'The input does not appear to be a genuine research topic. Please enter a clear research idea.',
+      }, { status: 400 });
+    }
+
+    // Build query set: original topic + all English variants from the plan
+    const englishQuery: string | undefined = plan.queries[0];
     const queries: string[] = [topic];
-    if (isArabic(topic)) {
-      const translated = await translateToAcademicEnglish(topic);
-      // Validity gate: reject non-genuine topics immediately
-      if (translated && translated.trim().toUpperCase().startsWith('INVALID')) {
-        return NextResponse.json({
-          error: 'الموضوع الذي أدخلته لا يبدو موضوعاً بحثياً حقيقياً. الرجاء إدخال فكرة بحثية واضحة (مثل: أثر التعلم الإلكتروني على التحصيل الدراسي).',
-        }, { status: 400 });
-      }
-      if (translated && translated !== topic) {
-        englishQuery = translated;
-        queries.push(translated);
-      }
-    } else {
-      // Also apply gate for English/other inputs via a second check
-      const check = await translateToAcademicEnglish(topic);
-      if (check && check.trim().toUpperCase().startsWith('INVALID')) {
-        return NextResponse.json({
-          error: 'The input does not appear to be a genuine research topic. Please enter a clear research idea.',
-        }, { status: 400 });
-      }
+    for (const q of plan.queries) {
+      if (q && q !== topic && !queries.includes(q)) queries.push(q);
     }
 
     // Fetch from both sources for each query in parallel
