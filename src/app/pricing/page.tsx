@@ -128,7 +128,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-[#0A0F1C] text-white font-sans pb-20" dir={dir}>
-      <SiteHeader lang={lang} onToggleLang={toggleLang} />
+      <SiteHeader />
 
       <main className="max-w-5xl mx-auto px-6 pt-16 text-center">
         <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-4">{t.title}</h1>

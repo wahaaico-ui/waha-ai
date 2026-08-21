@@ -1,65 +1,133 @@
-"use client";
-import Link from 'next/link';
+'use client';
 
-const NAV = {
-  ar: [
-    { label: 'المميزات', href: '/#features' },
-    { label: 'الأسعار', href: '/pricing' },
-    { label: 'الجامعات', href: '/#universities' },
-    { label: 'الموارد', href: '/#resources' },
-  ],
-  en: [
-    { label: 'Features', href: '/#features' },
-    { label: 'Pricing', href: '/pricing' },
-    { label: 'Universities', href: '/#universities' },
-    { label: 'Resources', href: '/#resources' },
-  ],
-};
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+
+const LANG_KEY = 'waha_lang';
 
 const COPY = {
-  ar: { login: 'تسجيل الدخول', signup: 'إنشاء حساب', switchTo: 'English' },
-  en: { login: 'Log in', signup: 'Sign up', switchTo: 'العربية' },
+  ar: { login: 'تسجيل الدخول', signup: 'إنشاء حساب', switchTo: 'English', dashboard: 'لوحتي', logout: 'خروج' },
+  en: { login: 'Log in', signup: 'Sign up', switchTo: 'العربية', dashboard: 'Dashboard', logout: 'Log out' },
 };
 
-export default function SiteHeader({ lang, onToggleLang }: { lang: 'ar' | 'en'; onToggleLang: () => void }) {
+interface UserInfo {
+  email: string;
+  name?: string;
+}
+
+export default function SiteHeader() {
+  const [lang, setLang] = useState<'ar' | 'en'>('ar');
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem(LANG_KEY) : null;
+    if (stored === 'ar' || stored === 'en') setLang(stored);
+  }, []);
+
+  useEffect(() => {
+    // Get initial user
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setUser({
+          email: data.user.email || '',
+          name: data.user.user_metadata?.full_name || data.user.user_metadata?.name,
+        });
+      }
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          email: session.user.email || '',
+          name: session.user.user_metadata?.full_name || session.user.user_metadata?.name,
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const toggleLang = () => {
+    const next = lang === 'ar' ? 'en' : 'ar';
+    setLang(next);
+    if (typeof window !== 'undefined') localStorage.setItem(LANG_KEY, next);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setMenuOpen(false);
+    router.push('/');
+    router.refresh();
+  };
+
   const t = COPY[lang];
+  const displayName = user?.name || user?.email?.split('@')[0] || '';
+  const initial = (user?.name || user?.email || '?')[0].toUpperCase();
+
   return (
-    <header className="border-b border-white/10 bg-[#0A0F1C]/90 backdrop-blur-md sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-6">
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center font-black text-gray-950 text-sm">
-            W
-          </div>
-          <span className="text-lg tracking-tight" dir="ltr">
-            <span className="font-black text-white">WAHA</span>
-            <span className="font-black text-teal-400"> AI</span>
-          </span>
+    <header dir={lang === 'ar' ? 'rtl' : 'ltr'} className="sticky top-0 z-40 bg-[#090D16]/80 backdrop-blur border-b border-white/5">
+      <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-3">
+        <Link href="/" className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-sm font-bold">W</div>
+          <span className="text-white font-bold">WAHA AI</span>
         </Link>
 
-        <nav className="hidden md:flex items-center gap-8">
-          {NAV[lang].map((l) => (
-            <a key={l.href} href={l.href} className="text-sm text-gray-300 hover:text-white transition-colors">
-              {l.label}
-            </a>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={onToggleLang}
-            className="text-xs text-gray-400 hover:text-white border border-white/10 hover:border-white/30 rounded-full px-3 py-1.5 transition-colors"
-          >
+        <div className="flex items-center gap-2">
+          <button onClick={toggleLang} className="text-xs text-gray-400 hover:text-white px-3 py-1 rounded-lg border border-white/10 hover:border-white/20 transition">
             {t.switchTo}
           </button>
-          <Link href="/login" className="text-sm text-gray-300 hover:text-white transition-colors px-2">
-            {t.login}
-          </Link>
-          <Link
-            href="/signup"
-            className="text-sm bg-gradient-to-l from-blue-500 to-teal-400 hover:from-blue-400 hover:to-teal-300 text-gray-950 font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-teal-500/10"
-          >
-            {t.signup}
-          </Link>
+
+          {loading ? (
+            <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse"></div>
+          ) : user ? (
+            <div className="relative">
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="flex items-center gap-2 pl-3 pr-1 py-1 rounded-full border border-white/10 hover:border-emerald-500/40 transition"
+              >
+                <span className="text-sm text-gray-300 max-w-[120px] truncate">{displayName}</span>
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white text-xs font-bold">
+                  {initial}
+                </div>
+              </button>
+
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)}></div>
+                  <div className={`absolute mt-2 w-48 bg-[#111827] border border-gray-800 rounded-xl shadow-2xl z-20 py-1 ${lang === 'ar' ? 'left-0' : 'right-0'}`}>
+                    <div className="px-4 py-3 border-b border-gray-800">
+                      <div className="text-sm text-white font-medium truncate">{displayName}</div>
+                      <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                    </div>
+                    <Link href="/verify-idea" onClick={() => setMenuOpen(false)} className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white transition">
+                      {t.dashboard}
+                    </Link>
+                    <button onClick={handleLogout} className="w-full text-right px-4 py-2 text-sm text-red-400 hover:bg-gray-800 transition">
+                      {t.logout}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm text-gray-300 hover:text-white transition-colors px-3 py-1">
+                {t.login}
+              </Link>
+              <Link href="/signup" className="text-sm bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-white font-medium px-4 py-1.5 rounded-lg transition">
+                {t.signup}
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

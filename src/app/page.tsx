@@ -78,7 +78,7 @@ export default function WahaLandingPage() {
         @keyframes wahaBlobB { 0%, 100% { transform: translate(0,0) scale(1); } 50% { transform: translate(6%, -4%) scale(1.08); } }
       `}</style>
 
-      <SiteHeader lang={lang} onToggleLang={toggleLang} />
+      <SiteHeader />
       <SmartWelcome lang={lang} />
 
       <main className="relative max-w-4xl mx-auto px-6 pt-32 pb-24 text-center overflow-hidden">

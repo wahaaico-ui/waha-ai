@@ -89,7 +89,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#0A0F1C] text-white font-sans pb-20" dir={dir}>
-      <SiteHeader lang={lang} onToggleLang={toggleLang} />
+      <SiteHeader />
 
       <main className="max-w-4xl mx-auto px-4 mt-10 space-y-8">
         <h1 className="text-2xl font-black">{t.title}</h1>

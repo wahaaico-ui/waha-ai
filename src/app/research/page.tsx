@@ -277,7 +277,7 @@ export default function WAHAResearchPage() {
     <div className="min-h-screen bg-[#0A0F1C] text-white font-sans pb-20" dir={dir}>
       <Suspense fallback={null}><TopicAutoFill onTopic={setIdea} /></Suspense>
       <JourneyProgress current="title" lang="ar" />
-      <SiteHeader lang={lang} onToggleLang={toggleLang} />
+      <SiteHeader />
 
       {isLoggedIn === false && (
         <div className="border-b border-white/5 bg-white/[0.02]">
