@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import JourneyProgress from '@/components/JourneyProgress';
 import { supabase } from '@/lib/supabase/client';
 import AuthGate from '@/components/AuthGate';
@@ -56,6 +57,17 @@ interface VerifyReport {
   };
 }
 
+interface JourneySnapshot {
+  topic: string;
+  decision: VerifyReport['decision'];
+  acceptanceScore: number;
+  completedStage: 'idea';
+  nextStage: 'title' | null;
+  updatedAt: string;
+}
+
+const JOURNEY_SNAPSHOT_KEY = 'waha_active_journey';
+
 // ============================================================
 // COUNTRY CODE → ARABIC NAME (top ones only)
 // ============================================================
@@ -100,11 +112,16 @@ function scoreBarColor(score: number): string {
 // MAIN PAGE
 // ============================================================
 export default function VerifyIdeaPage() {
-  const [topic, setTopic] = useState('');
+  const [topic, setTopic] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    return new URLSearchParams(window.location.search).get('idea')?.trim() || '';
+  });
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<VerifyReport | null>(null);
   const [error, setError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'local' | 'cloud'>('idle');
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -123,6 +140,58 @@ export default function VerifyIdeaPage() {
       .then(d => setHistory(d.items || []))
       .catch(() => {});
   }, [report]); // Refresh after each new verification
+
+  const saveJourney = async (verification: VerifyReport) => {
+    const snapshot: JourneySnapshot = {
+      topic: verification.topic,
+      decision: verification.decision,
+      acceptanceScore: verification.acceptanceScore,
+      completedStage: 'idea',
+      nextStage: verification.decision === 'proceed' ? 'title' : null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(snapshot));
+    setSaveStatus('local');
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: existingProject } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('title', verification.topic)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const { data: createdProject, error: projectError } = existingProject
+      ? { data: existingProject, error: null }
+      : await supabase
+      .from('projects')
+      .insert({
+        user_id: user.id,
+        title: verification.topic,
+        status: verification.decision === 'proceed' ? 'idea_verified' : 'idea_needs_revision',
+      })
+      .select('id')
+      .single();
+
+    if (projectError || !createdProject) return;
+
+    const { error: documentError } = await supabase.from('documents').insert({
+      project_id: createdProject.id,
+      type: 'idea_verification',
+      content: JSON.stringify(verification),
+      version: 1,
+    });
+
+    if (!documentError) {
+      setProjectId(createdProject.id);
+      setSaveStatus('cloud');
+    }
+  };
 
   const handleVerify = async () => {
     if (!topic.trim() || topic.trim().length < 5) {
@@ -145,7 +214,8 @@ export default function VerifyIdeaPage() {
         return;
       }
       setReport(data);
-    } catch (e: any) {
+      void saveJourney(data);
+    } catch {
       setError('تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مجدداً.');
     } finally {
       setLoading(false);
@@ -353,16 +423,32 @@ export default function VerifyIdeaPage() {
             )}
 
             {/* PROCEED CTA (if strong) */}
-            {report.decision === 'proceed' && (
-              <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-6 text-center">
-                <div className="text-emerald-800 font-semibold mb-3">
-                  فكرتك قوية. الخطوة التالية: صياغة العنوان.
+            <div className={`rounded-2xl border-2 p-6 ${report.decision === 'proceed' ? 'border-emerald-300 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className={`text-sm font-bold ${report.decision === 'proceed' ? 'text-emerald-800' : 'text-amber-900'}`}>
+                    {report.decision === 'proceed' ? 'بوابة الفكرة مفتوحة' : 'بوابة الفكرة ما زالت مغلقة'}
+                  </div>
+                  <p className={`mt-1 text-sm leading-6 ${report.decision === 'proceed' ? 'text-emerald-700' : 'text-amber-800'}`}>
+                    {report.decision === 'proceed'
+                      ? 'تم توثيق الفكرة والفجوة. يمكنك الآن الانتقال إلى صياغة عنوان متسق معها.'
+                      : 'لا ننتقل إلى العنوان أو الأدبيات قبل معالجة الملاحظات أعلاه وإعادة فحص الفكرة.'}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    {saveStatus === 'cloud' ? 'تم حفظ التقرير داخل مشروعك.' : 'تم حفظ آخر حالة للرحلة على هذا الجهاز.'}
+                  </p>
                 </div>
-                <a href={`/research?topic=${encodeURIComponent(report.topic)}`} className="inline-block px-6 py-3 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 transition">
-                  انتقل إلى صياغة العنوان ←
-                </a>
+                {report.decision === 'proceed' ? (
+                  <Link href={`/research?topic=${encodeURIComponent(report.topic)}${projectId ? `&projectId=${projectId}` : ''}`} className="inline-flex shrink-0 items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700">
+                    انتقل إلى صياغة العنوان ←
+                  </Link>
+                ) : (
+                  <button type="button" onClick={() => document.querySelector('textarea')?.focus()} className="inline-flex shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-white px-5 py-3 font-semibold text-amber-800 transition hover:bg-amber-100">
+                    حسّن الفكرة وأعد الفحص
+                  </button>
+                )}
               </div>
-            )}
+            </div>
 
             {/* YEAR DISTRIBUTION */}
             {report.yearDistribution.length > 0 && (

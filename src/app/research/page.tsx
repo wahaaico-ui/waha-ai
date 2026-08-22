@@ -36,9 +36,20 @@ interface ApiResponse {
 
 interface Paper { title: string; year: number | null; citationCount: number; url: string | null }
 
+interface JourneySnapshot {
+  topic: string;
+  decision: 'reject' | 'improve' | 'proceed';
+  acceptanceScore: number;
+  completedStage: 'idea';
+  nextStage: 'title' | null;
+  updatedAt: string;
+  selectedTitle?: string;
+}
+
 const FREE_ATTEMPTS = 3;
 const ATTEMPTS_KEY = 'waha_anon_attempts';
 const LANG_KEY = 'waha_lang';
+const JOURNEY_SNAPSHOT_KEY = 'waha_active_journey';
 
 const SAMPLE_IDEA = {
   ar: 'دراسة أثر التعلم القائم على المشاريع في تنمية مهارات التفكير الناقد لدى طلاب المرحلة الثانوية',
@@ -109,7 +120,11 @@ export default function WAHAResearchPage() {
   const [error, setError] = useState('');
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
-  const [attemptsUsed, setAttemptsUsed] = useState(0);
+  const [attemptsUsed, setAttemptsUsed] = useState(() => {
+    if (typeof window === 'undefined') return 0;
+    const stored = Number.parseInt(localStorage.getItem(ATTEMPTS_KEY) || '0', 10);
+    return Number.isNaN(stored) ? 0 : stored;
+  });
 
   const [titles, setTitles] = useState<string[] | null>(null);
   const [titlesLoading, setTitlesLoading] = useState(false);
@@ -118,17 +133,25 @@ export default function WAHAResearchPage() {
   const [papersLoading, setPapersLoading] = useState(false);
   const [papersError, setPapersError] = useState('');
 
-  const [lang, setLang] = useState<'ar' | 'en'>('ar');
+  const [lang, setLang] = useState<'ar' | 'en'>(() => {
+    if (typeof window === 'undefined') return 'ar';
+    return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ar';
+  });
   const [exporting, setExporting] = useState(false);
+  const [journey, setJourney] = useState<JourneySnapshot | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem(JOURNEY_SNAPSHOT_KEY);
+      return saved ? JSON.parse(saved) as JourneySnapshot : null;
+    } catch {
+      return null;
+    }
+  });
+  const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
+  const [titleSaveStatus, setTitleSaveStatus] = useState<'idle' | 'saved'>('idle');
   const printableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const stored = parseInt(localStorage.getItem(ATTEMPTS_KEY) || '0', 10);
-    setAttemptsUsed(Number.isNaN(stored) ? 0 : stored);
-
-    const storedLang = localStorage.getItem(LANG_KEY);
-    if (storedLang === 'ar' || storedLang === 'en') setLang(storedLang);
-
     supabase.auth.getSession().then(({ data: { session } }) => {
       setIsLoggedIn(!!session);
     });
@@ -234,6 +257,31 @@ export default function WAHAResearchPage() {
     }
   };
 
+  const adoptTitle = async (title: string) => {
+    setSelectedTitle(title);
+    const nextJourney = journey ? { ...journey, selectedTitle: title, updatedAt: new Date().toISOString() } : null;
+    if (nextJourney) {
+      localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(nextJourney));
+      setJourney(nextJourney);
+    }
+
+    const projectId = new URLSearchParams(window.location.search).get('projectId');
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user && projectId) {
+      const { error } = await supabase.from('documents').insert({
+        project_id: projectId,
+        type: 'research_title',
+        content: title,
+        version: 1,
+      });
+      if (!error) {
+        await supabase.from('projects').update({ status: 'title_selected' }).eq('id', projectId);
+      }
+    }
+    setTitleSaveStatus('saved');
+    await analyze(title);
+  };
+
   const exportPdf = async () => {
     if (!printableRef.current) return;
     setExporting(true);
@@ -288,6 +336,18 @@ export default function WAHAResearchPage() {
       )}
 
       <main className="max-w-[680px] mx-auto px-4 mt-8 space-y-6">
+        {!journey || journey.nextStage !== 'title' ? (
+          <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-6 text-center">
+            <h1 className="text-lg font-bold text-amber-100">صياغة العنوان مقفلة حالياً</h1>
+            <p className="mt-2 text-sm leading-6 text-amber-100/80">ابدأ بفحص الفكرة أولاً. عند إثبات الفجوة البحثية تفتح هذه المرحلة تلقائياً.</p>
+            <Link href="/verify-idea" className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-200">اذهب إلى فحص الفكرة</Link>
+          </div>
+        ) : <>
+        <section className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+          <p className="text-xs font-bold text-emerald-300">بوابة الفكرة مفتوحة · المرحلة 2 من 6</p>
+          <p className="mt-1 text-sm leading-6 text-slate-200">نبني العنوان على الفكرة المتحققة: <span className="font-semibold text-white">{journey.topic}</span></p>
+          {selectedTitle && <p className="mt-2 text-xs text-emerald-200">تم اعتماد عنوان للبحث وحفظه في سياق الرحلة.</p>}
+        </section>
         {limitReached ? (
           <div className="bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center space-y-4">
             <p className="text-white text-sm font-bold">{t.limitTitle}</p>
@@ -370,7 +430,7 @@ export default function WAHAResearchPage() {
                 {titles!.map((ti, i) => (
                   <li key={i}>
                     <button
-                      onClick={() => analyze(ti)}
+                      onClick={() => adoptTitle(ti)}
                       disabled={loading}
                       className="w-full text-right flex gap-3 bg-white/[0.03] backdrop-blur-xl border border-white/10 hover:border-teal-400/50 hover:bg-white/[0.06] rounded-xl p-4 text-sm text-white leading-relaxed transition-all"
                     >
@@ -381,6 +441,7 @@ export default function WAHAResearchPage() {
                 ))}
               </ol>
             )}
+            {titleSaveStatus === 'saved' && <p className="text-xs text-emerald-300">تم اعتماد العنوان. المرحلة التالية ستكون صياغة مشكلة البحث.</p>}
           </div>
         )}
 
@@ -409,6 +470,7 @@ export default function WAHAResearchPage() {
             )}
           </div>
         )}
+        </>}
       </main>
 
       {data && (
