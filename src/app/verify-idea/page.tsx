@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
+import { supabase } from '@/lib/supabase/client';
+import AuthGate from '@/components/AuthGate';
 
 // ============================================================
 // TYPES (mirror API response)
@@ -45,6 +47,13 @@ interface VerifyReport {
   alternativeAngles?: string[];
   improvements?: string[];
   topPapers: Paper[];
+  usageInfo?: {
+    count: number;
+    limit: number;
+    isFirstCheck: boolean;
+    isBlurred: boolean;
+    isBlocked: boolean;
+  };
 }
 
 // ============================================================
@@ -95,6 +104,17 @@ export default function VerifyIdeaPage() {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<VerifyReport | null>(null);
   const [error, setError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setIsAuthenticated(!!data.user);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session?.user);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   useEffect(() => {
@@ -226,8 +246,15 @@ export default function VerifyIdeaPage() {
         )}
 
         {/* REPORT */}
-        {report && !loading && (
-          <div className="space-y-6">
+        {report && !loading && (() => {
+          const usage = report.usageInfo;
+          const showBlur = !isAuthenticated && usage?.isBlurred;
+          const showBlock = !isAuthenticated && usage?.isBlocked;
+          return (
+            <div className="relative">
+              {showBlock && <AuthGate variant="block" />}
+              {showBlur && !showBlock && <AuthGate variant="blur" />}
+              <div className={(showBlur || showBlock) ? "blur-sm pointer-events-none select-none space-y-6" : "space-y-6"}>
 
             {/* DECISION BANNER */}
             <div className={`bg-gradient-to-r ${decisionColor(report.decision)} rounded-2xl p-6 text-white shadow-md`}>
@@ -400,8 +427,10 @@ export default function VerifyIdeaPage() {
               </div>
             )}
 
-          </div>
-        )}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

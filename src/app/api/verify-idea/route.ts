@@ -388,6 +388,23 @@ async function checkRateLimit(ip: string): Promise<boolean> {
 // ============================================================
 // SAVE VERIFICATION TO DATABASE (non-blocking)
 // ============================================================
+async function countUserVerifications(ip: string): Promise<number> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) return 0;
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { count, error } = await supabase
+      .from('idea_verifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_ip', ip);
+    if (error) return 0;
+    return count || 0;
+  } catch {
+    return 0;
+  }
+}
+
 async function saveVerification(
   ip: string,
   topic: string,
@@ -496,7 +513,21 @@ export async function POST(request: Request) {
     // Save verification asynchronously (do not await — non-blocking)
     saveVerification(ip, topic, englishQuery, score, decision.decision, merged.length, gaps.length).catch(() => {});
 
-    return NextResponse.json(report);
+    // Freemium: compute usage info based on IP history
+    const usageCount = await countUserVerifications(ip);
+    const FREE_LIMIT = 3;
+    const reportWithUsage = {
+      ...report,
+      usageInfo: {
+        count: usageCount + 1,
+        limit: FREE_LIMIT,
+        isFirstCheck: usageCount === 0,
+        isBlurred: usageCount >= 1 && usageCount < FREE_LIMIT,
+        isBlocked: usageCount >= FREE_LIMIT,
+      },
+    };
+
+    return NextResponse.json(reportWithUsage);
   } catch (err: any) {
     return NextResponse.json(
       { error: 'حدث خطأ أثناء الفحص. حاول مرة أخرى.', details: err?.message || String(err) },
