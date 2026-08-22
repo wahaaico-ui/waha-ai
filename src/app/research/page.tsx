@@ -149,6 +149,7 @@ export default function WAHAResearchPage() {
   });
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
   const [titleSaveStatus, setTitleSaveStatus] = useState<'idle' | 'saved'>('idle');
+  const [projectId] = useState(() => typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('projectId'));
   const printableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -265,7 +266,6 @@ export default function WAHAResearchPage() {
       setJourney(nextJourney);
     }
 
-    const projectId = new URLSearchParams(window.location.search).get('projectId');
     const { data: { user } } = await supabase.auth.getUser();
     if (user && projectId) {
       const { error } = await supabase.from('documents').insert({
@@ -441,7 +441,7 @@ export default function WAHAResearchPage() {
                 ))}
               </ol>
             )}
-            {titleSaveStatus === 'saved' && <p className="text-xs text-emerald-300">تم اعتماد العنوان. المرحلة التالية ستكون صياغة مشكلة البحث.</p>}
+            {titleSaveStatus === 'saved' && <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4"><p className="text-xs text-emerald-200">تم اعتماد العنوان. المرحلة التالية هي صياغة مشكلة البحث والفجوة التي ستعالجها.</p><Link href={`/research/problem${projectId ? `?projectId=${projectId}` : ''}`} className="mt-3 inline-flex text-sm font-bold text-emerald-300 hover:text-emerald-200">انتقل إلى مشكلة البحث ←</Link></div>}
           </div>
         )}
 

@@ -6,7 +6,7 @@ import Link from "next/link";
 export const JOURNEY_PHASES = [
   { id: "verify",     labelAr: "التحقق",    labelEn: "Verify",     href: "/verify-idea", enabled: true  },
   { id: "title",      labelAr: "العنوان",   labelEn: "Title",      href: "/research",    enabled: true  },
-  { id: "problem",    labelAr: "المشكلة",   labelEn: "Problem",    href: "#",            enabled: false },
+  { id: "problem",    labelAr: "المشكلة",   labelEn: "Problem",    href: "/research/problem", enabled: true  },
   { id: "objectives", labelAr: "الأهداف",   labelEn: "Objectives", href: "#",            enabled: false },
   { id: "questions",  labelAr: "الأسئلة",   labelEn: "Questions",  href: "#",            enabled: false },
   { id: "method",     labelAr: "المنهجية",  labelEn: "Method",     href: "#",            enabled: false },
