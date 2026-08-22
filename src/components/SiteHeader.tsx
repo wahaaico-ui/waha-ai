@@ -36,17 +36,15 @@ interface UserInfo {
 }
 
 export default function SiteHeader() {
-  const [lang, setLang] = useState<'ar' | 'en'>('ar');
+  const [lang, setLang] = useState<'ar' | 'en'>(() => {
+    if (typeof window === 'undefined') return 'ar';
+    return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ar';
+  });
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem(LANG_KEY) : null;
-    if (stored === 'ar' || stored === 'en') setLang(stored);
-  }, []);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -76,7 +74,10 @@ export default function SiteHeader() {
   const toggleLang = () => {
     const next = lang === 'ar' ? 'en' : 'ar';
     setLang(next);
-    if (typeof window !== 'undefined') localStorage.setItem(LANG_KEY, next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LANG_KEY, next);
+      window.dispatchEvent(new CustomEvent<'ar' | 'en'>('waha-language-change', { detail: next }));
+    }
   };
 
   const handleLogout = async () => {
