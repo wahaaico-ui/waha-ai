@@ -21,7 +21,14 @@ export function isStage(value: unknown): value is WorkflowStage {
 export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | undefined) {
   if (!output) return false;
   switch (stage) {
-    case 'verify': return output.decision === 'proceed';
+    case 'verify': {
+      const coverage = output.searchCoverage;
+      const uniqueStudies = coverage && typeof coverage === 'object'
+        ? Number((coverage as Record<string, unknown>).uniqueStudies || 0)
+        : 0;
+      const paths = Array.isArray(output.researchPaths) ? output.researchPaths : [];
+      return output.decision === 'proceed' && uniqueStudies >= 3 && paths.length >= 3;
+    }
     case 'title': return asText(output.title).length >= 10;
     case 'problem': return asText(output.problemStatement).length >= 20 && asText(output.researchGap).length >= 20;
     case 'objectives': return asList(output.objectives).length >= 2;
@@ -79,7 +86,7 @@ export function stageLabel(stage: WorkflowStage) {
 
 function requirementFor(stage: WorkflowStage) {
   return ({
-    verify: 'لا تُفتح الرحلة إلا بعد قرار مدعوم بالأدلة حول المسار البحثي، لا بعد درجة رقمية وحدها.',
+    verify: 'لا تُفتح الرحلة إلا بعد قرار قابل للمتابعة، وثلاث دراسات فريدة على الأقل، وثلاثة مسارات بحثية مرتبطة بالأدلة؛ الدرجة وحدها لا تكفي.',
     title: 'اعتمد عنواناً واضحاً لا يقل عن 10 أحرف قبل الانتقال.',
     problem: 'اكتب مشكلة بحث وفجوة محتملة، لا تقل كل منهما عن 20 حرفاً.',
     objectives: 'أضف هدفين محددين على الأقل.',

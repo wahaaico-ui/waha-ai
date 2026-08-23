@@ -1,6 +1,11 @@
 import { evaluateGate, nextAllowedStage, stageComplete } from '../research-workflow';
 
-const verified = { decision: 'proceed', topic: 'أثر الذكاء الاصطناعي على التعلم' };
+const verified = {
+  decision: 'proceed',
+  topic: 'أثر الذكاء الاصطناعي على التعلم',
+  searchCoverage: { uniqueStudies: 12 },
+  researchPaths: [{ id: 'local' }, { id: 'recent' }, { id: 'comparison' }],
+};
 const title = { title: 'أثر الذكاء الاصطناعي التوليدي على تعلم طلبة الدراسات العليا' };
 const problem = { problemStatement: 'لا يزال أثر استخدام الذكاء الاصطناعي التوليدي على تعلم طلبة الدراسات العليا غير واضح في السياق المحلي.', researchGap: 'توجد ندرة في الدراسات التي تربط الاستخدام الفعلي للذكاء الاصطناعي بتحسن مهارات التعلم لدى طلبة الدراسات العليا.' };
 
@@ -9,6 +14,12 @@ describe('research workflow quality gates', () => {
     const gate = evaluateGate('problem', { verify: verified });
     expect(gate.status).toBe('locked');
     expect(gate.nextStage).toBe('title');
+  });
+
+  test('does not accept a numeric decision without enough evidence and grounded paths', () => {
+    expect(stageComplete('verify', { decision: 'proceed', acceptanceScore: 85 })).toBe(false);
+    expect(stageComplete('verify', { decision: 'proceed', searchCoverage: { uniqueStudies: 8 }, researchPaths: [{ id: 'one' }] })).toBe(false);
+    expect(stageComplete('verify', verified)).toBe(true);
   });
 
   test('rejects an incomplete research problem without opening the next stage', () => {

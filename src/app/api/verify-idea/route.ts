@@ -1,21 +1,23 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import {
+  buildResearchPaths,
+  buildSearchCoverage,
+  filterRelevantPapers,
+  inferMethodologyDistribution,
+  paperRelevanceScore,
+  type EvidencePaper,
+  type ResearcherContext,
+  type ResearchPath,
+  type SearchCoverage,
+} from '@/lib/research-exploration';
+import { countryName } from '@/lib/researcher-profile';
 
 // ============================================================
 // TYPES
 // ============================================================
-interface Paper {
-  title: string;
-  abstract: string;
-  year: number;
-  citations: number;
-  url: string;
-  source: 'semanticscholar' | 'openalex' | 'both';
-  authors?: string[];
-  venue?: string;
-  countries?: string[];
-}
+type Paper = EvidencePaper;
 
 interface VerifyReport {
   topic: string;
@@ -24,6 +26,7 @@ interface VerifyReport {
   yearDistribution: { year: number; count: number }[];
   geographicDistribution: { region: string; count: number }[];
   methodologyDistribution: { type: string; count: number }[];
+  methodologyNote: string;
   gaps: string[];
   acceptanceScore: number;
   scoreBreakdown: {
@@ -39,6 +42,14 @@ interface VerifyReport {
   alternativeAngles?: string[];
   improvements?: string[];
   topPapers: Paper[];
+  searchCoverage: SearchCoverage;
+  researcherContext: ResearcherContext;
+  contextMatch: {
+    localAffiliationMatches: number;
+    note: string;
+  };
+  researchPaths: ResearchPath[];
+  evidenceLimitations: string[];
 }
 
 // ============================================================
@@ -112,17 +123,32 @@ JSON:`;
   }
 }
 
-// Backward-compatible wrapper (in case anything still references old name)
-// Backward-compatible wrapper — delegates to planSearchQueries
-async function translateToAcademicEnglish(arabicTopic: string): Promise<string> {
-  const plan = await planSearchQueries(arabicTopic);
-  if (!plan.isValid) return 'INVALID';
-  return plan.queries[0] || arabicTopic;
-}
-
 // ============================================================
 // SOURCE FETCHERS (with API keys for higher limits)
 // ============================================================
+type SemanticScholarPaper = {
+  title?: string;
+  abstract?: string;
+  year?: number;
+  citationCount?: number;
+  url?: string;
+  authors?: Array<{ name?: string }>;
+  venue?: string;
+};
+
+type OpenAlexPaper = {
+  title?: string;
+  abstract_inverted_index?: Record<string, number[]>;
+  publication_year?: number;
+  cited_by_count?: number;
+  doi?: string;
+  authorships?: Array<{
+    author?: { display_name?: string };
+    institutions?: Array<{ country_code?: string }>;
+  }>;
+  primary_location?: { source?: { display_name?: string } };
+};
+
 async function fetchSemanticScholar(query: string, limit = 20): Promise<Paper[]> {
   const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=title,abstract,year,citationCount,url,authors,venue`;
   const headers: Record<string, string> = {};
@@ -132,16 +158,16 @@ async function fetchSemanticScholar(query: string, limit = 20): Promise<Paper[]>
   try {
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as { data?: SemanticScholarPaper[] };
     if (!data.data) return [];
-    return data.data.map((p: any) => ({
+    return data.data.map((p) => ({
       title: p.title || '',
       abstract: p.abstract || '',
       year: p.year || 0,
       citations: p.citationCount || 0,
       url: p.url || '',
       source: 'semanticscholar' as const,
-      authors: (p.authors || []).map((a: any) => a.name).filter(Boolean),
+      authors: (p.authors || []).map((author) => author.name).filter((name): name is string => Boolean(name)),
       venue: p.venue || '',
     }));
   } catch {
@@ -156,9 +182,9 @@ async function fetchOpenAlex(query: string, limit = 20): Promise<Paper[]> {
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
     if (!res.ok) return [];
-    const data = await res.json();
+    const data = await res.json() as { results?: OpenAlexPaper[] };
     if (!data.results) return [];
-    return data.results.map((p: any) => {
+    return data.results.map((p) => {
       let abstract = '';
       if (p.abstract_inverted_index) {
         const words: { [pos: number]: string } = {};
@@ -170,9 +196,9 @@ async function fetchOpenAlex(query: string, limit = 20): Promise<Paper[]> {
         abstract = Object.keys(words).sort((a, b) => Number(a) - Number(b)).map(k => words[Number(k)]).join(' ');
       }
       const countries: string[] = [];
-      (p.authorships || []).forEach((a: any) => {
-        (a.institutions || []).forEach((inst: any) => {
-          if (inst.country_code) countries.push(inst.country_code);
+      (p.authorships || []).forEach((authorship) => {
+        (authorship.institutions || []).forEach((institution) => {
+          if (institution.country_code) countries.push(institution.country_code);
         });
       });
       return {
@@ -182,7 +208,7 @@ async function fetchOpenAlex(query: string, limit = 20): Promise<Paper[]> {
         citations: p.cited_by_count || 0,
         url: p.doi ? `https://doi.org/${p.doi.replace('https://doi.org/', '')}` : '',
         source: 'openalex' as const,
-        authors: (p.authorships || []).map((a: any) => a.author?.display_name).filter(Boolean),
+        authors: (p.authorships || []).map((authorship) => authorship.author?.display_name).filter((name): name is string => Boolean(name)),
         venue: p.primary_location?.source?.display_name || '',
         countries: [...new Set(countries)],
       };
@@ -208,7 +234,16 @@ function mergePapers(...lists: Paper[][]): Paper[] {
       if (!key) continue;
       if (seen.has(key)) {
         const existing = seen.get(key)!;
-        seen.set(key, { ...existing, source: 'both', countries: p.countries || existing.countries });
+        seen.set(key, {
+          ...existing,
+          abstract: existing.abstract || p.abstract,
+          citations: Math.max(existing.citations, p.citations),
+          url: existing.url || p.url,
+          authors: existing.authors?.length ? existing.authors : p.authors,
+          venue: existing.venue || p.venue,
+          source: existing.source === p.source ? existing.source : 'both',
+          countries: [...new Set([...(existing.countries || []), ...(p.countries || [])])],
+        });
       } else {
         seen.set(key, p);
       }
@@ -226,6 +261,7 @@ function computeScore(papers: Paper[], currentYear: number): {
   gaps: string[];
   yearDist: { year: number; count: number }[];
   geoDist: { region: string; count: number }[];
+  methodDist: { type: string; count: number }[];
 } {
   const gaps: string[] = [];
 
@@ -263,10 +299,10 @@ function computeScore(papers: Paper[], currentYear: number): {
 
   if (papers.length === 0) {
     breakdown.gapExists = 25;
-    gaps.push('لا توجد دراسات مباشرة في هذا الموضوع — فرصة بحثية واسعة، لكن تحقق أن الفكرة قابلة للبحث فعلاً');
+    gaps.push('لم تظهر دراسات مباشرة ضمن نطاق البحث الحالي؛ وسّع الاستعلام والمصادر قبل اعتبار ذلك فجوة بحثية');
   } else if (papers.length < 10) {
     breakdown.gapExists = 22;
-    gaps.push(`عدد محدود من الدراسات (${papers.length}) — فرصة جيدة لسدّ فجوة`);
+    gaps.push(`ظهر عدد محدود من الدراسات ذات الصلة (${papers.length})؛ هذا مؤشر يحتاج مراجعة النصوص الكاملة قبل وصفه كفجوة`);
   } else if (papers.length < 30) {
     breakdown.gapExists = 15;
   } else if (papers.length < 100) {
@@ -285,15 +321,8 @@ function computeScore(papers: Paper[], currentYear: number): {
     gaps.push('لا توجد دراسات حديثة (آخر 3 سنوات) — قد يكون الموضوع خامداً أو تحتاج مصادر أوسع');
   }
 
-  const abstracts = papers.map(p => (p.abstract || '').toLowerCase()).join(' ');
-  const methodKeywords = {
-    quantitative: /quantitative|survey|statistic|regression|correlation|كمي|استبانة|إحصائ/,
-    qualitative: /qualitative|interview|ethnograph|case study|نوعي|مقابلة|دراسة حالة/,
-    mixed: /mixed method|mixed-method|مختلط/,
-    experimental: /experiment|trial|randomized|تجريب|تجربة/,
-  };
-  let methodsFound = 0;
-  Object.values(methodKeywords).forEach(regex => { if (regex.test(abstracts)) methodsFound++; });
+  const methodDist = inferMethodologyDistribution(papers);
+  const methodsFound = methodDist.length;
   breakdown.methodDiversity = Math.min(20, methodsFound * 5);
   if (methodsFound <= 1 && papers.length > 5) {
     gaps.push('غالبية الدراسات تستخدم منهجية واحدة — فرصة لمنهجية مختلفة');
@@ -305,7 +334,7 @@ function computeScore(papers: Paper[], currentYear: number): {
   else breakdown.geoDiversity = 2;
   if (arabRatio < 0.1 && papers.length > 5) {
     breakdown.geoDiversity = Math.min(15, breakdown.geoDiversity + 5);
-    gaps.push('تمثيل ضعيف للسياق العربي — فرصة قوية للباحث العربي');
+    gaps.push('تمثيل ضعيف للسياق العربي في بيانات الانتماء المؤسسي؛ قد يستحق هذا السياق بحثاً أوسع');
   } else if (arabRatio < 0.2) {
     breakdown.geoDiversity = Math.min(15, breakdown.geoDiversity + 3);
     gaps.push('تمثيل محدود للسياق العربي');
@@ -324,13 +353,13 @@ function computeScore(papers: Paper[], currentYear: number): {
 
   const score = Object.values(breakdown).reduce((a, b) => a + b, 0);
 
-  return { score, breakdown, gaps, yearDist, geoDist };
+  return { score, breakdown, gaps, yearDist, geoDist, methodDist };
 }
 
 // ============================================================
 // DECISION LOGIC
 // ============================================================
-function makeDecision(score: number, gaps: string[]): {
+function makeDecision(score: number, gaps: string[], evidenceCount: number): {
   decision: VerifyReport['decision'];
   message: string;
   alternatives?: string[];
@@ -347,12 +376,14 @@ function makeDecision(score: number, gaps: string[]): {
       ],
     };
   }
-  if (score < 60) {
+  if (score < 60 || evidenceCount < 3) {
     return {
       decision: 'improve',
-      message: 'الفكرة تحمل إمكانية، لكنها تحتاج تحسينات قبل الاعتماد. طبّق المقترحات ثم أعد الفحص.',
+      message: evidenceCount < 3
+        ? 'لا توجد أدلة كافية في نطاق البحث الحالي لفتح المرحلة التالية. حسّن صياغة الفكرة أو وسّع البحث ثم أعد الفحص.'
+        : 'الفكرة تحمل إمكانية، لكنها تحتاج تحسينات قبل الاعتماد. طبّق المقترحات ثم أعد الفحص.',
       improvements: [
-        gaps[0] || 'راجع الفجوات المكتشفة أعلاه وحاول تضييق النطاق',
+        gaps[0] || 'راجع مؤشرات الفجوة أعلاه وحاول تضييق النطاق',
         'حدّد سياقاً جغرافياً أو منهجياً واضحاً يميّز فكرتك',
         'ابحث عن متغير وسيط أو معدّل يعطي الفكرة عمقاً إضافياً',
       ],
@@ -360,7 +391,7 @@ function makeDecision(score: number, gaps: string[]): {
   }
   return {
     decision: 'proceed',
-    message: 'الفكرة قوية وتستحق الاستثمار. يمكنك الانتقال إلى صياغة العنوان.',
+    message: 'الأدلة الأولية كافية لفتح مرحلة صياغة العنوان، مع بقاء مؤشرات الفجوة بحاجة إلى مراجعة أعمق.',
   };
 }
 
@@ -514,6 +545,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' }, { status: 400 });
     }
 
+    // Resolve the cookie-bound identity once. The client cannot submit or
+    // override this profile context.
+    const access = await requireAuthenticatedUser();
+    const metadata = access?.user.user_metadata || {};
+    const asMetadataText = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
+    const researcherCountryCode = asMetadataText(metadata.country)?.toUpperCase() || null;
+    const researcherContext: ResearcherContext = {
+      countryCode: researcherCountryCode,
+      countryName: countryName(researcherCountryCode),
+      specialty: asMetadataText(metadata.specialty),
+      university: asMetadataText(metadata.university),
+      level: asMetadataText(metadata.level),
+    };
+
     // Smart query planning via Gemini: validity gate + multi-scope queries
     const plan = await planSearchQueries(topic);
     if (!plan.isValid) {
@@ -528,7 +573,9 @@ export async function POST(request: Request) {
     // Build query set: original topic + all English variants from the plan
     const englishQuery: string | undefined = plan.queries[0];
     const queries: string[] = [topic];
-    for (const q of plan.queries) {
+    const topicWordCount = topic.split(/\s+/).filter(Boolean).length;
+    const plannedQueries = topicWordCount >= 5 ? plan.queries.slice(0, 2) : plan.queries;
+    for (const q of plannedQueries) {
       if (q && q !== topic && !queries.includes(q)) queries.push(q);
     }
 
@@ -539,16 +586,17 @@ export async function POST(request: Request) {
       fetchPromises.push(fetchOpenAlex(q, 20));
     }
     const results = await Promise.all(fetchPromises);
-    const merged = mergePapers(...results);
+    const mergedCandidates = mergePapers(...results);
+    const merged = filterRelevantPapers(mergedCandidates, queries);
 
     const currentYear = new Date().getFullYear();
-    const { score, breakdown, gaps, yearDist, geoDist } = computeScore(merged, currentYear);
-    const decision = makeDecision(score, gaps);
+    const { score, breakdown, gaps, yearDist, geoDist, methodDist } = computeScore(merged, currentYear);
+    const decision = makeDecision(score, gaps, merged.length);
 
     const topPapers = [...merged]
       .sort((a, b) => {
-        const scoreA = Math.log1p(a.citations) * 10 + Math.max(0, 10 - (currentYear - a.year) * 0.5) + (a.source === 'both' ? 5 : 0);
-        const scoreB = Math.log1p(b.citations) * 10 + Math.max(0, 10 - (currentYear - b.year) * 0.5) + (b.source === 'both' ? 5 : 0);
+        const scoreA = paperRelevanceScore(a, queries) * 100 + Math.log1p(a.citations) * 5 + Math.max(0, 10 - (currentYear - a.year) * 0.5) + (a.source === 'both' ? 5 : 0);
+        const scoreB = paperRelevanceScore(b, queries) * 100 + Math.log1p(b.citations) * 5 + Math.max(0, 10 - (currentYear - b.year) * 0.5) + (b.source === 'both' ? 5 : 0);
         return scoreB - scoreA;
       })
       .slice(0, 5);
@@ -559,7 +607,8 @@ export async function POST(request: Request) {
       totalPapers: merged.length,
       yearDistribution: yearDist.slice(0, 10),
       geographicDistribution: geoDist.slice(0, 10),
-      methodologyDistribution: [],
+      methodologyDistribution: methodDist,
+      methodologyNote: 'تصنيف استدلالي مبني على كلمات ظاهرة في الملخصات المتاحة؛ يجب مراجعة قسم المنهجية في الدراسة الأصلية قبل الاعتماد.',
       gaps,
       acceptanceScore: score,
       scoreBreakdown: breakdown,
@@ -568,11 +617,24 @@ export async function POST(request: Request) {
       alternativeAngles: decision.alternatives,
       improvements: decision.improvements,
       topPapers,
+      searchCoverage: buildSearchCoverage(merged, queries.length, new Date().toISOString(), mergedCandidates.length),
+      researcherContext,
+      contextMatch: {
+        localAffiliationMatches: researcherCountryCode
+          ? merged.filter((paper) => (paper.countries || []).includes(researcherCountryCode)).length
+          : 0,
+        note: researcherCountryCode
+          ? 'المطابقة الجغرافية مبنية على بلد مؤسسة المؤلف في بيانات OpenAlex، ولا تعني بالضرورة أن الدراسة أُجريت ميدانياً في البلد نفسه.'
+          : 'لم تُسجّل دولة في ملف الباحث؛ لذلك عُرضت التغطية العالمية دون تخصيص محلي.',
+      },
+      researchPaths: buildResearchPaths(topic, merged, researcherContext, currentYear),
+      evidenceLimitations: [
+        'البحث الحالي يغطي Semantic Scholar وOpenAlex فقط، وبحد أقصى محدد من النتائج لكل استعلام.',
+        `استُبعدت ${Math.max(0, mergedCandidates.length - merged.length)} نتيجة ضعيفة الصلة آلياً؛ قد تحتاج المراجعة اليدوية إلى استعادة نتيجة أو استبعاد أخرى.`,
+        'الدولة مأخوذة من الانتماء المؤسسي للمؤلف عند توفره، وليست موقع مجتمع الدراسة بالضرورة.',
+        'مؤشرات الفجوة والمنهجية استنتاجات أولية تحتاج مراجعة النصوص الكاملة قبل اعتماد القرار النهائي.',
+      ],
     };
-
-    // Resolve the session once. The same server-verified identity is used for
-    // project persistence and for the verification-history ownership field.
-    const access = await requireAuthenticatedUser();
 
     // Save verification asynchronously (do not await — non-blocking). Guests
     // retain the anonymous freemium flow, while authenticated records receive
@@ -609,9 +671,9 @@ export async function POST(request: Request) {
     };
 
     return NextResponse.json(reportWithUsage);
-  } catch (err: any) {
+  } catch {
     return NextResponse.json(
-      { error: 'حدث خطأ أثناء الفحص. حاول مرة أخرى.', details: err?.message || String(err) },
+      { error: 'حدث خطأ أثناء الفحص. حاول مرة أخرى.' },
       { status: 500 }
     );
   }

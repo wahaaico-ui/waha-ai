@@ -6,6 +6,7 @@ import JourneyProgress from '@/components/JourneyProgress';
 import { supabase } from '@/lib/supabase/client';
 import AuthGate from '@/components/AuthGate';
 import { saveJourneyStage } from '@/lib/research-journey';
+import type { ResearchPath, ResearcherContext, SearchCoverage } from '@/lib/research-exploration';
 
 // ============================================================
 // TYPES (mirror API response)
@@ -27,6 +28,7 @@ interface Paper {
   source: 'semanticscholar' | 'openalex' | 'both';
   authors?: string[];
   venue?: string;
+  countries?: string[];
 }
 
 interface VerifyReport {
@@ -34,6 +36,8 @@ interface VerifyReport {
   totalPapers: number;
   yearDistribution: { year: number; count: number }[];
   geographicDistribution: { region: string; count: number }[];
+  methodologyDistribution: { type: string; count: number }[];
+  methodologyNote: string;
   gaps: string[];
   acceptanceScore: number;
   scoreBreakdown: {
@@ -49,6 +53,14 @@ interface VerifyReport {
   alternativeAngles?: string[];
   improvements?: string[];
   topPapers: Paper[];
+  searchCoverage: SearchCoverage;
+  researcherContext: ResearcherContext;
+  contextMatch: {
+    localAffiliationMatches: number;
+    note: string;
+  };
+  researchPaths: ResearchPath[];
+  evidenceLimitations: string[];
   usageInfo?: {
     count: number;
     limit: number;
@@ -86,7 +98,12 @@ const COUNTRY_NAMES: { [code: string]: string } = {
 };
 
 function countryName(code: string): string {
-  return COUNTRY_NAMES[code] || code;
+  if (COUNTRY_NAMES[code]) return COUNTRY_NAMES[code];
+  try {
+    return new Intl.DisplayNames(['ar'], { type: 'region' }).of(code.toUpperCase()) || code;
+  } catch {
+    return code;
+  }
 }
 
 // ============================================================
@@ -108,6 +125,15 @@ function scoreBarColor(score: number): string {
   if (score >= 60) return 'bg-emerald-500';
   if (score >= 30) return 'bg-amber-500';
   return 'bg-rose-500';
+}
+
+function EvidenceBadge({ kind }: { kind: 'verified' | 'inference' | 'suggestion' }) {
+  const config = {
+    verified: { label: 'موثق من النتائج', className: 'border-blue-200 bg-blue-50 text-blue-700' },
+    inference: { label: 'استنتاج أولي', className: 'border-amber-200 bg-amber-50 text-amber-700' },
+    suggestion: { label: 'اقتراح للتفكير', className: 'border-violet-200 bg-violet-50 text-violet-700' },
+  }[kind];
+  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${config.className}`}>{config.label}</span>;
 }
 
 // ============================================================
@@ -191,6 +217,11 @@ export default function VerifyIdeaPage() {
         acceptanceScore: verification.acceptanceScore,
         gaps: verification.gaps,
         sources: verification.topPapers,
+        searchCoverage: verification.searchCoverage,
+        researcherContext: verification.researcherContext,
+        contextMatch: verification.contextMatch,
+        researchPaths: verification.researchPaths,
+        evidenceLimitations: verification.evidenceLimitations,
       });
       setProjectId(createdProject.id);
       setSaveStatus('cloud');
@@ -326,6 +357,7 @@ export default function VerifyIdeaPage() {
           const usage = report.usageInfo;
           const showBlur = !isAuthenticated && usage?.isBlurred;
           const showBlock = !isAuthenticated && usage?.isBlocked;
+          const searchedAt = new Date(report.searchCoverage.searchedAt).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' });
           return (
             <div className="relative">
               {showBlock && <AuthGate variant="block" />}
@@ -336,18 +368,64 @@ export default function VerifyIdeaPage() {
             <div className={`bg-gradient-to-r ${decisionColor(report.decision)} rounded-2xl p-6 text-white shadow-md`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-3xl font-bold">{report.acceptanceScore}<span className="text-xl opacity-70">/100</span></div>
-                <div className="text-sm opacity-80">مؤشر قابلية تطوير المسار</div>
+                <div className="text-sm opacity-80">مؤشر استدلالي لقابلية تطوير المسار</div>
               </div>
               <div className="text-lg font-semibold mb-2">{decisionLabel(report.decision)}</div>
               <div className="text-sm opacity-95 leading-relaxed">{report.decisionMessage}</div>
             </div>
 
+            {/* SEARCH COVERAGE — factual and bounded */}
+            <div className="rounded-2xl border border-blue-200 bg-white p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-bold text-slate-900">نطاق البحث الذي نُفّذ</h3>
+                  <p className="mt-1 text-xs text-slate-500">آخر بحث: {searchedAt}</p>
+                </div>
+                <EvidenceBadge kind="verified" />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-xl bg-slate-50 p-3"><div className="text-2xl font-black text-slate-900">{report.searchCoverage.queryCount}</div><div className="mt-1 text-xs text-slate-600">صياغات بحثية استُخدمت</div></div>
+                <div className="rounded-xl bg-slate-50 p-3"><div className="text-2xl font-black text-slate-900">{report.searchCoverage.uniqueStudies}</div><div className="mt-1 text-xs text-slate-600">نتيجة فريدة بعد إزالة التكرار</div></div>
+                {report.searchCoverage.sources.map((source) => (
+                  <div key={source.id} className="rounded-xl bg-blue-50 p-3"><div className="text-2xl font-black text-blue-700">{source.uniqueMatches}</div><div className="mt-1 text-xs text-blue-800">ظهرت في {source.label}</div></div>
+                ))}
+              </div>
+              {report.searchCoverage.excludedByRelevance > 0 && <p className="mt-3 text-xs text-slate-500">فُحصت {report.searchCoverage.candidateResults} نتيجة مرشحة، واستُبعدت {report.searchCoverage.excludedByRelevance} نتيجة ضعيفة الصلة قبل بناء التقرير.</p>}
+              <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-6 text-slate-600">{report.searchCoverage.scopeNote}</p>
+            </div>
+
+            {/* RESEARCHER CONTEXT */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h3 className="font-bold text-slate-900">مدى قرب النتائج من سياقك البحثي</h3>
+                <EvidenceBadge kind="inference" />
+              </div>
+              {report.researcherContext.countryName ? (
+                <div className="grid gap-4 md:grid-cols-[180px_1fr]">
+                  <div className="rounded-xl bg-blue-50 p-4 text-center">
+                    <div className="text-3xl font-black text-blue-700">{report.contextMatch.localAffiliationMatches}</div>
+                    <div className="mt-1 text-xs leading-5 text-blue-800">نتيجة مرتبطة بمؤلفين من مؤسسات في {report.researcherContext.countryName}</div>
+                  </div>
+                  <div className="space-y-2 text-sm leading-7 text-slate-700">
+                    <p><strong>الدولة:</strong> {report.researcherContext.countryName}</p>
+                    {report.researcherContext.specialty && <p><strong>التخصص:</strong> {report.researcherContext.specialty}</p>}
+                    {report.researcherContext.university && <p><strong>المؤسسة:</strong> {report.researcherContext.university}</p>}
+                    <p className="text-xs text-slate-500">{report.contextMatch.note}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">
+                  {report.contextMatch.note} أكمل الدولة والتخصص في ملفك لاحقاً لتحصل على قراءة أقرب إلى بيئتك البحثية.
+                </div>
+              )}
+            </div>
+
             {/* SCORE BREAKDOWN */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <h3 className="font-bold text-slate-800 mb-4">تفصيل مؤشر المسار (حساب شفاف)</h3>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-slate-800">تفصيل مؤشر المسار (حساب شفاف)</h3><EvidenceBadge kind="inference" /></div>
               <div className="space-y-3">
                 {[
-                  { label: 'وجود فجوة معرفية حقيقية', value: report.scoreBreakdown.gapExists, max: 25 },
+                  { label: 'مؤشر أولي على فجوة محتملة', value: report.scoreBreakdown.gapExists, max: 25 },
                   { label: 'حداثة الاهتمام البحثي', value: report.scoreBreakdown.recency, max: 20 },
                   { label: 'تنوع المنهجيات المستخدمة', value: report.scoreBreakdown.methodDiversity, max: 20 },
                   { label: 'تنوع السياقات الجغرافية', value: report.scoreBreakdown.geoDiversity, max: 15 },
@@ -365,28 +443,34 @@ export default function VerifyIdeaPage() {
                   </div>
                 ))}
               </div>
+              {report.methodologyDistribution.length > 0 && (
+                <div className="mt-5 border-t border-slate-200 pt-4">
+                  <div className="flex flex-wrap gap-2">{report.methodologyDistribution.map((method) => <span key={method.type} className="rounded-lg bg-slate-100 px-3 py-1.5 text-xs text-slate-700">{method.type}: {method.count}</span>)}</div>
+                  <p className="mt-3 text-xs leading-6 text-slate-500">{report.methodologyNote}</p>
+                </div>
+              )}
             </div>
 
             {/* STATS OVERVIEW */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
                 <div className="text-3xl font-bold text-teal-600">{report.totalPapers}</div>
-                <div className="text-sm text-slate-600 mt-1">دراسة موجودة في المصادر</div>
+                <div className="text-sm text-slate-600 mt-1">نتيجة فريدة في نطاق البحث الحالي</div>
               </div>
               <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
                 <div className="text-3xl font-bold text-blue-600">{report.geographicDistribution.length}</div>
-                <div className="text-sm text-slate-600 mt-1">دولة تناولت هذا الموضوع</div>
+                <div className="text-sm text-slate-600 mt-1">دولة ظهرت في انتماءات المؤلفين</div>
               </div>
               <div className="bg-white rounded-2xl border border-slate-200 p-5 text-center">
                 <div className="text-3xl font-bold text-purple-600">{report.gaps.length}</div>
-                <div className="text-sm text-slate-600 mt-1">فجوة تم اكتشافها</div>
+                <div className="text-sm text-slate-600 mt-1">مؤشر يحتاج تحققاً أعمق</div>
               </div>
             </div>
 
             {/* GAPS */}
             {report.gaps.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                <h3 className="font-bold text-slate-800 mb-4">الفجوات المكتشفة</h3>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-slate-800">مؤشرات فجوة محتملة</h3><EvidenceBadge kind="inference" /></div>
                 <ul className="space-y-2">
                   {report.gaps.map((g, i) => (
                     <li key={i} className="flex gap-3 text-slate-700">
@@ -401,7 +485,7 @@ export default function VerifyIdeaPage() {
             {/* ALTERNATIVE ANGLES (if rejected) */}
             {report.alternativeAngles && report.alternativeAngles.length > 0 && (
               <div className="bg-rose-50 border-2 border-rose-200 rounded-2xl p-6">
-                <h3 className="font-bold text-rose-800 mb-4">زوايا بديلة مقترحة</h3>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-rose-800">زوايا بديلة مقترحة</h3><EvidenceBadge kind="suggestion" /></div>
                 <ol className="space-y-3">
                   {report.alternativeAngles.map((a, i) => (
                     <li key={i} className="flex gap-3">
@@ -416,7 +500,7 @@ export default function VerifyIdeaPage() {
             {/* IMPROVEMENTS (if middle score) */}
             {report.improvements && report.improvements.length > 0 && (
               <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6">
-                <h3 className="font-bold text-amber-800 mb-4">تحسينات مطلوبة لرفع النسبة</h3>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-amber-800">تحسينات مقترحة قبل الاعتماد</h3><EvidenceBadge kind="suggestion" /></div>
                 <ol className="space-y-3">
                   {report.improvements.map((imp, i) => (
                     <li key={i} className="flex gap-3">
@@ -425,6 +509,36 @@ export default function VerifyIdeaPage() {
                     </li>
                   ))}
                 </ol>
+              </div>
+            )}
+
+            {/* GROUNDED RESEARCH PATHS */}
+            {report.researchPaths.length > 0 && (
+              <div className="rounded-2xl border border-violet-200 bg-white p-6">
+                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                  <div><h3 className="font-bold text-slate-900">مسارات بحثية قابلة للمناقشة</h3><p className="mt-1 text-xs text-slate-500">ليست عناوين نهائية؛ اختر مساراً بعد مراجعة المراجع وسياقك مع المشرف.</p></div>
+                  <EvidenceBadge kind="suggestion" />
+                </div>
+                <div className="space-y-4">
+                  {report.researchPaths.map((path, index) => (
+                    <article key={path.id} className="rounded-xl border border-slate-200 p-4">
+                      <div className="flex gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-violet-600 text-sm font-black text-white">{index + 1}</span><div><h4 className="font-bold leading-7 text-slate-900">{path.title}</h4><p className="mt-1 text-sm leading-7 text-slate-600">{path.rationale}</p></div></div>
+                      {path.supportingReferences.length > 0 && (
+                        <div className="mt-3 border-t border-slate-100 pt-3">
+                          <div className="mb-2 text-xs font-bold text-slate-500">مراجع مرتبطة بهذا المسار</div>
+                          <ul className="space-y-1.5 text-xs leading-5 text-slate-600">
+                            {path.supportingReferences.map((reference, referenceIndex) => (
+                              <li key={`${path.id}-${reference.title}-${referenceIndex}`}>
+                                {reference.url ? <a href={reference.url} target="_blank" rel="noopener noreferrer" className="text-blue-700 hover:underline">{reference.title}</a> : reference.title}
+                                {reference.year > 0 && <span> ({reference.year})</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -437,7 +551,7 @@ export default function VerifyIdeaPage() {
                   </div>
                   <p className={`mt-1 text-sm leading-6 ${report.decision === 'proceed' ? 'text-emerald-700' : 'text-amber-800'}`}>
                     {report.decision === 'proceed'
-                      ? 'تم توثيق الفكرة والفجوة. يمكنك الآن الانتقال إلى صياغة عنوان متسق معها.'
+                      ? 'تم توثيق نتائج الاستكشاف ومؤشرات الفجوة الأولية. يمكنك الآن صياغة عنوان متسق معها، ثم مراجعته قبل الاعتماد.'
                       : 'لا ننتقل إلى العنوان أو الأدبيات قبل معالجة الملاحظات أعلاه وإعادة فحص الفكرة.'}
                   </p>
                   <p className="mt-2 text-xs text-slate-500">
@@ -478,7 +592,7 @@ export default function VerifyIdeaPage() {
             {/* GEOGRAPHIC DISTRIBUTION */}
             {report.geographicDistribution.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                <h3 className="font-bold text-slate-800 mb-4">التوزيع الجغرافي</h3>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-bold text-slate-800">التوزيع الجغرافي لانتماءات المؤلفين</h3><p className="mt-1 text-xs text-slate-500">لا يُعامل تلقائياً كموقع تنفيذ الدراسة الميدانية.</p></div><EvidenceBadge kind="verified" /></div>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {report.geographicDistribution.map((g) => (
                     <div key={g.region} className="flex items-center justify-between px-3 py-2 bg-slate-50 rounded-lg">
@@ -493,7 +607,7 @@ export default function VerifyIdeaPage() {
             {/* TOP PAPERS */}
             {report.topPapers.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6">
-                <h3 className="font-bold text-slate-800 mb-4">أهم الدراسات المرجعية (5 دراسات)</h3>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-slate-800">أهم الدراسات المرجعية في النتائج الحالية</h3><EvidenceBadge kind="verified" /></div>
                 <div className="space-y-3">
                   {report.topPapers.map((p, i) => (
                     <div key={i} className="border-r-4 border-teal-500 pr-4 py-2">
@@ -502,6 +616,7 @@ export default function VerifyIdeaPage() {
                           {p.source === 'both' ? 'مصدران' : p.source === 'openalex' ? 'OpenAlex' : 'Semantic Scholar'}
                           {p.year > 0 && ` · ${p.year}`}
                           {p.citations > 0 && ` · ${p.citations} استشهاد`}
+                          {p.countries && p.countries.length > 0 && ` · ${p.countries.slice(0, 2).map(countryName).join('، ')}`}
                         </div>
                       </div>
                       <div className="text-slate-800 leading-relaxed mb-1">{p.title}</div>
@@ -518,6 +633,13 @@ export default function VerifyIdeaPage() {
                 </div>
               </div>
             )}
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <h3 className="font-bold text-slate-800">حدود يجب معرفتها قبل اعتماد القرار</h3>
+              <ul className="mt-3 space-y-2 text-xs leading-6 text-slate-600">
+                {report.evidenceLimitations.map((limitation) => <li key={limitation} className="flex gap-2"><span className="text-slate-400">•</span><span>{limitation}</span></li>)}
+              </ul>
+            </div>
 
               </div>
             </div>
