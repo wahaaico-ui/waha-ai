@@ -12,7 +12,7 @@ export type QualityGate = {
 };
 
 const asText = (value: unknown) => typeof value === 'string' ? value.trim() : '';
-const asList = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length >= 5) : [];
+const asList = (value: unknown, minimumLength = 5) => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length >= minimumLength) : [];
 
 export function isStage(value: unknown): value is WorkflowStage {
   return typeof value === 'string' && (WORKFLOW_STAGES as readonly string[]).includes(value);
@@ -31,8 +31,8 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
     }
     case 'title': return asText(output.title).length >= 10;
     case 'problem': return asText(output.problemStatement).length >= 30 && asText(output.researchGap).length >= 20 && asText(output.researcherNote).length >= 20;
-    case 'objectives': return asList(output.objectives).length >= 2;
-    case 'questions': return asList(output.questions).length >= 2;
+    case 'objectives': return asList(output.objectives, 20).length >= 2;
+    case 'questions': return asList(output.questions, 15).length >= 2;
     case 'methodology': return ['approach', 'population', 'sample', 'instrument'].every((key) => asText(output[key]).length >= 3);
     case 'literature': return Array.isArray(output.papers) && output.papers.length >= 3;
     case 'analysis': return asText(output.introduction).length >= 20 && asText(output.conclusion).length >= 20;
@@ -59,8 +59,8 @@ export function evaluateGate(stage: WorkflowStage, outputs: Partial<Record<Workf
 
 function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<WorkflowStage, WorkflowOutput>>) {
   if (stage === 'questions') {
-    const objectives = asList(outputs.objectives?.objectives);
-    const questions = asList(outputs.questions?.questions);
+    const objectives = asList(outputs.objectives?.objectives, 20);
+    const questions = asList(outputs.questions?.questions, 15);
     if (objectives.length !== questions.length) return 'يجب أن يقابل كل هدف سؤال بحث واحد واضح على الأقل.';
   }
   if (stage === 'methodology') {
@@ -89,8 +89,8 @@ function requirementFor(stage: WorkflowStage) {
     verify: 'لا تُفتح الرحلة إلا بعد قرار قابل للمتابعة، وثلاث دراسات فريدة على الأقل، وثلاثة مسارات بحثية مرتبطة بالأدلة؛ الدرجة وحدها لا تكفي.',
     title: 'اعتمد عنواناً واضحاً لا يقل عن 10 أحرف قبل الانتقال.',
     problem: 'اكتب وصفاً للمشكلة (30 حرفاً)، وفجوة محتملة (20 حرفاً)، وملاحظة بصوتك تشرح أهمية الاختيار (20 حرفاً) قبل الانتقال.',
-    objectives: 'أضف هدفين محددين على الأقل.',
-    questions: 'أضف سؤالين بحثيين واضحين على الأقل.',
+    objectives: 'أضف هدفين محددين على الأقل، لا يقل كل منهما عن 20 حرفاً.',
+    questions: 'أضف سؤالاً واضحاً لكل هدف، لا يقل كل سؤال عن 15 حرفاً.',
     methodology: 'حدد المنهج ومجتمع الدراسة والعينة والأداة.',
     literature: 'اختر ثلاث دراسات موثقة على الأقل.',
     analysis: 'أضف تأطيراً وخلاصة مبنيين على الدراسات المختارة.',

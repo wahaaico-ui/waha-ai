@@ -41,7 +41,7 @@ describe('research workflow quality gates', () => {
 
   test('requires evidence before literature is considered complete', () => {
     expect(stageComplete('literature', { papers: [{ id: '1' }, { id: '2' }] })).toBe(false);
-    expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['هدف أول واضح', 'هدف ثان واضح'] }, questions: { questions: ['سؤال بحثي أول واضح', 'سؤال بحثي ثان واضح'] }, methodology: { approach: 'quantitative', population: 'طلبة الدراسات العليا', sample: 'عينة طبقية', instrument: 'استبانة محكمة' }, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
+    expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['قياس أثر التقنية على تحصيل طلبة الدراسات العليا', 'تحديد العوامل المؤثرة في تبني التقنية لدى الباحثين'] }, questions: { questions: ['ما أثر التقنية على تحصيل طلبة الدراسات العليا؟', 'ما العوامل المؤثرة في تبني التقنية لدى الباحثين؟'] }, methodology: { approach: 'quantitative', population: 'طلبة الدراسات العليا', sample: 'عينة طبقية', instrument: 'استبانة محكمة' }, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
   });
 
   test('flags an incompatible qualitative method and questionnaire', () => {
