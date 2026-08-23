@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 // ============================================================
 // TYPES
@@ -434,6 +435,61 @@ async function saveVerification(
 }
 
 // ============================================================
+// AUTHENTICATED PROJECT PERSISTENCE
+// ============================================================
+// A visitor may explore anonymously. When an authenticated researcher gets a
+// successful response, however, their work must have a server-side project
+// before they continue into the research journey. This uses the cookie-bound
+// Supabase client, so RLS enforces that every row belongs to that user.
+async function persistAuthenticatedVerification(report: VerifyReport): Promise<string | null> {
+  const access = await requireAuthenticatedUser();
+  if (!access) return null;
+
+  const { supabase, user } = access;
+  const { data: existingProject, error: existingProjectError } = await supabase
+    .from('projects')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('title', report.topic)
+    .eq('status', 'draft')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingProjectError) return null;
+
+  const { data: project, error: projectError } = existingProject
+    ? { data: existingProject, error: null }
+    : await supabase
+      .from('projects')
+      .insert({ user_id: user.id, title: report.topic, status: 'draft' })
+      .select('id')
+      .single();
+
+  if (projectError || !project) return null;
+
+  const { data: latestDocument, error: latestDocumentError } = await supabase
+    .from('documents')
+    .select('version')
+    .eq('project_id', project.id)
+    .eq('type', 'idea_verification')
+    .order('version', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (latestDocumentError) return null;
+
+  const { error: documentError } = await supabase.from('documents').insert({
+    project_id: project.id,
+    type: 'idea_verification',
+    content: JSON.stringify(report),
+    version: (latestDocument?.version || 0) + 1,
+  });
+
+  return documentError ? null : project.id;
+}
+
+// ============================================================
 // MAIN HANDLER
 // ============================================================
 export async function POST(request: Request) {
@@ -513,6 +569,11 @@ export async function POST(request: Request) {
     // Save verification asynchronously (do not await — non-blocking)
     saveVerification(ip, topic, englishQuery, score, decision.decision, merged.length, gaps.length).catch(() => {});
 
+    // Persist an authenticated researcher's output before returning the next
+    // journey link. Anonymous visitors deliberately keep the existing local
+    // exploration flow and never receive a project id.
+    const projectId = await persistAuthenticatedVerification(report);
+
     // Freemium: compute usage info based on IP history
     const usageCount = await countUserVerifications(ip);
     const FREE_LIMIT = 3;
@@ -524,6 +585,7 @@ export async function POST(request: Request) {
         isFirstCheck: usageCount === 0,
         isBlurred: usageCount >= 1 && usageCount < FREE_LIMIT,
         isBlocked: usageCount >= FREE_LIMIT,
+        projectId,
       },
     };
 

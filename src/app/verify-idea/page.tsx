@@ -55,6 +55,7 @@ interface VerifyReport {
     isFirstCheck: boolean;
     isBlurred: boolean;
     isBlocked: boolean;
+    projectId: string | null;
   };
 }
 
@@ -142,7 +143,7 @@ export default function VerifyIdeaPage() {
       .catch(() => {});
   }, [report]); // Refresh after each new verification
 
-  const saveJourney = async (verification: VerifyReport) => {
+  const saveJourney = async (verification: VerifyReport, serverProjectId: string | null) => {
     const snapshot: JourneySnapshot = {
       topic: verification.topic,
       decision: verification.decision,
@@ -158,26 +159,28 @@ export default function VerifyIdeaPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: existingProject } = await supabase
-      .from('projects')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('title', verification.topic)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data: existingProject } = serverProjectId
+      ? { data: { id: serverProjectId } }
+      : await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('title', verification.topic)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
     const { data: createdProject, error: projectError } = existingProject
       ? { data: existingProject, error: null }
       : await supabase
-      .from('projects')
-      .insert({
-        user_id: user.id,
-        title: verification.topic,
-        status: verification.decision === 'proceed' ? 'idea_verified' : 'idea_needs_revision',
-      })
-      .select('id')
-      .single();
+        .from('projects')
+        .insert({
+          user_id: user.id,
+          title: verification.topic,
+          status: verification.decision === 'proceed' ? 'idea_verified' : 'idea_needs_revision',
+        })
+        .select('id')
+        .single();
 
     if (projectError || !createdProject) return;
 
@@ -214,8 +217,10 @@ export default function VerifyIdeaPage() {
         setLoading(false);
         return;
       }
+      const serverProjectId = data.usageInfo?.projectId || null;
+      if (serverProjectId) setProjectId(serverProjectId);
       setReport(data);
-      void saveJourney(data);
+      void saveJourney(data, serverProjectId);
     } catch {
       setError('تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مجدداً.');
     } finally {
