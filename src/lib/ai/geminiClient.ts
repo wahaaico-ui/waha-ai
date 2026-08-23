@@ -1,8 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
+import { createClient as createServerClient } from '@/lib/supabase/server';
+import { ownsProject } from '@/lib/supabase/authorization';
 
 interface GenerateOptions {
   prompt: string;
   projectId?: string;
+  userId?: string;
+  supabase?: Awaited<ReturnType<typeof createServerClient>>;
   feature: string;
 }
 
@@ -14,11 +18,22 @@ interface GenerateResult {
 export async function generateStructured({
   prompt,
   projectId,
+  userId,
+  supabase: callerSupabase,
   feature,
 }: GenerateOptions): Promise<GenerateResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not defined in environment variables.');
+  }
+
+  if (projectId) {
+    if (!userId || !callerSupabase) {
+      throw new Error('generateStructured: projectId requires userId and supabase to verify project ownership.');
+    }
+    if (!(await ownsProject(projectId, userId, callerSupabase))) {
+      throw new Error('generateStructured: caller does not own the referenced project.');
+    }
   }
 
 const modelName = 'gemini-flash-latest';

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { requestFingerprint } from '@/proxy';
 import {
   buildResearchPaths,
   buildSearchCoverage,
@@ -527,8 +528,8 @@ async function persistAuthenticatedVerification(
 // ============================================================
 // MAIN HANDLER
 // ============================================================
-export async function POST(request: Request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+export async function POST(request: NextRequest) {
+  const ip = await requestFingerprint(request);
 
   const allowed = await checkRateLimit(ip);
   if (!allowed) {

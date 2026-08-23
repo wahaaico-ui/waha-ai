@@ -9,7 +9,7 @@ export async function POST(request: Request) {
     const { sourceId, rawText, projectId } = await request.json();
     if (sourceId && !(await ownedSource(sourceId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Source not found' }, { status: 404 });
     if (!sourceId && (!projectId || !(await ownsProject(projectId, access.user.id, access.supabase)))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    const { output, confidenceLabel } = await generateStructured({ prompt: `Generate APA and IEEE citations for the following text/source:\n\n${rawText || 'Academic source reference'}\n\nProvide them clearly separated as APA and IEEE format.`, projectId, feature: 'citations' });
+    const { output, confidenceLabel } = await generateStructured({ prompt: `Generate APA and IEEE citations for the following text/source:\n\n${rawText || 'Academic source reference'}\n\nProvide them clearly separated as APA and IEEE format.`, projectId, userId: access.user.id, supabase: access.supabase, feature: 'citations' });
     const apa = output.match(/APA[:\s]*(.*?)(?=IEEE|$)/is)?.[1].trim() || output;
     const ieee = output.match(/IEEE[:\s]*(.*)/is)?.[1].trim() || output;
     let resolvedSourceId = sourceId;

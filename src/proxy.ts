@@ -11,6 +11,7 @@ const RATE_LIMITED_API_PREFIXES = new Map<string, { maxRequests: number; windowS
   ['/api/analyze', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/analyze-idea', { maxRequests: 5, windowSeconds: 60 }],
   ['/api/verify-idea', { maxRequests: 5, windowSeconds: 60 }],
+  ['/api/auth/signup', { maxRequests: 5, windowSeconds: 60 }],
   ['/api/chat', { maxRequests: 20, windowSeconds: 60 }],
   ['/api/waha/analyze', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/stripe/checkout', { maxRequests: 10, windowSeconds: 60 }],
@@ -48,7 +49,7 @@ function rateLimitFor(pathname: string) {
   return [...RATE_LIMITED_API_PREFIXES.entries()].find(([prefix]) => pathname === prefix)?.[1];
 }
 
-async function requestFingerprint(request: NextRequest) {
+export async function requestFingerprint(request: NextRequest) {
   // Vercel supplies this header at the edge. The fallback makes local development
   // deterministic without trusting a client-provided user identifier.
   const ip = request.headers.get('x-vercel-forwarded-for')
@@ -131,7 +132,8 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user && request.nextUrl.pathname.startsWith('/academic')) {
+  const PROTECTED_PAGE_PREFIXES = ['/academic', '/dashboard', '/projects', '/settings'];
+  if (!user && PROTECTED_PAGE_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
@@ -141,5 +143,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/academic/:path*', '/api/:path*'],
+  matcher: ['/academic/:path*', '/dashboard/:path*', '/projects/:path*', '/settings/:path*', '/api/:path*'],
 };

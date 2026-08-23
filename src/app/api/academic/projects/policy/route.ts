@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function PATCH(request: Request) {
   try {
@@ -8,14 +8,16 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Missing projectId or universityPolicy' }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { error } = await supabase
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!(await ownsProject(projectId, access.user.id, access.supabase))) {
+      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    }
+
+    const { error } = await access.supabase
       .from('projects')
       .update({ university_policy: universityPolicy })
-      .eq('id', projectId)
-      .eq('user_id', user.id);
+      .eq('id', projectId);
 
     if (error) throw error;
 

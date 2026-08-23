@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { createClient as createSessionClient } from '@/lib/supabase/server';
+import { requestFingerprint } from '@/proxy';
 
 const GEMINI_TIMEOUT_MS = 30000;
 const GEMINI_MAX_ATTEMPTS = 2;
@@ -142,8 +143,8 @@ const RATE_LIMIT_WINDOW_SECONDS = 60;
 const PAPERS_PER_SOURCE = 10;
 const FINAL_PAPERS_COUNT = 5;
 
-export async function POST(request: Request) {
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+export async function POST(request: NextRequest) {
+  const ip = await requestFingerprint(request);
 
   const serviceClient = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
