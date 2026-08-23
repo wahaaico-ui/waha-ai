@@ -27,13 +27,15 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
   const percentComplete = Math.round(((currentIndex + 1) / totalPhases) * 100);
 
   return (
-    <div dir={lang === "ar" ? "rtl" : "ltr"} className="w-full max-w-5xl mx-auto px-4 py-6">
+    <div dir={lang === "ar" ? "rtl" : "ltr"} className="border-b border-white/5 bg-[#0A0F1C]/80 backdrop-blur-xl">
+      <div className="w-full max-w-6xl mx-auto overflow-x-auto px-4 py-4">
+      <div className="min-w-[720px]">
       {/* Phase circles + labels */}
-      <div className="flex items-center justify-between mb-4 relative">
+      <div className="flex items-center justify-between mb-3 relative">
         {/* Connector line (behind circles) */}
-        <div className="absolute top-4 left-0 right-0 h-0.5 bg-slate-200" style={{ zIndex: 0 }}></div>
+        <div className="absolute top-4 left-0 right-0 h-px bg-white/10" style={{ zIndex: 0 }}></div>
         <div
-          className="absolute top-4 h-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500"
+          className="absolute top-4 h-px bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-500"
           style={{
             zIndex: 1,
             width: `${(currentIndex / (totalPhases - 1)) * 100}%`,
@@ -45,16 +47,16 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
           const isDone = i < currentIndex;
           const isCurrent = i === currentIndex;
           const circleClasses = isDone
-            ? "bg-emerald-500 text-white border-emerald-500"
+            ? "bg-emerald-500 text-slate-950 border-emerald-400"
             : isCurrent
-            ? "bg-gradient-to-br from-emerald-500 to-teal-500 text-white border-teal-500 ring-4 ring-teal-100 scale-110"
-            : "bg-white text-slate-400 border-slate-300";
+            ? "bg-gradient-to-br from-emerald-400 to-teal-300 text-slate-950 border-emerald-200 ring-4 ring-emerald-400/15 scale-110"
+            : "bg-slate-900 text-slate-500 border-white/10";
 
           const labelClasses = isDone
-            ? "text-emerald-700 font-semibold"
+            ? "text-emerald-300 font-semibold"
             : isCurrent
-            ? "text-teal-700 font-bold"
-            : "text-slate-400";
+            ? "text-white font-bold"
+            : "text-slate-500";
 
           const label = lang === "ar" ? phase.labelAr : phase.labelEn;
           const content = (
@@ -62,7 +64,7 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
               <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${circleClasses}`}>
                 {isDone ? "✓" : i + 1}
               </div>
-              <span className={`text-xs md:text-sm ${labelClasses}`}>{label}</span>
+              <span className={`text-[10px] md:text-xs ${labelClasses}`}>{label}</span>
             </div>
           );
 
@@ -79,19 +81,21 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
       </div>
 
       {/* Percent complete bar */}
-      <div className="mt-2">
-        <div className="flex justify-between items-center text-xs mb-1">
+      <div className="mt-3">
+        <div className="flex justify-between items-center text-[11px] mb-1.5">
           <span className="text-slate-500">
             {lang === "ar" ? `المرحلة ${currentIndex + 1} من ${totalPhases}` : `Phase ${currentIndex + 1} of ${totalPhases}`}
           </span>
-          <span className="font-semibold text-teal-600">{percentComplete}%</span>
+          <span className="font-semibold text-emerald-300">{percentComplete}%</span>
         </div>
-        <div className="w-full bg-slate-100 rounded-full h-1.5">
+        <div className="w-full bg-white/10 rounded-full h-1.5">
           <div
-            className="h-1.5 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500"
+            className="h-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-500"
             style={{ width: `${percentComplete}%` }}
           ></div>
         </div>
+      </div>
+      </div>
       </div>
     </div>
   );
