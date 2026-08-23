@@ -38,7 +38,23 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     const documents = await readJourney(projectId, access.supabase);
     const outputs = extractOutputs(documents);
     const nextStage = nextAllowedStage(outputs);
-    return NextResponse.json({ projectId, outputs, nextStage, gate: nextStage ? evaluateGate(nextStage, outputs) : null });
+    const latestStageDocument = [...documents]
+      .filter((document) => isStage(document.type?.replace('journey:', '')))
+      .sort((first, second) => new Date(second.created_at || 0).getTime() - new Date(first.created_at || 0).getTime())[0];
+    const latestStage = latestStageDocument?.type?.replace('journey:', '');
+    const metadata = access.user.user_metadata || {};
+    const metadataText = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
+    return NextResponse.json({
+      projectId,
+      outputs,
+      nextStage,
+      gate: nextStage ? evaluateGate(nextStage, outputs) : null,
+      lastActivity: latestStageDocument && isStage(latestStage) ? { stage: latestStage, at: latestStageDocument.created_at } : null,
+      researcher: {
+        displayName: metadataText(metadata.full_name) || metadataText(metadata.name) || access.user.email?.split('@')[0] || 'باحث',
+        specialty: metadataText(metadata.specialty),
+      },
+    });
   } catch { return NextResponse.json({ error: 'Unable to load research journey' }, { status: 500 }); }
 }
 

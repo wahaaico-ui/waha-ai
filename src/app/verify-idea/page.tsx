@@ -179,39 +179,22 @@ export default function VerifyIdeaPage() {
       updatedAt: new Date().toISOString(),
     };
 
-    localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(snapshot));
-    setSaveStatus('local');
-
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) {
+      localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(snapshot));
+      setSaveStatus('local');
+      return;
+    }
+    if (!serverProjectId) {
+      setSaveStatus('idle');
+      setError('ظهرت النتيجة، لكن تعذر إنشاء مشروعك المحمي. أعد المحاولة قبل الانتقال إلى المرحلة التالية.');
+      return;
+    }
 
-    const { data: existingProject } = serverProjectId
-      ? { data: { id: serverProjectId } }
-      : await supabase
-        .from('projects')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('title', verification.topic)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-    const { data: createdProject, error: projectError } = existingProject
-      ? { data: existingProject, error: null }
-      : await supabase
-        .from('projects')
-        .insert({
-          user_id: user.id,
-          title: verification.topic,
-          status: verification.decision === 'proceed' ? 'idea_verified' : 'idea_needs_revision',
-        })
-        .select('id')
-        .single();
-
-    if (projectError || !createdProject) return;
+    localStorage.removeItem(JOURNEY_SNAPSHOT_KEY);
 
     try {
-      await saveJourneyStage(createdProject.id, 'verify', {
+      await saveJourneyStage(serverProjectId, 'verify', {
         topic: verification.topic,
         decision: verification.decision,
         acceptanceScore: verification.acceptanceScore,
@@ -223,9 +206,12 @@ export default function VerifyIdeaPage() {
         researchPaths: verification.researchPaths,
         evidenceLimitations: verification.evidenceLimitations,
       });
-      setProjectId(createdProject.id);
+      setProjectId(serverProjectId);
       setSaveStatus('cloud');
-    } catch { setSaveStatus('local'); }
+    } catch (reason) {
+      setSaveStatus('idle');
+      setError(reason instanceof Error ? reason.message : 'تعذر حفظ الاستكشاف داخل المشروع.');
+    }
   };
 
   const handleVerify = async () => {

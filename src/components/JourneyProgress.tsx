@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import JourneyCloudSync from '@/components/JourneyCloudSync';
+import { useState } from 'react';
 
 // The 6 phases of the Waha research journey
 export const JOURNEY_PHASES = [
@@ -23,13 +23,13 @@ interface JourneyProgressProps {
 }
 
 export default function JourneyProgress({ current, lang = "ar" }: JourneyProgressProps) {
+  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
   const currentIndex = JOURNEY_PHASES.findIndex(p => p.id === current);
   const totalPhases = JOURNEY_PHASES.length;
   const percentComplete = Math.round(((currentIndex + 1) / totalPhases) * 100);
 
   return (
     <div dir={lang === "ar" ? "rtl" : "ltr"} className="border-b border-slate-200 bg-white/90 backdrop-blur-xl">
-      <JourneyCloudSync />
       <div className="w-full max-w-6xl mx-auto overflow-x-auto px-4 py-4">
       <div className="min-w-[720px]">
       {/* Phase circles + labels */}
@@ -73,7 +73,7 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
           // Make done + current + enabled phases clickable
           if ((isDone || isCurrent) && phase.enabled) {
             return (
-              <Link key={phase.id} href={phase.href} className="hover:opacity-80 transition">
+              <Link key={phase.id} href={`${phase.href}${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`} className="hover:opacity-80 transition">
                 {content}
               </Link>
             );
