@@ -98,9 +98,9 @@ function decisionColor(d: string): string {
 }
 
 function decisionLabel(d: string): string {
-  if (d === 'proceed') return '✓ فكرة قوية — انتقل للمرحلة التالية';
-  if (d === 'improve') return '⚠ فكرة تحتاج تحسين قبل الاعتماد';
-  return '✗ فكرة ضعيفة — لا نوصي بالاستثمار فيها بصيغتها الحالية';
+  if (d === 'proceed') return '✓ مسار بحثي قابل للتطوير';
+  if (d === 'improve') return '⚠ المسار يحتاج تضييقاً أو إعادة صياغة';
+  return '✗ الصياغة الحالية لا تكفي لاتخاذ قرار بحثي';
 }
 
 function scoreBarColor(score: number): string {
@@ -235,11 +235,11 @@ export default function VerifyIdeaPage() {
             المرحلة صفر · قبل صياغة العنوان
           </div>
           <h1 className="text-4xl font-bold text-slate-800 mb-3">
-            فحص عذرية الفكرة
+            استكشاف المسار البحثي والفجوة
           </h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            قبل أن تستثمر شهوراً في بناء فكرتك، دعنا نتحقق: هل مساحة البحث فيها فرصة حقيقية؟
-            أم أنها مشبعة أو ضعيفة؟
+            اكتب ما لديك كما هو: اهتمام عام، فكرة أولية، عنوان مقترح، أو ملاحظة من المشرف.
+            نقرأ الأدبيات المرتبطة لنوضح ما بُحث، وأين، وما الزاوية القابلة للتطوير.
           </p>
         </div>
 
@@ -247,8 +247,8 @@ export default function VerifyIdeaPage() {
         {history.length > 0 && !report && !loading && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-800 text-sm">فحوصاتك السابقة</h3>
-              <span className="text-xs text-slate-500">{history.length} فحص</span>
+              <h3 className="font-bold text-slate-800 text-sm">استكشافاتك السابقة</h3>
+              <span className="text-xs text-slate-500">{history.length} نتيجة</span>
             </div>
             <div className="space-y-2">
               {history.slice(0, 5).map((h) => {
@@ -275,19 +275,19 @@ export default function VerifyIdeaPage() {
                 );
               })}
             </div>
-            <p className="text-xs text-slate-400 text-center mt-3">اضغط على أي فحص لإعادة تعبئته</p>
+            <p className="text-xs text-slate-400 text-center mt-3">اضغط على أي نتيجة لإعادة استخدام نصها</p>
           </div>
         )}
 
         {/* INPUT */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
           <label className="block text-sm font-semibold text-slate-700 mb-2">
-            موضوعك البحثي العام <span className="text-slate-400 font-normal">(ليس عنواناً — فكرة عامة)</span>
+            ما الذي تفكر في بحثه؟ <span className="text-slate-400 font-normal">(فكرة، عنوان، اهتمام، أو ملاحظة من المشرف)</span>
           </label>
           <textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="مثال: أثر الذكاء الاصطناعي على تعلم اللغة العربية لطلاب الجامعات"
+            placeholder="مثال: عنواني رُفض، وأفكر في أثر الذكاء الاصطناعي على تعلم اللغة العربية لدى طلبة الجامعات"
             className="w-full min-h-[100px] px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none text-slate-800 text-lg resize-none"
             disabled={loading}
           />
@@ -301,10 +301,10 @@ export default function VerifyIdeaPage() {
             disabled={loading || !topic.trim()}
             className="mt-4 w-full py-3 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-semibold text-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition"
           >
-            {loading ? 'جارٍ الفحص في المصادر الأكاديمية...' : 'ابدأ الفحص'}
+            {loading ? 'جارٍ تحليل المسار البحثي...' : 'حلّل المسار البحثي'}
           </button>
           <p className="mt-3 text-xs text-slate-500 text-center">
-            سنبحث في Semantic Scholar و OpenAlex معاً — قد يستغرق الفحص 10-20 ثانية
+            قد يستغرق التحليل 10–20 ثانية
           </p>
         </div>
 
@@ -312,7 +312,7 @@ export default function VerifyIdeaPage() {
         {loading && (
           <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
             <div className="inline-block w-12 h-12 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin mb-4"></div>
-            <p className="text-slate-600">نفحص عذرية فكرتك في قواعد البيانات العالمية...</p>
+            <p className="text-slate-600">نحلل الأدبيات والسياقات المرتبطة بما كتبته…</p>
           </div>
         )}
 
@@ -331,7 +331,7 @@ export default function VerifyIdeaPage() {
             <div className={`bg-gradient-to-r ${decisionColor(report.decision)} rounded-2xl p-6 text-white shadow-md`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="text-3xl font-bold">{report.acceptanceScore}<span className="text-xl opacity-70">/100</span></div>
-                <div className="text-sm opacity-80">نسبة القبول الأكاديمي</div>
+                <div className="text-sm opacity-80">مؤشر قابلية تطوير المسار</div>
               </div>
               <div className="text-lg font-semibold mb-2">{decisionLabel(report.decision)}</div>
               <div className="text-sm opacity-95 leading-relaxed">{report.decisionMessage}</div>
@@ -339,7 +339,7 @@ export default function VerifyIdeaPage() {
 
             {/* SCORE BREAKDOWN */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <h3 className="font-bold text-slate-800 mb-4">تفصيل نسبة القبول (الحساب الشفاف)</h3>
+              <h3 className="font-bold text-slate-800 mb-4">تفصيل مؤشر المسار (حساب شفاف)</h3>
               <div className="space-y-3">
                 {[
                   { label: 'وجود فجوة معرفية حقيقية', value: report.scoreBreakdown.gapExists, max: 25 },

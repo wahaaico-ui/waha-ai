@@ -5,7 +5,7 @@ import JourneyCloudSync from '@/components/JourneyCloudSync';
 
 // The 6 phases of the Waha research journey
 export const JOURNEY_PHASES = [
-  { id: "verify",     labelAr: "التحقق",    labelEn: "Verify",     href: "/verify-idea", enabled: true  },
+  { id: "verify",     labelAr: "الاستكشاف", labelEn: "Explore",    href: "/verify-idea", enabled: true  },
   { id: "title",      labelAr: "العنوان",   labelEn: "Title",      href: "/research",    enabled: true  },
   { id: "problem",    labelAr: "المشكلة",   labelEn: "Problem",    href: "/research/problem", enabled: true  },
   { id: "objectives", labelAr: "الأهداف",   labelEn: "Objectives", href: "/research/objectives", enabled: true  },

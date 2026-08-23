@@ -60,7 +60,7 @@ export async function loadJourney(projectId: string) {
 }
 
 export const JOURNEY_STAGES: Array<{ id: JourneyStage; title: string; href: string }> = [
-  { id: 'verify', title: 'فحص الفكرة', href: '/verify-idea' },
+  { id: 'verify', title: 'استكشاف المسار', href: '/verify-idea' },
   { id: 'title', title: 'صياغة العنوان', href: '/research' },
   { id: 'problem', title: 'مشكلة البحث', href: '/research/problem' },
   { id: 'objectives', title: 'الأهداف', href: '/research/objectives' },

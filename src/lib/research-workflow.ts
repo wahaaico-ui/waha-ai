@@ -74,12 +74,12 @@ export function nextAllowedStage(outputs: Partial<Record<WorkflowStage, Workflow
 }
 
 export function stageLabel(stage: WorkflowStage) {
-  return ({ verify: 'فحص الفكرة', title: 'العنوان', problem: 'مشكلة البحث والفجوة', objectives: 'الأهداف', questions: 'الأسئلة', methodology: 'المنهجية', literature: 'الأدلة والأدبيات', analysis: 'التحليل' })[stage];
+  return ({ verify: 'استكشاف المسار', title: 'العنوان', problem: 'مشكلة البحث والفجوة', objectives: 'الأهداف', questions: 'الأسئلة', methodology: 'المنهجية', literature: 'الأدلة والأدبيات', analysis: 'التحليل' })[stage];
 }
 
 function requirementFor(stage: WorkflowStage) {
   return ({
-    verify: 'لا تُفتح الرحلة إلا بعد قرار «متابعة» للفكرة، لا بعد درجة رقمية وحدها.',
+    verify: 'لا تُفتح الرحلة إلا بعد قرار مدعوم بالأدلة حول المسار البحثي، لا بعد درجة رقمية وحدها.',
     title: 'اعتمد عنواناً واضحاً لا يقل عن 10 أحرف قبل الانتقال.',
     problem: 'اكتب مشكلة بحث وفجوة محتملة، لا تقل كل منهما عن 20 حرفاً.',
     objectives: 'أضف هدفين محددين على الأقل.',
