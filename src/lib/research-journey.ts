@@ -49,6 +49,7 @@ export async function saveJourneyStage(projectId: string, stage: JourneyStage, c
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.gate?.reason || data.error || 'تعذر حفظ مرحلة البحث');
+  if (data.gate?.status !== 'open') throw new Error(data.gate?.reason || 'لم تجتز هذه المرحلة بوابة الجودة بعد.');
   return data as { success: true; gate: ServerJourneyGate; nextStage: JourneyStage | null };
 }
 
