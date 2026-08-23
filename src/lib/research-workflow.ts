@@ -30,7 +30,7 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
       return output.decision === 'proceed' && uniqueStudies >= 3 && paths.length >= 3;
     }
     case 'title': return asText(output.title).length >= 10;
-    case 'problem': return asText(output.problemStatement).length >= 20 && asText(output.researchGap).length >= 20;
+    case 'problem': return asText(output.problemStatement).length >= 30 && asText(output.researchGap).length >= 20 && asText(output.researcherNote).length >= 20;
     case 'objectives': return asList(output.objectives).length >= 2;
     case 'questions': return asList(output.questions).length >= 2;
     case 'methodology': return ['approach', 'population', 'sample', 'instrument'].every((key) => asText(output[key]).length >= 3);
@@ -88,7 +88,7 @@ function requirementFor(stage: WorkflowStage) {
   return ({
     verify: 'لا تُفتح الرحلة إلا بعد قرار قابل للمتابعة، وثلاث دراسات فريدة على الأقل، وثلاثة مسارات بحثية مرتبطة بالأدلة؛ الدرجة وحدها لا تكفي.',
     title: 'اعتمد عنواناً واضحاً لا يقل عن 10 أحرف قبل الانتقال.',
-    problem: 'اكتب مشكلة بحث وفجوة محتملة، لا تقل كل منهما عن 20 حرفاً.',
+    problem: 'اكتب وصفاً للمشكلة (30 حرفاً)، وفجوة محتملة (20 حرفاً)، وملاحظة بصوتك تشرح أهمية الاختيار (20 حرفاً) قبل الانتقال.',
     objectives: 'أضف هدفين محددين على الأقل.',
     questions: 'أضف سؤالين بحثيين واضحين على الأقل.',
     methodology: 'حدد المنهج ومجتمع الدراسة والعينة والأداة.',

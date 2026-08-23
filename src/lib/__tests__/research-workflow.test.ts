@@ -7,7 +7,7 @@ const verified = {
   researchPaths: [{ id: 'local' }, { id: 'recent' }, { id: 'comparison' }],
 };
 const title = { title: 'أثر الذكاء الاصطناعي التوليدي على تعلم طلبة الدراسات العليا' };
-const problem = { problemStatement: 'لا يزال أثر استخدام الذكاء الاصطناعي التوليدي على تعلم طلبة الدراسات العليا غير واضح في السياق المحلي.', researchGap: 'توجد ندرة في الدراسات التي تربط الاستخدام الفعلي للذكاء الاصطناعي بتحسن مهارات التعلم لدى طلبة الدراسات العليا.' };
+const problem = { problemStatement: 'لا يزال أثر استخدام الذكاء الاصطناعي التوليدي على تعلم طلبة الدراسات العليا غير واضح في السياق المحلي.', researchGap: 'توجد ندرة في الدراسات التي تربط الاستخدام الفعلي للذكاء الاصطناعي بتحسن مهارات التعلم لدى طلبة الدراسات العليا.', researcherNote: 'اخترت المشكلة لأنها تمس تجربة الباحثين اليومية وتحتاج فهماً مرتبطاً ببيئتهم.' };
 
 describe('research workflow quality gates', () => {
   test('does not open a stage before all preceding stages are complete', () => {
@@ -23,9 +23,14 @@ describe('research workflow quality gates', () => {
   });
 
   test('rejects an incomplete research problem without opening the next stage', () => {
-    const gate = evaluateGate('problem', { verify: verified, title, problem: { problemStatement: 'قصيرة', researchGap: '' } });
+    const gate = evaluateGate('problem', { verify: verified, title, problem: { problemStatement: 'قصيرة', researchGap: '', researcherNote: '' } });
     expect(gate.status).toBe('needs_improvement');
     expect(gate.nextStage).toBe('problem');
+  });
+
+  test('keeps the objectives locked until the researcher records their own rationale', () => {
+    expect(stageComplete('problem', { problemStatement: problem.problemStatement, researchGap: problem.researchGap })).toBe(false);
+    expect(stageComplete('problem', problem)).toBe(true);
   });
 
   test('opens the next stage only after a valid output', () => {
