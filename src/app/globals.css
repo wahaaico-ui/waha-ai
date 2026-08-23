@@ -5,3 +5,15 @@ html { scroll-behavior: smooth; }
 body { background: var(--waha-canvas); color: var(--waha-navy); }
 .font-display { font-family: Georgia, 'Times New Roman', serif; }
 ::selection { background: #bfdbfe; color: #10213c; }
+
+/* Compatibility layer: legacy routes inherit the current WAHA white/blue identity. */
+:is([class*="bg-[#0A0F1C]"], [class*="bg-[#090D16]"], [class*="bg-[#111827]"], [class*="bg-slate-950"], [class*="bg-slate-900"]) { background-color: #f8fafc !important; }
+:is([class*="bg-white/[0.03]"], [class*="bg-white/[0.05]"], [class*="bg-white/[0.06]"], [class*="bg-slate-950/"]) { background-color: #ffffff !important; border-color: #dbeafe !important; }
+:is([class*="from-emerald"], [class*="from-teal"]) { --tw-gradient-from: #2563eb !important; --tw-gradient-via: #2563eb !important; }
+:is([class*="to-emerald"], [class*="to-teal"]) { --tw-gradient-to: #60a5fa !important; }
+:is([class*="text-emerald"], [class*="text-teal"]) { color: #2563eb !important; }
+:is([class*="border-emerald"], [class*="border-teal"]) { border-color: #bfdbfe !important; }
+
+:is(.min-h-screen[class*="bg-[#0A0F1C]"], .min-h-screen[class*="bg-[#090D16]"], .min-h-screen[class*="bg-slate-950"]) :is(.text-white, .text-slate-100, .text-slate-200, .text-slate-300) { color: #0f2d52 !important; }
+:is(.min-h-screen[class*="bg-[#0A0F1C]"], .min-h-screen[class*="bg-[#090D16]"], .min-h-screen[class*="bg-slate-950"]) :is([class*="bg-blue"], [class*="from-blue"], [class*="from-emerald"], [class*="from-teal"]) { color: #fff !important; }
+:is(.min-h-screen[class*="bg-[#0A0F1C]"], .min-h-screen[class*="bg-[#090D16]"], .min-h-screen[class*="bg-slate-950"]) textarea, :is(.min-h-screen[class*="bg-[#0A0F1C]"], .min-h-screen[class*="bg-[#090D16]"], .min-h-screen[class*="bg-slate-950"]) input, :is(.min-h-screen[class*="bg-[#0A0F1C]"], .min-h-screen[class*="bg-[#090D16]"], .min-h-screen[class*="bg-slate-950"]) select { background: #fff !important; color: #0f2d52 !important; border-color: #cbd5e1 !important; }
