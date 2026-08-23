@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function POST(req: Request) {
   try {
+    if (!(await requireAuthenticatedUser())) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     const { topic, papersNotes } = await req.json();
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -52,7 +54,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'فشل توليد مراجعة الأدبيات عبر نموذج Gemini' }, { status: 500 });
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الخادم' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: err instanceof Error ? err.message : 'خطأ في الخادم' }, { status: 500 });
   }
 }

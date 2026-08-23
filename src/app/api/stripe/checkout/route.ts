@@ -1,15 +1,19 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'dummy_key', {
-  apiVersion: '2025-02-28.acacia' as any,
+  apiVersion: '2025-02-28.acacia' as Stripe.LatestApiVersion,
 });
 
 export async function POST(request: Request) {
   try {
-    const { priceId, userId, email } = await request.json();
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { priceId } = await request.json();
+    const email = access.user.email;
 
-    if (!userId || !email) {
+    if (!email) {
       return NextResponse.json({ error: 'بيانات المستخدم غير موجودة' }, { status: 400 });
     }
 
@@ -27,12 +31,12 @@ export async function POST(request: Request) {
       success_url: `${request.headers.get('origin')}/dashboard?success=true`,
       cancel_url: `${request.headers.get('origin')}/dashboard?canceled=true`,
       metadata: {
-        userId,
+        userId: access.user.id,
       },
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'فشل إنشاء جلسة الدفع' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'فشل إنشاء جلسة الدفع' }, { status: 500 });
   }
 }

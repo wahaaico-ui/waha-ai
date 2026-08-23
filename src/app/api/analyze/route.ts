@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { ownsProject } from '@/lib/supabase/authorization';
 
 export async function POST(request: Request) {
   try {
@@ -13,9 +14,10 @@ export async function POST(request: Request) {
 
     const { projectId, researchText } = await request.json();
 
-    if (!researchText) {
+    if (!projectId || !researchText) {
       return NextResponse.json({ error: 'النص البحثي مطلوب' }, { status: 400 });
     }
+    if (!(await ownsProject(projectId, user.id, supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     // هنا يتم معالجة التحليل (يمكنك ربطه بـ Gemini API أو OpenAI مستقبلاً)
     const analysisResult = {
@@ -42,7 +44,7 @@ export async function POST(request: Request) {
     ]);
 
     return NextResponse.json({ success: true, data: analysisResult });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'حدث خطأ غير متوقع' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'حدث خطأ غير متوقع' }, { status: 500 });
   }
 }

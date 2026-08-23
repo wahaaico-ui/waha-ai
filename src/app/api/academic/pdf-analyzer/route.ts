@@ -1,53 +1,18 @@
 import { NextResponse } from 'next/server';
 import { generateStructured } from '@/lib/ai/geminiClient';
-import { createClient } from '@supabase/supabase-js';
+import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { projectId, text, prompt } = body;
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { projectId, text, prompt } = await request.json();
     const rawText = text || prompt || '';
-
-    if (!rawText) {
-      return NextResponse.json({ error: 'Text or prompt is required' }, { status: 400 });
-    }
-
-    const analysisPrompt = `Analyze the following academic text/PDF content and extract key insights and summary:\n\n${rawText}`;
-
-    const { output, confidenceLabel } = await generateStructured({
-      prompt: analysisPrompt,
-      projectId,
-      feature: 'pdf-analyzer',
-    });
-
-    let sourceId = null;
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (supabaseUrl && supabaseKey && projectId) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      const { data, error } = await supabase
-        .from('sources')
-        .insert({
-          project_id: projectId,
-          raw_text: rawText,
-          confidence: confidenceLabel,
-        })
-        .select('id')
-        .single();
-
-      if (!error && data) {
-        sourceId = data.id;
-      }
-    }
-
-    return NextResponse.json({
-      success: true,
-      output,
-      confidenceLabel,
-      sourceId,
-    });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    if (!projectId || !rawText) return NextResponse.json({ error: 'projectId and text are required' }, { status: 400 });
+    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    const { output, confidenceLabel } = await generateStructured({ prompt: `Analyze the following academic text/PDF content and extract key insights and summary:\n\n${rawText}`, projectId, feature: 'pdf-analyzer' });
+    const { data, error } = await access.supabase.from('sources').insert({ project_id: projectId, raw_text: rawText, confidence: confidenceLabel }).select('id').single();
+    if (error) return NextResponse.json({ error: 'Unable to save source' }, { status: 500 });
+    return NextResponse.json({ success: true, output, confidenceLabel, sourceId: data.id });
+  } catch { return NextResponse.json({ error: 'Unable to analyze document' }, { status: 500 }); }
 }

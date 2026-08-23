@@ -11,15 +11,14 @@ import { executeStage13And14_DiscussionAndRecommendations } from '@/lib/waha-pip
 import { executeStage15_Publishing } from '@/lib/waha-pipeline/stage-15-publishing';
 import { generateAdvancedSuite } from '@/lib/waha-pipeline/advanced-academic-suite';
 import { formatAcademicReferences } from '@/lib/waha-pipeline/references-formatter';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { query, userId } = body;
+    const { query } = body;
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const stage1 = await executeStage1_IdeaValidation(query);
     if (!stage1.academicValid) return NextResponse.json({ error: stage1.rejectionReason }, { status: 400 });
@@ -55,15 +54,11 @@ export async function POST(req: Request) {
 
     const formattedReferencesReport = formatAcademicReferences(engineResult.papers);
 
-    if (userId && supabaseUrl && supabaseAnonKey) {
-      const supabase = createClient(supabaseUrl, supabaseAnonKey);
-      await supabase.from('research_projects').insert({
-        user_id: userId,
+    if (access) {
+      await access.supabase.from('projects').insert({
+        user_id: access.user.id,
         title: stage1.rawInput,
-        status: 'Completed (15 Stages + APA 7th References)',
-        gap_analysis: stage2_3.researchGap,
-        total_papers: engineResult.totalPapersFound,
-        latest_year: engineResult.latestYear
+        status: 'Completed (15 Stages + APA 7th References)'
       });
     }
 
@@ -91,7 +86,7 @@ export async function POST(req: Request) {
       papers: engineResult.papers
     });
 
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'خطأ غير معروف.' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'خطأ غير معروف.' }, { status: 500 });
   }
 }

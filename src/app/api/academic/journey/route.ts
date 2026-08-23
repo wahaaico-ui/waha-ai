@@ -1,43 +1,14 @@
 import { NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { researcherId, currentStep, stepData } = await req.json();
-
-    if (!researcherId) {
-      return NextResponse.json({ success: false, error: 'معرف الباحث مفقود' }, { status: 400 });
-    }
-
-    // هنا يتم محاكاة حفظ وتحديث حالة رحلة الباحث في قاعدة البيانات (Supabase)
-    // خطوات الرحلة المعتمدة في WAHA:
-    // 1. IDEA_SUBMISSION (الفكرة الخام)
-    // 2. BRAIN_EVALUATION (تقييم المشرف)
-    // 3. REFINED_IDEA (الفكرة المحدثة)
-    // 4. LITERATURE_EVIDENCE (طبقة الأدلة والأدبيات)
-    // 5. RESEARCH_GAP (تحديد الفجوة)
-    // 6. METHODOLOGY (المنهجية)
-
-    const journeyState = {
-      researcherId,
-      lastUpdated: new Date().toISOString(),
-      completedStep: currentStep,
-      dataStored: stepData,
-      nextAllowedStep: getNextStep(currentStep)
-    };
-
-    return NextResponse.json({ success: true, journeyState });
-
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في حفظ رحلة البحث' }, { status: 500 });
-  }
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    const { currentStep, stepData } = await request.json();
+    if (!currentStep) return NextResponse.json({ success: false, error: 'currentStep is required' }, { status: 400 });
+    return NextResponse.json({ success: true, journeyState: { researcherId: access.user.id, lastUpdated: new Date().toISOString(), completedStep: currentStep, dataStored: stepData, nextAllowedStep: getNextStep(currentStep) } });
+  } catch { return NextResponse.json({ success: false, error: 'Unable to process journey' }, { status: 500 }); }
 }
 
-function getNextStep(current: string): string {
-  switch (current) {
-    case 'IDEA_SUBMISSION': return 'BRAIN_EVALUATION';
-    case 'BRAIN_EVALUATION': return 'LITERATURE_EVIDENCE';
-    case 'LITERATURE_EVIDENCE': return 'RESEARCH_GAP';
-    case 'RESEARCH_GAP': return 'METHODOLOGY';
-    default: return 'COMPLETED';
-  }
-}
+function getNextStep(current: string) { return ({ IDEA_SUBMISSION: 'BRAIN_EVALUATION', BRAIN_EVALUATION: 'LITERATURE_EVIDENCE', LITERATURE_EVIDENCE: 'RESEARCH_GAP', RESEARCH_GAP: 'METHODOLOGY' } as Record<string, string>)[current] || 'COMPLETED'; }

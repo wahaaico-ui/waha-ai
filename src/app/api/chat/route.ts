@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { ownsProject } from '@/lib/supabase/authorization';
 
 export async function POST(request: Request) {
   try {
@@ -12,14 +13,15 @@ export async function POST(request: Request) {
 
     const { projectId, message } = await request.json();
 
-    if (!message) {
+    if (!projectId || !message) {
       return NextResponse.json({ error: 'الرسالة مطلوبة' }, { status: 400 });
     }
+    if (!(await ownsProject(projectId, user.id, supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const aiResponse = `بناءً على مشروعك البحثي، استجابةً لسؤالك: أنصح بالتركيز على توثيق المصادر الحديثة، وتقسيم المنهجية إلى مراحل تجريبية واضحة لضمان دقة النتائج.`;
 
     return NextResponse.json({ success: true, reply: aiResponse });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'حدث خطأ غير متوقع' }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'حدث خطأ غير متوقع' }, { status: 500 });
   }
 }
