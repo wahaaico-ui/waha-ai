@@ -12,8 +12,11 @@ export async function POST(request: Request) {
     if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { priceId } = await request.json();
     const email = access.user.email;
+    const allowedPrices = (process.env.STRIPE_ALLOWED_PRICE_IDS || '').split(',').map((value) => value.trim()).filter(Boolean);
+    const origin = request.headers.get('origin');
+    if (origin && origin !== new URL(request.url).origin) return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
 
-    if (!email) {
+    if (!email || !priceId || !allowedPrices.includes(priceId)) {
       return NextResponse.json({ error: 'بيانات المستخدم غير موجودة' }, { status: 400 });
     }
 
@@ -23,13 +26,13 @@ export async function POST(request: Request) {
       customer_email: email,
       line_items: [
         {
-          price: priceId || 'price_1M_academic_sub', // معرف السعر التجريبي أو الفعلي
+          price: priceId,
           quantity: 1,
         },
       ],
       mode: 'subscription',
-      success_url: `${request.headers.get('origin')}/dashboard?success=true`,
-      cancel_url: `${request.headers.get('origin')}/dashboard?canceled=true`,
+      success_url: `${new URL(request.url).origin}/dashboard?success=true`,
+      cancel_url: `${new URL(request.url).origin}/dashboard?canceled=true`,
       metadata: {
         userId: access.user.id,
       },
