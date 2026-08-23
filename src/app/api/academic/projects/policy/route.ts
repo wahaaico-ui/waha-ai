@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
 
 export async function PATCH(request: Request) {
   try {
@@ -8,25 +8,19 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Missing projectId or universityPolicy' }, { status: 400 });
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json({ error: 'Supabase credentials missing' }, { status: 500 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { error } = await supabase
       .from('projects')
       .update({ university_policy: universityPolicy })
-      .eq('id', projectId);
+      .eq('id', projectId)
+      .eq('user_id', user.id);
 
     if (error) throw error;
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unable to update policy' }, { status: 500 });
   }
 }

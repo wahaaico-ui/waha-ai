@@ -1,36 +1,7 @@
 @import "tailwindcss";
 
-/* Shared visual system for the guided research journey. */
-.waha-stage {
-  background:
-    radial-gradient(circle at 15% 15%, rgb(16 185 129 / 0.12), transparent 28rem),
-    radial-gradient(circle at 85% 10%, rgb(45 212 191 / 0.08), transparent 24rem),
-    #0a0f1c;
-}
-
-.waha-stage .bg-white {
-  background-color: rgb(15 23 42 / 0.8) !important;
-}
-
-.waha-stage .bg-slate-50,
-.waha-stage .bg-teal-50,
-.waha-stage .bg-emerald-50 {
-  background-color: rgb(15 23 42 / 0.72) !important;
-}
-
-.waha-stage .border-slate-200,
-.waha-stage .border-slate-300 {
-  border-color: rgb(255 255 255 / 0.1) !important;
-}
-
-.waha-stage .text-slate-800,
-.waha-stage .text-slate-700,
-.waha-stage .text-slate-600 {
-  color: rgb(226 232 240) !important;
-}
-
-.waha-stage textarea {
-  background-color: rgb(2 6 23 / 0.7) !important;
-  border-color: rgb(255 255 255 / 0.12) !important;
-  color: white !important;
-}
+:root { --waha-navy: #10213c; --waha-blue: #2563eb; --waha-canvas: #f8fafc; }
+html { scroll-behavior: smooth; }
+body { background: var(--waha-canvas); color: var(--waha-navy); }
+.font-display { font-family: Georgia, 'Times New Roman', serif; }
+::selection { background: #bfdbfe; color: #10213c; }

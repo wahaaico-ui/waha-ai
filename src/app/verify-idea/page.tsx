@@ -225,7 +225,7 @@ export default function VerifyIdeaPage() {
   const maxYearCount = report ? Math.max(...report.yearDistribution.map(y => y.count), 1) : 1;
 
   return (
-    <div dir="rtl" className="waha-stage min-h-screen bg-[#0A0F1C] text-white">
+    <div dir="rtl" className="min-h-screen bg-[#f8fafc] text-slate-900">
       <JourneyProgress current="verify" lang="ar" />
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* HEADER */}

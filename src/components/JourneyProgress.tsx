@@ -27,15 +27,15 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
   const percentComplete = Math.round(((currentIndex + 1) / totalPhases) * 100);
 
   return (
-    <div dir={lang === "ar" ? "rtl" : "ltr"} className="border-b border-white/5 bg-[#0A0F1C]/80 backdrop-blur-xl">
+    <div dir={lang === "ar" ? "rtl" : "ltr"} className="border-b border-slate-200 bg-white/90 backdrop-blur-xl">
       <div className="w-full max-w-6xl mx-auto overflow-x-auto px-4 py-4">
       <div className="min-w-[720px]">
       {/* Phase circles + labels */}
       <div className="flex items-center justify-between mb-3 relative">
         {/* Connector line (behind circles) */}
-        <div className="absolute top-4 left-0 right-0 h-px bg-white/10" style={{ zIndex: 0 }}></div>
+        <div className="absolute top-4 left-0 right-0 h-px bg-slate-200" style={{ zIndex: 0 }}></div>
         <div
-          className="absolute top-4 h-px bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-500"
+          className="absolute top-4 h-px bg-blue-600 transition-all duration-500"
           style={{
             zIndex: 1,
             width: `${(currentIndex / (totalPhases - 1)) * 100}%`,
@@ -47,15 +47,15 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
           const isDone = i < currentIndex;
           const isCurrent = i === currentIndex;
           const circleClasses = isDone
-            ? "bg-emerald-500 text-slate-950 border-emerald-400"
+            ? "bg-blue-600 text-white border-blue-600"
             : isCurrent
-            ? "bg-gradient-to-br from-emerald-400 to-teal-300 text-slate-950 border-emerald-200 ring-4 ring-emerald-400/15 scale-110"
-            : "bg-slate-900 text-slate-500 border-white/10";
+            ? "bg-blue-600 text-white border-blue-300 ring-4 ring-blue-100 scale-110"
+            : "bg-white text-slate-400 border-slate-200";
 
           const labelClasses = isDone
-            ? "text-emerald-300 font-semibold"
+            ? "text-blue-700 font-semibold"
             : isCurrent
-            ? "text-white font-bold"
+            ? "text-slate-900 font-bold"
             : "text-slate-500";
 
           const label = lang === "ar" ? phase.labelAr : phase.labelEn;
@@ -86,11 +86,11 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
           <span className="text-slate-500">
             {lang === "ar" ? `المرحلة ${currentIndex + 1} من ${totalPhases}` : `Phase ${currentIndex + 1} of ${totalPhases}`}
           </span>
-          <span className="font-semibold text-emerald-300">{percentComplete}%</span>
+          <span className="font-semibold text-blue-600">{percentComplete}%</span>
         </div>
-        <div className="w-full bg-white/10 rounded-full h-1.5">
+        <div className="w-full bg-slate-200 rounded-full h-1.5">
           <div
-            className="h-1.5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-300 transition-all duration-500"
+            className="h-1.5 rounded-full bg-blue-600 transition-all duration-500"
             style={{ width: `${percentComplete}%` }}
           ></div>
         </div>
