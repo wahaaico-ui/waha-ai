@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function POST(req: Request) {
   try {
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { query, discipline } = await req.json();
     const semanticScholarKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;

@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function POST(req: Request) {
   try {
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { fileBase64, question } = await req.json();
     const apiKey = process.env.GEMINI_API_KEY;
 

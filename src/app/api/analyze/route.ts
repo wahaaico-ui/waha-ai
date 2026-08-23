@@ -33,16 +33,6 @@ export async function POST(request: Request) {
       methodologyNotes: "المنهجية تحليلية تجريبية؛ يُفضل تعزيزها بمدخلات كمية."
     };
 
-    // حفظ التقرير في قاعدة البيانات (جدول project_analyses إن وجد)
-    await supabase.from('project_analyses').insert([
-      {
-        project_id: projectId,
-        summary_text: researchText,
-        gaps: analysisResult.gaps,
-        user_id: user.id
-      }
-    ]);
-
     return NextResponse.json({ success: true, data: analysisResult });
   } catch (error: unknown) {
     return NextResponse.json({ error: error instanceof Error ? error.message : 'حدث خطأ غير متوقع' }, { status: 500 });

@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { ResearchIntentEngine } from '../../../../lib/academic/core/intent/ResearchIntentEngine';
 export async function POST(req: Request) {
   try {
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body = await req.json();
     const { text } = body;
 

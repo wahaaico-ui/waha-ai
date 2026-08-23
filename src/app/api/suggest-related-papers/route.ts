@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function POST(request: Request) {
   try {
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { idea } = await request.json();
     if (!idea) return NextResponse.json({ error: 'الفكرة مطلوبة' }, { status: 400 });
 

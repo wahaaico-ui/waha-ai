@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 const GEMINI_TIMEOUT_MS = 30000;
 const GEMINI_MAX_ATTEMPTS = 2;
@@ -32,6 +33,8 @@ async function fetchGeminiWithRetry(url: string, body: string): Promise<Response
 
 export async function POST(request: Request) {
   try {
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { idea } = await request.json();
     if (!idea) return NextResponse.json({ error: 'الفكرة مطلوبة' }, { status: 400 });
 

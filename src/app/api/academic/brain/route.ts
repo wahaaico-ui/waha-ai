@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
+import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function POST(req: Request) {
   try {
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const { inputQuery, researcherContext } = await req.json();
 
     if (!inputQuery || inputQuery.trim().length < 3) {
