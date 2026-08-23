@@ -413,7 +413,8 @@ async function saveVerification(
   score: number,
   decision: string,
   totalPapers: number,
-  gapsCount: number
+  gapsCount: number,
+  userId: string | null
 ): Promise<void> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -428,6 +429,7 @@ async function saveVerification(
       decision,
       total_papers: totalPapers,
       gaps_count: gapsCount,
+      user_id: userId,
     });
   } catch {
     // Silent fail — saving is not critical for the response
@@ -441,8 +443,10 @@ async function saveVerification(
 // successful response, however, their work must have a server-side project
 // before they continue into the research journey. This uses the cookie-bound
 // Supabase client, so RLS enforces that every row belongs to that user.
-async function persistAuthenticatedVerification(report: VerifyReport): Promise<string | null> {
-  const access = await requireAuthenticatedUser();
+async function persistAuthenticatedVerification(
+  report: VerifyReport,
+  access: Awaited<ReturnType<typeof requireAuthenticatedUser>>
+): Promise<string | null> {
   if (!access) return null;
 
   const { supabase, user } = access;
@@ -566,13 +570,28 @@ export async function POST(request: Request) {
       topPapers,
     };
 
-    // Save verification asynchronously (do not await — non-blocking)
-    saveVerification(ip, topic, englishQuery, score, decision.decision, merged.length, gaps.length).catch(() => {});
+    // Resolve the session once. The same server-verified identity is used for
+    // project persistence and for the verification-history ownership field.
+    const access = await requireAuthenticatedUser();
+
+    // Save verification asynchronously (do not await — non-blocking). Guests
+    // retain the anonymous freemium flow, while authenticated records receive
+    // an owner for RLS-protected history.
+    saveVerification(
+      ip,
+      topic,
+      englishQuery,
+      score,
+      decision.decision,
+      merged.length,
+      gaps.length,
+      access?.user.id || null
+    ).catch(() => {});
 
     // Persist an authenticated researcher's output before returning the next
     // journey link. Anonymous visitors deliberately keep the existing local
     // exploration flow and never receive a project id.
-    const projectId = await persistAuthenticatedVerification(report);
+    const projectId = await persistAuthenticatedVerification(report, access);
 
     // Freemium: compute usage info based on IP history
     const usageCount = await countUserVerifications(ip);
