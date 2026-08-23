@@ -1,22 +1,83 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
-import { saveJourneyStage } from '@/lib/research-journey';
+import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 
-type Paper = { id: string; title: string; authors: string; year: number | string; citationCount: number; abstract: string; source: string; pdfUrl?: string | null };
-type JourneySnapshot = { selectedTitle?: string; methodology?: unknown; selectedPapers?: Paper[]; nextStage?: 'literature' | 'analysis' | null; updatedAt: string };
-const JOURNEY_SNAPSHOT_KEY = 'waha_active_journey';
+type Paper = { id: string; title: string; authors: string; year: number | string; citationCount: number; abstract: string; source: string; pdfUrl?: string | null; relevanceScore?: number };
+type SearchCoverage = { candidateResults: number; relevantResults: number; excludedByRelevance: number; searchedAt: string; sources: Array<{ name: string; available: boolean; returned: number }>; note: string };
+type LiteratureResponse = { success: boolean; query: string; data: Paper[]; searchCoverage: SearchCoverage; error?: string };
 
 export default function ResearchLiteraturePage() {
-  const [journey, setJourney] = useState<JourneySnapshot | null>(() => { if (typeof window === 'undefined') return null; try { const saved = localStorage.getItem(JOURNEY_SNAPSHOT_KEY); return saved ? JSON.parse(saved) as JourneySnapshot : null; } catch { return null; } });
-  const [papers, setPapers] = useState<Paper[]>([]); const [selected, setSelected] = useState<string[]>(() => journey?.selectedPapers?.map((paper) => paper.id) || []); const [loading, setLoading] = useState(false); const [error, setError] = useState(''); const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [projectId] = useState(() => typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('projectId'));
-  const canEnter = Boolean(journey?.methodology && journey?.selectedTitle);
-  const search = async () => { if (!journey?.selectedTitle) return; setLoading(true); setError(''); try { const response = await fetch('/api/research/literature', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: journey.selectedTitle }) }); const data = await response.json(); if (!response.ok || !data.success) throw new Error(data.error || 'تعذر البحث'); setPapers(data.data || []); } catch (searchError) { setError(searchError instanceof Error ? searchError.message : 'تعذر البحث في المصادر'); } finally { setLoading(false); } };
-  const toggle = (id: string) => setSelected((current) => current.includes(id) ? current.filter((paperId) => paperId !== id) : [...current, id]);
-  const save = async () => { if (!journey || selected.length < 3) return; setStatus('saving'); const chosen = papers.filter((paper) => selected.includes(paper.id)); const nextJourney: JourneySnapshot = { ...journey, selectedPapers: chosen, nextStage: 'analysis', updatedAt: new Date().toISOString() }; localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(nextJourney)); setJourney(nextJourney); try { if (projectId) await saveJourneyStage(projectId, 'literature', { papers: chosen }); setStatus('saved'); } catch (saveError) { setError(saveError instanceof Error ? saveError.message : 'تعذر حفظ الأدلة'); setStatus('idle'); } };
-  return <div dir="rtl" className="min-h-screen bg-[#0A0F1C] pb-20 text-white"><SiteHeader /><JourneyProgress current="literature" lang="ar" /><main className="mx-auto mt-8 max-w-4xl space-y-6 px-4">{!canEnter ? <section className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-7 text-center"><h1 className="text-xl font-bold text-amber-100">مراجعة الأدبيات مقفلة حالياً</h1><p className="mt-3 text-sm leading-7 text-amber-100/80">اعتمد المنهجية أولاً؛ اختيار الدراسات يجب أن يستند إلى عنوان ومشكلة وأسئلة وتصميم بحث واضح.</p><Link href="/research/methodology" className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950">اذهب إلى المنهجية</Link></section> : <><section className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5"><p className="text-xs font-bold text-emerald-300">بوابة المنهجية مفتوحة · المرحلة 7 من 8</p><h1 className="mt-2 text-lg font-bold">جمع الأدبيات الموثقة</h1><p className="mt-2 text-sm leading-6 text-slate-300">سنبحث بعنوانك المعتمد، ثم تختار الدراسات التي تدخل مشروعك. كل دراسة تعرض مصدرها وسنتها واستشهاداتها؛ لا نختلق مراجع.</p></section><section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"><button type="button" onClick={search} disabled={loading} className="w-full rounded-xl bg-gradient-to-l from-emerald-400 to-teal-300 py-3.5 text-sm font-bold text-slate-950 disabled:opacity-50">{loading ? 'جارٍ البحث في المصادر…' : 'ابحث في الأدبيات المرتبطة بعنوانك'}</button>{error && <p className="mt-3 text-sm text-rose-300">{error}</p>}</section>{papers.length > 0 && <section className="space-y-3">{papers.map((paper) => <label key={paper.id} className={`block cursor-pointer rounded-2xl border p-5 transition ${selected.includes(paper.id) ? 'border-emerald-400/50 bg-emerald-400/10' : 'border-white/10 bg-white/[0.03]'}`}><div className="flex gap-3"><input type="checkbox" checked={selected.includes(paper.id)} onChange={() => toggle(paper.id)} className="mt-1 h-4 w-4 accent-emerald-400" /><div><h2 className="text-sm font-bold leading-6 text-white">{paper.title}</h2><p className="mt-1 text-xs text-slate-400">{paper.authors} · {paper.year} · {paper.citationCount} استشهاد · {paper.source}</p>{paper.abstract && <p className="mt-3 line-clamp-3 text-xs leading-6 text-slate-300">{paper.abstract}</p>}{paper.pdfUrl && <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer" onClick={(event) => event.stopPropagation()} className="mt-3 inline-flex text-xs font-bold text-emerald-300 hover:text-emerald-200">فتح النسخة المتاحة ↗</a>}</div></div></label>)}</section>}{papers.length > 0 && <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"><p className="mb-3 text-sm text-slate-300">اختر ثلاث دراسات موثقة على الأقل لفتح التحليل.</p><button type="button" disabled={selected.length < 3 || status === 'saving'} onClick={save} className="w-full rounded-xl bg-gradient-to-l from-emerald-400 to-teal-300 py-3.5 text-sm font-bold text-slate-950 disabled:opacity-40">{status === 'saving' ? 'جارٍ حفظ الدراسات…' : `اعتماد الدراسات المختارة (${selected.length})`}</button>{status === 'saved' && <Link href={`/research/analysis${projectId ? `?projectId=${projectId}` : ''}`} className="mt-3 block rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-center text-sm font-bold text-emerald-200">انتقل إلى التحليل العميق ←</Link>}</section>}</>}</main></div>;
+  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const [loadingJourney, setLoadingJourney] = useState(() => Boolean(projectId));
+  const [journeyError, setJourneyError] = useState('');
+  const [title, setTitle] = useState('');
+  const [methodReady, setMethodReady] = useState(false);
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [coverage, setCoverage] = useState<SearchCoverage | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState('');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+
+  useEffect(() => {
+    if (!projectId) return;
+    loadJourney(projectId)
+      .then((journey) => {
+        const savedTitle = journey.outputs.title?.title;
+        setTitle(typeof savedTitle === 'string' ? savedTitle : '');
+        setMethodReady(Boolean(journey.outputs.methodology));
+        const savedPapers = journey.outputs.literature?.papers;
+        if (Array.isArray(savedPapers)) {
+          const validPapers = savedPapers.filter((paper): paper is Paper => Boolean(paper && typeof paper === 'object' && typeof paper.id === 'string' && typeof paper.title === 'string'));
+          setPapers(validPapers); setSelected(validPapers.map((paper) => paper.id));
+        }
+      })
+      .catch((reason) => setJourneyError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.'))
+      .finally(() => setLoadingJourney(false));
+  }, [projectId]);
+
+  const search = async () => {
+    if (!projectId) return;
+    setSearching(true); setError(''); setStatus('idle');
+    try {
+      const response = await fetch('/api/research/literature', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId }) });
+      const data = await response.json() as LiteratureResponse;
+      if (!response.ok || !data.success) throw new Error(data.error || 'تعذر البحث في المصادر.');
+      setTitle(data.query); setCoverage(data.searchCoverage);
+      setPapers((current) => {
+        const merged = new Map(current.map((paper) => [paper.id, paper]));
+        data.data.forEach((paper) => merged.set(paper.id, paper));
+        return Array.from(merged.values());
+      });
+      if (data.data.length < 3) setError('النتائج ذات الصلة أقل من ثلاث دراسات في هذا الفحص. لا يمكن فتح التحليل قبل توسيع البحث أو تعديل العنوان بطريقة علمية.');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'تعذر البحث في المصادر.'); }
+    finally { setSearching(false); }
+  };
+
+  const toggle = (id: string) => { setSelected((current) => current.includes(id) ? current.filter((paperId) => paperId !== id) : [...current, id]); setStatus('idle'); };
+  const save = async () => {
+    if (!projectId || selected.length < 3) return;
+    const chosen = papers.filter((paper) => selected.includes(paper.id));
+    if (chosen.length < 3) return;
+    setStatus('saving'); setError('');
+    try { await saveJourneyStage(projectId, 'literature', { papers: chosen, query: title, searchCoverage: coverage }); setStatus('saved'); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'تعذر حفظ الأدلة.'); setStatus('idle'); }
+  };
+
+  return <div dir="rtl" className="min-h-screen bg-[#F8FAFC] pb-20 text-slate-950"><SiteHeader /><JourneyProgress current="literature" lang="ar" /><main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
+    <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8"><div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 7 · الأدلة والأدبيات</div><h1 className="mt-4 text-3xl font-black">ابحث، راجع، ثم اختر الأدلة</h1><p className="mt-3 text-sm leading-7 text-slate-600">يأخذ الخادم عنوانك المعتمد من مشروعك، ويبحث في OpenAlex وSemantic Scholar. لا نقبل عنواناً يرسله عميل مجهول، ولا نختلق مراجع أو أعداداً.</p></header>
+    {loadingJourney ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">جارٍ تحميل العنوان والمنهجية…</section>
+    : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
+    : journeyError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{journeyError}</section>
+    : !title || !methodReady ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة الأدبيات مغلقة</h2><p className="mt-3 text-sm text-amber-900">اعتمد العنوان والمنهجية داخل المشروع أولاً.</p><Link href={`/research/methodology?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى المنهجية</Link></section>
+    : <><section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">البحث مقيد بعنوان المشروع المملوك لك</div><p className="mt-2 text-sm leading-7 text-emerald-950"><strong>العنوان:</strong> {title}</p></section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><button type="button" onClick={() => void search()} disabled={searching} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:opacity-50">{searching ? 'جارٍ البحث والترشيح…' : 'ابحث في الأدبيات المرتبطة بالعنوان'}</button>{error && <p role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">{error}</p>}</section>
+      {coverage && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><div className="grid gap-3 sm:grid-cols-3"><div className="rounded-xl bg-white p-4 text-center"><div className="text-2xl font-black text-blue-700">{coverage.candidateResults}</div><div className="text-xs text-slate-600">نتيجة مرشحة</div></div><div className="rounded-xl bg-white p-4 text-center"><div className="text-2xl font-black text-emerald-700">{coverage.relevantResults}</div><div className="text-xs text-slate-600">نتيجة ذات صلة</div></div><div className="rounded-xl bg-white p-4 text-center"><div className="text-2xl font-black text-slate-600">{coverage.excludedByRelevance}</div><div className="text-xs text-slate-600">نتيجة مستبعدة</div></div></div><div className="mt-4 flex flex-wrap gap-2">{coverage.sources.map((source) => <span key={source.name} className={`rounded-full border px-3 py-1 text-xs font-bold ${source.available ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-rose-200 bg-rose-50 text-rose-800'}`}>{source.name}: {source.available ? `${source.returned} نتيجة` : 'غير متاح'}</span>)}</div><p className="mt-3 text-xs leading-6 text-blue-900">{coverage.note}</p></section>}
+      {papers.length > 0 && <section className="space-y-3">{papers.map((paper) => <article key={paper.id} className={`rounded-2xl border bg-white p-5 shadow-sm transition ${selected.includes(paper.id) ? 'border-blue-400 ring-2 ring-blue-100' : 'border-slate-200'}`}><div className="flex items-start gap-3"><input aria-label={`اختيار ${paper.title}`} type="checkbox" checked={selected.includes(paper.id)} onChange={() => toggle(paper.id)} className="mt-1 h-5 w-5 accent-blue-600" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">[موثق] {paper.source}</span>{typeof paper.relevanceScore === 'number' && <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">صلة تقريبية {paper.relevanceScore}%</span>}</div><h2 className="mt-3 text-base font-black leading-7">{paper.title}</h2><p className="mt-1 text-xs leading-6 text-slate-500">{paper.authors} · {paper.year} · {paper.citationCount} استشهاد مسجل</p>{paper.abstract ? <p className="mt-3 line-clamp-4 text-sm leading-7 text-slate-600">{paper.abstract}</p> : <p className="mt-3 text-xs text-slate-400">المستخلص غير متاح في بيانات المصدر.</p>}{paper.pdfUrl && <a href={paper.pdfUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-xs font-bold text-blue-700 hover:underline">فتح صفحة المصدر أو النسخة المتاحة ↗</a>}</div></div></article>)}</section>}
+      {papers.length > 0 && <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="mb-3 text-sm leading-7 text-slate-600">اختر ثلاث دراسات موثقة على الأقل. الاختيار مسؤولية بحثية؛ العدد والاستشهادات مؤشرات وليست بديلاً عن قراءة الدراسة.</p><button type="button" disabled={selected.length < 3 || status === 'saving'} onClick={() => void save()} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:opacity-40">{status === 'saving' ? 'جارٍ حفظ الأدلة…' : `اعتماد الدراسات المختارة (${selected.length})`}</button>{status === 'saved' && <Link href={`/research/analysis?projectId=${encodeURIComponent(projectId)}`} className="mt-3 block rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold text-emerald-800">تم الحفظ. انتقل إلى التخليق الأكاديمي ←</Link>}</section>}</>}
+  </main></div>;
 }
