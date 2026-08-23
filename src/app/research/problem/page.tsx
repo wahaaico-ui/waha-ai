@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
-import { supabase } from '@/lib/supabase/client';
+import { saveJourneyStage } from '@/lib/research-journey';
 
 type JourneySnapshot = {
   topic: string;
@@ -42,20 +42,8 @@ export default function ResearchProblemPage() {
     localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(nextJourney));
     setJourney(nextJourney);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && projectId) {
-      const { error } = await supabase.from('documents').insert({
-        project_id: projectId,
-        type: 'research_problem',
-        content: JSON.stringify({ statement: nextJourney.problemStatement, gap: nextJourney.researchGap }),
-        version: 1,
-      });
-      if (error) {
-        setStatus('error');
-        return;
-      }
-      await supabase.from('projects').update({ status: 'problem_defined' }).eq('id', projectId);
-    }
+    try { if (projectId) await saveJourneyStage(projectId, 'problem', { problemStatement: nextJourney.problemStatement || '', researchGap: nextJourney.researchGap || '' }); }
+    catch { setStatus('error'); return; }
     setStatus('saved');
   };
 

@@ -17,6 +17,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase/client';
 import SiteHeader from '@/components/SiteHeader';
 import ScoreCircle from '@/components/ScoreCircle';
+import { saveJourneyStage } from '@/lib/research-journey';
 
 interface AnalysisData {
   clarityScore: number;
@@ -266,18 +267,7 @@ export default function WAHAResearchPage() {
       setJourney(nextJourney);
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && projectId) {
-      const { error } = await supabase.from('documents').insert({
-        project_id: projectId,
-        type: 'research_title',
-        content: title,
-        version: 1,
-      });
-      if (!error) {
-        await supabase.from('projects').update({ status: 'title_selected' }).eq('id', projectId);
-      }
-    }
+    if (projectId) await saveJourneyStage(projectId, 'title', { title });
     setTitleSaveStatus('saved');
     await analyze(title);
   };

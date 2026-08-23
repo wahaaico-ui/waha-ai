@@ -34,6 +34,31 @@ export type ResearchJourney = {
 
 export type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'methodology' | 'literature' | 'analysis';
 
+export type ServerJourneyGate = {
+  status: 'open' | 'needs_improvement' | 'locked';
+  stage: JourneyStage;
+  reason: string;
+  nextStage: JourneyStage | null;
+};
+
+export async function saveJourneyStage(projectId: string, stage: JourneyStage, content: Record<string, unknown>) {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/journey`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage, content }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.gate?.reason || data.error || 'تعذر حفظ مرحلة البحث');
+  return data as { success: true; gate: ServerJourneyGate; nextStage: JourneyStage | null };
+}
+
+export async function loadJourney(projectId: string) {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/journey`, { cache: 'no-store' });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'تعذر تحميل المشروع');
+  return data as { outputs: Partial<Record<JourneyStage, Record<string, unknown>>>; nextStage: JourneyStage | null; gate: ServerJourneyGate | null };
+}
+
 export const JOURNEY_STAGES: Array<{ id: JourneyStage; title: string; href: string }> = [
   { id: 'verify', title: 'فحص الفكرة', href: '/verify-idea' },
   { id: 'title', title: 'صياغة العنوان', href: '/research' },

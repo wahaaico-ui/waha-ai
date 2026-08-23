@@ -5,6 +5,7 @@ import Link from 'next/link';
 import JourneyProgress from '@/components/JourneyProgress';
 import { supabase } from '@/lib/supabase/client';
 import AuthGate from '@/components/AuthGate';
+import { saveJourneyStage } from '@/lib/research-journey';
 
 // ============================================================
 // TYPES (mirror API response)
@@ -180,17 +181,17 @@ export default function VerifyIdeaPage() {
 
     if (projectError || !createdProject) return;
 
-    const { error: documentError } = await supabase.from('documents').insert({
-      project_id: createdProject.id,
-      type: 'idea_verification',
-      content: JSON.stringify(verification),
-      version: 1,
-    });
-
-    if (!documentError) {
+    try {
+      await saveJourneyStage(createdProject.id, 'verify', {
+        topic: verification.topic,
+        decision: verification.decision,
+        acceptanceScore: verification.acceptanceScore,
+        gaps: verification.gaps,
+        sources: verification.topPapers,
+      });
       setProjectId(createdProject.id);
       setSaveStatus('cloud');
-    }
+    } catch { setSaveStatus('local'); }
   };
 
   const handleVerify = async () => {

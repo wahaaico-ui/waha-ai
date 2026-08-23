@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import JourneyCloudSync from '@/components/JourneyCloudSync';
 
 // The 6 phases of the Waha research journey
 export const JOURNEY_PHASES = [
@@ -28,6 +29,7 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
 
   return (
     <div dir={lang === "ar" ? "rtl" : "ltr"} className="border-b border-slate-200 bg-white/90 backdrop-blur-xl">
+      <JourneyCloudSync />
       <div className="w-full max-w-6xl mx-auto overflow-x-auto px-4 py-4">
       <div className="min-w-[720px]">
       {/* Phase circles + labels */}

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
-import { supabase } from '@/lib/supabase/client';
+import { saveJourneyStage } from '@/lib/research-journey';
 
 type JourneySnapshot = { objectives?: string[]; questions?: string[]; nextStage?: 'questions' | 'methodology' | null; updatedAt: string };
 const JOURNEY_SNAPSHOT_KEY = 'waha_active_journey';
@@ -27,12 +27,8 @@ export default function ResearchQuestionsPage() {
     const nextJourney: JourneySnapshot = { ...journey, questions: questions.map((question) => question.trim()), nextStage: 'methodology', updatedAt: new Date().toISOString() };
     localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(nextJourney));
     setJourney(nextJourney);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && projectId) {
-      const { error } = await supabase.from('documents').insert({ project_id: projectId, type: 'research_questions', content: JSON.stringify(nextJourney.questions), version: 1 });
-      if (error) { setStatus('error'); return; }
-      await supabase.from('projects').update({ status: 'questions_defined' }).eq('id', projectId);
-    }
+    try { if (projectId) await saveJourneyStage(projectId, 'questions', { questions: nextJourney.questions || [] }); }
+    catch { setStatus('error'); return; }
     setStatus('saved');
   };
 

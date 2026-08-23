@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
-import { supabase } from '@/lib/supabase/client';
+import { saveJourneyStage } from '@/lib/research-journey';
 
 type JourneySnapshot = {
   selectedTitle?: string;
@@ -46,12 +46,8 @@ export default function ResearchObjectivesPage() {
     localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(nextJourney));
     setJourney(nextJourney);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user && projectId) {
-      const { error } = await supabase.from('documents').insert({ project_id: projectId, type: 'research_objectives', content: JSON.stringify(validObjectives), version: 1 });
-      if (error) { setStatus('error'); return; }
-      await supabase.from('projects').update({ status: 'objectives_defined' }).eq('id', projectId);
-    }
+    try { if (projectId) await saveJourneyStage(projectId, 'objectives', { objectives: validObjectives }); }
+    catch { setStatus('error'); return; }
     setStatus('saved');
   };
 
