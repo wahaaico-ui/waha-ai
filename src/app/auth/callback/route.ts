@@ -5,7 +5,9 @@ import { cookies } from 'next/headers';
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const next = searchParams.get('next') ?? '/dashboard';
+  const requestedNext = searchParams.get('next') ?? '/dashboard';
+  const allowedNext = new Set(['/dashboard', '/email-confirmed', '/reset-password', '/verify-idea', '/projects/create']);
+  const next = allowedNext.has(requestedNext) ? requestedNext : '/dashboard';
 
   if (code) {
     const cookieStore = await cookies();
