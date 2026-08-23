@@ -92,7 +92,7 @@ export default function ResearchProblemPage() {
               <button type="button" disabled={!canSave || status === 'saving'} onClick={saveProblem} className="w-full rounded-xl bg-gradient-to-l from-emerald-400 to-teal-300 py-3.5 text-sm font-bold text-slate-950 transition hover:from-emerald-300 hover:to-teal-200 disabled:cursor-not-allowed disabled:opacity-40">
                 {status === 'saving' ? 'جارٍ حفظ المشكلة…' : 'اعتماد المشكلة وفتح الأهداف'}
               </button>
-              {status === 'saved' && <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">تم اعتماد المشكلة والفجوة وحفظهما في سياق الرحلة. مرحلة الأهداف هي التالية.</div>}
+              {status === 'saved' && <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-100">تم اعتماد المشكلة والفجوة وحفظهما في سياق الرحلة. <Link href={`/research/objectives${projectId ? `?projectId=${projectId}` : ''}`} className="mt-2 inline-flex font-bold text-emerald-300 hover:text-emerald-200">انتقل إلى صياغة الأهداف ←</Link></div>}
             </section>
           </>
         )}
