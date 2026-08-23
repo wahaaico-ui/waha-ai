@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { PDFParse } from 'pdf-parse';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
+export const runtime = 'nodejs';
+
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_PAGES = 50;
 const MAX_TEXT_CHARS = 1_000_000;
