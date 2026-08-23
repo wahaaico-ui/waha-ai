@@ -10,6 +10,8 @@ export const JOURNEY_PHASES = [
   { id: "objectives", labelAr: "الأهداف",   labelEn: "Objectives", href: "/research/objectives", enabled: true  },
   { id: "questions",  labelAr: "الأسئلة",   labelEn: "Questions",  href: "/research/questions", enabled: true  },
   { id: "method",     labelAr: "المنهجية",  labelEn: "Method",     href: "/research/methodology", enabled: true  },
+  { id: "literature", labelAr: "الأدبيات",  labelEn: "Literature", href: "/research/literature", enabled: true  },
+  { id: "analysis",   labelAr: "التحليل",   labelEn: "Analysis",   href: "/research/analysis", enabled: true  },
 ];
 
 export type PhaseId = typeof JOURNEY_PHASES[number]["id"];
@@ -42,8 +44,6 @@ export default function JourneyProgress({ current, lang = "ar" }: JourneyProgres
         {JOURNEY_PHASES.map((phase, i) => {
           const isDone = i < currentIndex;
           const isCurrent = i === currentIndex;
-          const isFuture = i > currentIndex;
-
           const circleClasses = isDone
             ? "bg-emerald-500 text-white border-emerald-500"
             : isCurrent
