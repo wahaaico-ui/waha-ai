@@ -1,7 +1,8 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
+import StripeCheckoutButton from '@/components/StripeCheckoutButton';
 
 const LANG_KEY = 'waha_lang';
 
@@ -20,6 +21,7 @@ const PLANS = {
       ],
       cta: 'ابدأ مجاناً',
       href: '/research',
+      checkout: false,
       highlighted: false,
     },
     {
@@ -32,10 +34,14 @@ const PLANS = {
         'كل مميزات الخطة المجانية',
         'حفظ سجل كامل للتحليلات',
         'تصدير التقارير PDF',
+        'ربط ومزامنة مكتبة Zotero',
+        'ترجمة الملخص عربي ↔ إنجليزي',
+        'تدقيق لغوي وأكاديمي',
         'دعم ذو أولوية',
       ],
       cta: 'اشترك الآن',
       href: '/signup',
+      checkout: true,
       highlighted: true,
     },
     {
@@ -51,6 +57,7 @@ const PLANS = {
       ],
       cta: 'تواصل معنا',
       href: 'mailto:sales@waha-ai.com',
+      checkout: false,
       highlighted: false,
     },
   ],
@@ -68,6 +75,7 @@ const PLANS = {
       ],
       cta: 'Start free',
       href: '/research',
+      checkout: false,
       highlighted: false,
     },
     {
@@ -80,10 +88,14 @@ const PLANS = {
         'Everything in Free',
         'Full analysis history',
         'PDF report export',
+        'Connect and sync Zotero',
+        'Arabic ↔ English abstract translation',
+        'Academic language proofreading',
         'Priority support',
       ],
       cta: 'Subscribe now',
       href: '/signup',
+      checkout: true,
       highlighted: true,
     },
     {
@@ -99,6 +111,7 @@ const PLANS = {
       ],
       cta: 'Contact us',
       href: 'mailto:sales@waha-ai.com',
+      checkout: false,
       highlighted: false,
     },
   ],
@@ -110,18 +123,7 @@ const COPY = {
 };
 
 export default function PricingPage() {
-  const [lang, setLang] = useState<'ar' | 'en'>('ar');
-
-  useEffect(() => {
-    const stored = localStorage.getItem(LANG_KEY);
-    if (stored === 'ar' || stored === 'en') setLang(stored);
-  }, []);
-
-  const toggleLang = () => {
-    const next = lang === 'ar' ? 'en' : 'ar';
-    setLang(next);
-    localStorage.setItem(LANG_KEY, next);
-  };
+  const [lang] = useState<'ar' | 'en'>(() => typeof window !== 'undefined' && localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ar');
 
   const t = COPY[lang];
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
@@ -161,16 +163,14 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                href={plan.href}
+              {plan.checkout ? <StripeCheckoutButton
+                label={plan.cta}
                 className={`text-center px-6 py-3 rounded-xl font-bold text-sm transition-all ${
                   plan.highlighted
                     ? 'bg-gradient-to-l from-blue-500 to-teal-400 hover:from-blue-400 hover:to-teal-300 text-gray-950'
                     : 'border border-white/15 hover:border-white/30 text-white'
                 }`}
-              >
-                {plan.cta}
-              </Link>
+              /> : <Link href={plan.href} className={`text-center px-6 py-3 rounded-xl font-bold text-sm transition-all ${plan.highlighted ? 'bg-gradient-to-l from-blue-500 to-teal-400 hover:from-blue-400 hover:to-teal-300 text-gray-950' : 'border border-white/15 hover:border-white/30 text-white'}`}>{plan.cta}</Link>}
             </div>
           ))}
         </div>

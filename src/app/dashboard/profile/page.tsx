@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Shield, ArrowRight, Save } from 'lucide-react';
+import { User, Mail, Shield, ArrowRight, Save, Plug } from 'lucide-react';
 import Link from 'next/link';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [university, setUniversity] = useState('');
@@ -41,6 +42,10 @@ export default function ProfilePage() {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      alert('يجب تسجيل الدخول أولاً');
+      return;
+    }
     setSaving(true);
 
     const { error } = await supabase
@@ -67,6 +72,11 @@ export default function ProfilePage() {
 
         <h1 className="text-3xl font-bold mb-2">إدارة الحساب والملف الأكاديمي</h1>
         <p className="text-gray-400 mb-8">تعديل بياناتك الشخصية والمؤسسية لضمان دقة التقارير الصادرة.</p>
+
+        <Link href="/settings/integrations" className="mb-6 flex items-center justify-between rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-cyan-300 transition hover:bg-cyan-500/10">
+          <span className="flex items-center gap-3"><Plug className="h-5 w-5" /><span><strong className="block">التكاملات البحثية</strong><small className="text-gray-400">ربط Zotero وإدارة مصادر البحث الخارجية</small></span></span>
+          <span>←</span>
+        </Link>
 
         <form onSubmit={handleUpdateProfile} className="bg-[#18181b] border border-[#27272a] rounded-3xl p-8 space-y-6">
           <div>

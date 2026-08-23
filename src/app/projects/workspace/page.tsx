@@ -3,6 +3,7 @@
 import { supabase } from '@/lib/supabase/client';
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import ZoteroImportPanel from '@/components/ZoteroImportPanel';
 type Project = {
   id: string;
   title: string;
@@ -19,12 +20,23 @@ type Source = {
   [key: string]: unknown;
 };
 
+type ProjectReference = {
+  id: string;
+  title: string;
+  authors: Array<{ type: string; name: string }>;
+  publication_year?: number | null;
+  publication_title?: string | null;
+  doi?: string | null;
+  url?: string | null;
+};
+
 function WorkspaceContent() {
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
 
   const [project, setProject] = useState<Project | null>(null);
   const [sources, setSources] = useState<Source[]>([]);
+  const [references, setReferences] = useState<ProjectReference[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -50,6 +62,14 @@ const fetchProjectData = async () => {
         .order('created_at', { ascending: false });
       if (srcErr) throw srcErr;
       setSources(srcData || []);
+
+      const { data: referenceData, error: referenceError } = await supabase
+        .from('project_references')
+        .select('id, title, authors, publication_year, publication_title, doi, url')
+        .eq('project_id', projectId)
+        .order('synced_at', { ascending: false });
+      if (referenceError) throw referenceError;
+      setReferences(referenceData || []);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'فشل في جلب البيانات');
     } finally {
@@ -74,17 +94,18 @@ const fetchProjectData = async () => {
 
         if (projErr) throw projErr;
 
-        const { data: srcData, error: srcErr } = await supabase
-          .from('sources')
-          .select('*')
-          .eq('project_id', projectId)
-          .order('created_at', { ascending: false });
+        const [{ data: srcData, error: srcErr }, { data: referenceData, error: referenceError }] = await Promise.all([
+          supabase.from('sources').select('*').eq('project_id', projectId).order('created_at', { ascending: false }),
+          supabase.from('project_references').select('id, title, authors, publication_year, publication_title, doi, url').eq('project_id', projectId).order('synced_at', { ascending: false }),
+        ]);
 
         if (srcErr) throw srcErr;
+        if (referenceError) throw referenceError;
 
         if (!cancelled) {
           setProject(projData);
           setSources(srcData || []);
+          setReferences(referenceData || []);
           setError('');
           setLoading(false);
         }
@@ -181,6 +202,18 @@ const fetchProjectData = async () => {
           <h1 className="text-2xl font-bold">{project.title}</h1>
           <p className="text-sm text-gray-500 mt-1">ID: {project.id}</p>
         </div>
+
+        <ZoteroImportPanel projectId={project.id} onImported={fetchProjectData} />
+
+        {references.length > 0 && <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
+          <h2 className="text-lg font-semibold mb-4">مراجع Zotero ({references.length})</h2>
+          <div className="space-y-3">{references.map((reference) => <article key={reference.id} className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:bg-gray-900">
+            <h3 className="font-semibold text-blue-700 dark:text-blue-300">{reference.title}</h3>
+            <p className="mt-1 text-xs text-gray-500">{reference.authors.map((author) => author.name).filter(Boolean).join('، ') || 'مؤلف غير محدد'}{reference.publication_year ? ` · ${reference.publication_year}` : ''}</p>
+            {reference.publication_title && <p className="mt-1 text-xs text-gray-500">{reference.publication_title}</p>}
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">{reference.doi && <span>DOI: {reference.doi}</span>}{reference.url && <a href={reference.url} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">فتح المصدر ↗</a>}</div>
+          </article>)}</div>
+        </div>}
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
           <h2 className="text-lg font-semibold mb-4">رفع ملف PDF للتحليل واستخراج المراجع (حقيقي)</h2>

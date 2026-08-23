@@ -10,13 +10,14 @@ export async function POST(request: Request) {
   try {
     const access = await requireAuthenticatedUser();
     if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { priceId } = await request.json();
+    const body = await request.json() as { priceId?: string };
+    const priceId = body.priceId || process.env.STRIPE_RESEARCHER_PRICE_ID;
     const email = access.user.email;
     const allowedPrices = (process.env.STRIPE_ALLOWED_PRICE_IDS || '').split(',').map((value) => value.trim()).filter(Boolean);
     const origin = request.headers.get('origin');
     if (origin && origin !== new URL(request.url).origin) return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
 
-    if (!email || !priceId || !allowedPrices.includes(priceId)) {
+    if (!email || !priceId || (allowedPrices.length > 0 && !allowedPrices.includes(priceId))) {
       return NextResponse.json({ error: 'بيانات المستخدم غير موجودة' }, { status: 400 });
     }
 
@@ -35,6 +36,11 @@ export async function POST(request: Request) {
       cancel_url: `${new URL(request.url).origin}/dashboard?canceled=true`,
       metadata: {
         userId: access.user.id,
+      },
+      subscription_data: {
+        metadata: {
+          userId: access.user.id,
+        },
       },
     });
 

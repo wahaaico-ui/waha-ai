@@ -6,6 +6,7 @@ const RATE_LIMITED_API_PREFIXES = new Map<string, { maxRequests: number; windowS
   ['/api/academic/pdf-analyzer', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/academic/export', { maxRequests: 20, windowSeconds: 60 }],
   ['/api/academic/paraphrase', { maxRequests: 20, windowSeconds: 60 }],
+  ['/api/academic/language-tools', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/academic/literature-synth', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/analyze', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/analyze-idea', { maxRequests: 5, windowSeconds: 60 }],
@@ -13,6 +14,9 @@ const RATE_LIMITED_API_PREFIXES = new Map<string, { maxRequests: number; windowS
   ['/api/chat', { maxRequests: 20, windowSeconds: 60 }],
   ['/api/waha/analyze', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/stripe/checkout', { maxRequests: 10, windowSeconds: 60 }],
+  ['/api/integrations/zotero/connect', { maxRequests: 10, windowSeconds: 60 }],
+  ['/api/integrations/zotero/collections', { maxRequests: 20, windowSeconds: 60 }],
+  ['/api/integrations/zotero/import', { maxRequests: 5, windowSeconds: 60 }],
 ]);
 
 function rateLimitFor(pathname: string) {
