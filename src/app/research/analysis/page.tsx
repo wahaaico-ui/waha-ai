@@ -1,20 +1,68 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
-import { saveJourneyStage } from '@/lib/research-journey';
+import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
+import type { ResearchAnalysis } from '@/lib/research-analysis';
 
-type Paper = { id: string; title: string; authors: string; year: number | string; abstract: string };
-type Analysis = { introduction: string; thematicSynthesis: string; researchGapsIdentified: string[]; conclusion: string };
-type JourneySnapshot = { selectedTitle?: string; selectedPapers?: Paper[]; analysis?: Analysis; updatedAt: string };
-const JOURNEY_SNAPSHOT_KEY = 'waha_active_journey';
+type Paper = { id: string; title: string; authors?: string; year?: number | string; source?: string };
+type AnalysisResponse = { success: boolean; analysis: ResearchAnalysis; sources: Paper[]; generatedAt: string; evidenceNote: string; error?: string };
 
 export default function ResearchAnalysisPage() {
-  const [journey, setJourney] = useState<JourneySnapshot | null>(() => { if (typeof window === 'undefined') return null; try { const saved = localStorage.getItem(JOURNEY_SNAPSHOT_KEY); return saved ? JSON.parse(saved) as JourneySnapshot : null; } catch { return null; } });
-  const [analysis, setAnalysis] = useState<Analysis | null>(() => journey?.analysis || null); const [status, setStatus] = useState<'idle' | 'loading' | 'saved'>('idle'); const [error, setError] = useState(''); const [projectId] = useState(() => typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('projectId'));
-  const papers = journey?.selectedPapers || []; const canEnter = papers.length >= 3 && Boolean(journey?.selectedTitle);
-  const generate = async () => { if (!journey || !canEnter) return; setStatus('loading'); setError(''); try { const notes = papers.map((paper) => `${paper.title} (${paper.year})\n${paper.abstract || 'لا يوجد مستخلص متاح'}`).join('\n\n---\n\n'); const response = await fetch('/api/academic/literature-synth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic: journey.selectedTitle, papersNotes: notes }) }); const data = await response.json(); if (!response.ok || !data.success) throw new Error(data.error || 'تعذر توليد التحليل'); const result = data.literatureReview as Analysis; setAnalysis(result); const nextJourney: JourneySnapshot = { ...journey, analysis: result, updatedAt: new Date().toISOString() }; localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(nextJourney)); setJourney(nextJourney); if (projectId) await saveJourneyStage(projectId, 'analysis', result); setStatus('saved'); } catch (generationError) { setError(generationError instanceof Error ? generationError.message : 'تعذر توليد التحليل'); setStatus('idle'); } };
-  return <div dir="rtl" className="min-h-screen bg-[#0A0F1C] pb-20 text-white"><SiteHeader /><JourneyProgress current="analysis" lang="ar" /><main className="mx-auto mt-8 max-w-4xl space-y-6 px-4">{!canEnter ? <section className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-7 text-center"><h1 className="text-xl font-bold text-amber-100">التحليل العميق مقفل حالياً</h1><p className="mt-3 text-sm leading-7 text-amber-100/80">اختر ثلاث دراسات موثقة على الأقل قبل التحليل؛ لا تصنع الواحة تخليقاً علمياً بلا أدلة.</p><Link href="/research/literature" className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-slate-950">اذهب إلى الأدبيات</Link></section> : <><section className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-5"><p className="text-xs font-bold text-emerald-300">بوابة الأدلة مفتوحة · المرحلة 8 من 8</p><h1 className="mt-2 text-lg font-bold">التحليل والتخليق الأكاديمي</h1><p className="mt-2 text-sm leading-6 text-slate-300">سيُبنى التخليق حصراً من الدراسات التي اخترتها ({papers.length})، مع إظهار الفجوات المستنتجة لا كحقائق غير موثقة.</p></section><section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5"><button type="button" onClick={generate} disabled={status === 'loading'} className="w-full rounded-xl bg-gradient-to-l from-emerald-400 to-teal-300 py-3.5 text-sm font-bold text-slate-950 disabled:opacity-40">{status === 'loading' ? 'جارٍ تحليل الدراسات…' : 'ولّد التخليق الأكاديمي'}</button>{error && <p className="mt-3 text-sm text-rose-300">{error}</p>}</section>{analysis && <section className="space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-7"><div><h2 className="text-sm font-bold text-emerald-300">التأطير</h2><p className="mt-2 text-sm leading-7 text-slate-200">{analysis.introduction}</p></div><div><h2 className="text-sm font-bold text-emerald-300">التخليق الموضوعي</h2><p className="mt-2 text-sm leading-7 text-slate-200">{analysis.thematicSynthesis}</p></div><div><h2 className="text-sm font-bold text-emerald-300">الفجوات المستنتجة من الدراسات المختارة</h2><ul className="mt-2 space-y-2">{analysis.researchGapsIdentified.map((gap) => <li key={gap} className="text-sm leading-7 text-slate-200">• {gap}</li>)}</ul></div><div><h2 className="text-sm font-bold text-emerald-300">الخلاصة</h2><p className="mt-2 text-sm leading-7 text-slate-200">{analysis.conclusion}</p></div>{status === 'saved' && <p className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-100">تم حفظ التحليل في سياق المشروع.</p>}</section>}</>}</main></div>;
+  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const [loadingJourney, setLoadingJourney] = useState(() => Boolean(projectId));
+  const [journeyError, setJourneyError] = useState('');
+  const [title, setTitle] = useState('');
+  const [papers, setPapers] = useState<Paper[]>([]);
+  const [analysis, setAnalysis] = useState<ResearchAnalysis | null>(null);
+  const [evidenceNote, setEvidenceNote] = useState('');
+  const [generatedAt, setGeneratedAt] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'saved'>('idle');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!projectId) return;
+    loadJourney(projectId)
+      .then((journey) => {
+        const savedTitle = journey.outputs.title?.title;
+        setTitle(typeof savedTitle === 'string' ? savedTitle : '');
+        const savedPapers = journey.outputs.literature?.papers;
+        setPapers(Array.isArray(savedPapers) ? savedPapers.filter((paper): paper is Paper => Boolean(paper && typeof paper === 'object' && typeof paper.id === 'string' && typeof paper.title === 'string')) : []);
+        const savedAnalysis = journey.outputs.analysis;
+        if (savedAnalysis && typeof savedAnalysis === 'object' && typeof savedAnalysis.introduction === 'string' && Array.isArray(savedAnalysis.themes)) setAnalysis(savedAnalysis as unknown as ResearchAnalysis);
+        if (typeof savedAnalysis?.evidenceNote === 'string') setEvidenceNote(savedAnalysis.evidenceNote);
+        if (typeof savedAnalysis?.generatedAt === 'string') setGeneratedAt(savedAnalysis.generatedAt);
+      })
+      .catch((reason) => setJourneyError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.'))
+      .finally(() => setLoadingJourney(false));
+  }, [projectId]);
+
+  const paperById = useMemo(() => new Map(papers.map((paper) => [paper.id, paper])), [papers]);
+  const generate = async () => {
+    if (!projectId || papers.length < 3) return;
+    setStatus('loading'); setError('');
+    try {
+      const response = await fetch('/api/research/analysis', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId }) });
+      const data = await response.json() as AnalysisResponse;
+      if (!response.ok || !data.success) throw new Error(data.error || 'تعذر توليد التخليق.');
+      await saveJourneyStage(projectId, 'analysis', { ...data.analysis, sources: data.sources, generatedAt: data.generatedAt, evidenceNote: data.evidenceNote });
+      setAnalysis(data.analysis); setEvidenceNote(data.evidenceNote); setGeneratedAt(data.generatedAt); setStatus('saved');
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'تعذر توليد التخليق.'); setStatus('idle'); }
+  };
+
+  return <div dir="rtl" className="min-h-screen bg-[#F8FAFC] pb-20 text-slate-950"><SiteHeader /><JourneyProgress current="analysis" lang="ar" /><main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
+    <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8"><div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 8 · التخليق الأكاديمي</div><h1 className="mt-4 text-3xl font-black">حلّل العلاقات بين الأدلة، لا النصوص بمعزل عنها</h1><p className="mt-3 text-sm leading-7 text-slate-600">يُبنى التخليق حصراً من الدراسات التي اعتمدتها. كل محور يُربط بمعرفات مصادر موجودة فعلاً، والفجوات تظهر كاستنتاجات تحتاج تحققاً لا كحقائق نهائية.</p></header>
+    {loadingJourney ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">جارٍ تحميل الأدلة المختارة…</section>
+    : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
+    : journeyError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{journeyError}</section>
+    : papers.length < 3 || !title ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة التخليق مغلقة</h2><p className="mt-3 text-sm text-amber-900">اعتمد العنوان وثلاث دراسات موثقة على الأقل أولاً.</p><Link href={`/research/literature?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى الأدبيات</Link></section>
+    : <><section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">بوابة الأدلة مفتوحة من سجل المشروع</div><p className="mt-2 text-sm leading-7 text-emerald-950"><strong>{papers.length} دراسات مختارة</strong> للعنوان: {title}</p><ul className="mt-3 space-y-1 text-xs leading-6 text-emerald-900">{papers.slice(0, 6).map((paper) => <li key={paper.id}>• {paper.title} {paper.year ? `(${paper.year})` : ''}</li>)}</ul>{papers.length > 6 && <p className="mt-2 text-xs text-emerald-700">و{papers.length - 6} دراسات أخرى.</p>}</section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p className="mb-4 text-xs leading-6 text-slate-500">لن ينفذ النظام تحليلاً إحصائياً، ولن يضيف نتائج ميدانية. سيحلل فقط ما تسمح به بيانات المصادر المختارة.</p><button type="button" onClick={() => void generate()} disabled={status === 'loading'} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:opacity-40">{status === 'loading' ? 'جارٍ تخليق الأدلة والتحقق من الإسناد…' : analysis ? 'إعادة توليد التخليق من الأدلة الحالية' : 'ولّد التخليق الأكاديمي'}</button>{error && <p role="alert" className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-7 text-rose-800">{error}</p>}</section>
+      {analysis && <section className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><div className="rounded-xl border border-blue-200 bg-blue-50 p-4"><div className="text-xs font-bold text-blue-700">[تخليق آلي مقيد بالأدلة]</div><p className="mt-2 text-xs leading-6 text-blue-900">{evidenceNote || 'راجع كل استنتاج بالرجوع إلى المصادر الأصلية قبل استخدامه أكاديمياً.'}</p>{generatedAt && <p className="mt-1 text-[11px] text-blue-700">وقت التوليد: {new Date(generatedAt).toLocaleString('ar')}</p>}</div>
+        <div><h2 className="text-lg font-black">التأطير</h2><p className="mt-2 text-sm leading-8 text-slate-700">{analysis.introduction}</p></div><div><h2 className="text-lg font-black">التخليق الموضوعي العام</h2><p className="mt-2 text-sm leading-8 text-slate-700">{analysis.thematicSynthesis}</p></div>
+        <div><h2 className="text-lg font-black">المحاور المسندة</h2><div className="mt-3 space-y-4">{analysis.themes.map((theme) => <article key={`${theme.title}-${theme.supportingPaperIds.join('-')}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">{theme.title}</h3><p className="mt-2 text-sm leading-8 text-slate-700">{theme.synthesis}</p><div className="mt-3 flex flex-wrap gap-2">{theme.supportingPaperIds.map((id) => <span key={id} title={paperById.get(id)?.title || id} className="rounded-full border border-blue-200 bg-white px-3 py-1 text-[11px] font-bold text-blue-700">[موثق] {paperById.get(id)?.title?.slice(0, 55) || id}</span>)}</div></article>)}</div></div>
+        <div><h2 className="text-lg font-black">الفجوات المستنتجة</h2><ul className="mt-3 space-y-2">{analysis.researchGapsIdentified.map((gap) => <li key={gap} className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950"><strong>[استنتاج]</strong> {gap}</li>)}</ul></div><div><h2 className="text-lg font-black">الخلاصة</h2><p className="mt-2 text-sm leading-8 text-slate-700">{analysis.conclusion}</p></div><div><h2 className="text-lg font-black">حدود المخرج</h2><ul className="mt-2 space-y-2 text-sm leading-7 text-slate-600">{analysis.limitations.map((limitation) => <li key={limitation}>• {limitation}</li>)}</ul></div>{status === 'saved' && <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">تم حفظ التخليق ونسخته داخل مشروعك.</p>}</section>}</>}
+  </main></div>;
 }

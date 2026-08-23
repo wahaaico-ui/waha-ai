@@ -48,6 +48,8 @@ export async function saveJourneyStage(projectId: string, stage: JourneyStage, c
     body: JSON.stringify({ stage, content }),
   });
   const data = await response.json();
+  if (response.status === 401) throw new Error('انتهت جلسة الدخول. سجّل الدخول مجدداً لحفظ مشروعك.');
+  if (response.status === 404) throw new Error('المشروع غير موجود أو لا تملك صلاحية الوصول إليه.');
   if (!response.ok) throw new Error(data.gate?.reason || data.error || 'تعذر حفظ مرحلة البحث');
   if (data.gate?.status !== 'open') throw new Error(data.gate?.reason || 'لم تجتز هذه المرحلة بوابة الجودة بعد.');
   return data as { success: true; gate: ServerJourneyGate; nextStage: JourneyStage | null };
@@ -56,6 +58,8 @@ export async function saveJourneyStage(projectId: string, stage: JourneyStage, c
 export async function loadJourney(projectId: string) {
   const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/journey`, { cache: 'no-store' });
   const data = await response.json();
+  if (response.status === 401) throw new Error('انتهت جلسة الدخول. سجّل الدخول مجدداً لعرض مشروعك.');
+  if (response.status === 404) throw new Error('المشروع غير موجود أو لا تملك صلاحية الوصول إليه.');
   if (!response.ok) throw new Error(data.error || 'تعذر تحميل المشروع');
   return data as { outputs: Partial<Record<JourneyStage, Record<string, unknown>>>; nextStage: JourneyStage | null; gate: ServerJourneyGate | null };
 }
