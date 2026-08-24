@@ -14,6 +14,7 @@ export type EvidencePaper = {
 
 export type VerifyReport = {
   topic: string;
+  researcherInput: ResearcherInput;
   translatedQuery?: string;
   totalPapers: number;
   yearDistribution: { year: number; count: number }[];
@@ -61,6 +62,14 @@ export type ResearcherContext = {
   level: string | null;
 };
 
+export type ResearchScenario = 'uncertain' | 'idea' | 'rejected_title' | 'compare_titles';
+
+export type ResearcherInput = {
+  scenario: ResearchScenario;
+  candidateTitles: string[];
+  rejectionFeedback: string | null;
+};
+
 export type SearchCoverage = {
   queryCount: number;
   candidateResults: number;
@@ -78,6 +87,26 @@ export type ResearchPath = {
   evidenceLevel: 'suggestion';
   supportingReferences: Array<{ title: string; year: number; url: string }>;
 };
+
+export function isResearchScenario(value: unknown): value is ResearchScenario {
+  return value === 'uncertain' || value === 'idea' || value === 'rejected_title' || value === 'compare_titles';
+}
+
+export function normalizeResearcherInput(value: unknown): ResearcherInput {
+  const input = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const scenario = isResearchScenario(input.scenario) ? input.scenario : 'idea';
+  const candidateTitles = Array.isArray(input.candidateTitles)
+    ? [...new Set(input.candidateTitles
+      .filter((title): title is string => typeof title === 'string')
+      .map((title) => title.trim())
+      .filter((title) => title.length >= 10))].slice(0, 4)
+    : [];
+  const rejectionFeedback = typeof input.rejectionFeedback === 'string' && input.rejectionFeedback.trim()
+    ? input.rejectionFeedback.trim().slice(0, 1_000)
+    : null;
+
+  return { scenario, candidateTitles, rejectionFeedback };
+}
 
 const METHOD_PATTERNS = [
   { type: 'كمي', pattern: /quantitative|survey|questionnaire|statistic|regression|correlation|كمي|استبانة|إحصائ/i },

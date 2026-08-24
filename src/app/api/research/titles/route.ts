@@ -6,6 +6,7 @@ import { evaluateTitleCandidate, recommendedTitle } from '@/lib/title-comparison
 type VerificationOutput = {
   topic?: unknown;
   researchPaths?: unknown;
+  selectedResearchPath?: unknown;
   researcherContext?: unknown;
 };
 
@@ -50,11 +51,15 @@ function titleCandidates(bodyTitles: unknown, verification: VerificationOutput) 
       .filter((title): title is string => typeof title === 'string')
       .map((title) => title.trim())
       .filter((title) => title.length >= 10 && title.length <= 300);
-    if (cleaned.length >= 2 && cleaned.length <= 3) return [...new Set(cleaned)];
+    if (cleaned.length >= 2 && cleaned.length <= 4) return [...new Set(cleaned)];
   }
 
   if (!Array.isArray(verification.researchPaths)) return [];
-  return (verification.researchPaths as ResearchPath[])
+  const paths = verification.researchPaths as ResearchPath[];
+  const selectedId = verification.selectedResearchPath && typeof verification.selectedResearchPath === 'object'
+    ? (verification.selectedResearchPath as { id?: unknown }).id
+    : null;
+  return [...paths].sort((first, second) => Number(second.id === selectedId) - Number(first.id === selectedId))
     .map((path) => typeof path?.title === 'string' ? path.title.trim() : '')
     .filter((title) => title.length >= 10 && title.length <= 300)
     .slice(0, 3);
@@ -112,6 +117,9 @@ export async function POST(request: Request) {
       || (documents || []).find((document) => document.type === 'idea_verification');
     const verification = parseVerification(verificationDocument?.content || null);
     if (!verification) return NextResponse.json({ error: 'أكمل استكشاف الفكرة واحفظه قبل مقارنة العناوين.' }, { status: 409 });
+    if (!verification.selectedResearchPath || typeof verification.selectedResearchPath !== 'object') {
+      return NextResponse.json({ error: 'اختر مساراً بحثياً واعتمده قبل مقارنة العناوين.' }, { status: 409 });
+    }
 
     const titles = titleCandidates(candidateTitles, verification);
     if (titles.length < 2) return NextResponse.json({ error: 'يلزم عنوانان صالحان على الأقل للمقارنة.' }, { status: 400 });

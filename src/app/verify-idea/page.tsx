@@ -6,7 +6,7 @@ import JourneyProgress from '@/components/JourneyProgress';
 import { supabase } from '@/lib/supabase/client';
 import AuthGate from '@/components/AuthGate';
 import { saveJourneyStage } from '@/lib/research-journey';
-import type { VerifyReport } from '@/lib/research-exploration';
+import type { ResearchPath, ResearchScenario, VerifyReport } from '@/lib/research-exploration';
 
 // ============================================================
 // TYPES (mirror API response)
@@ -27,9 +27,17 @@ interface JourneySnapshot {
   completedStage: 'idea';
   nextStage: 'title' | null;
   updatedAt: string;
+  selectedResearchPath: ResearchPath;
 }
 
 const JOURNEY_SNAPSHOT_KEY = 'waha_active_journey';
+
+const RESEARCH_SCENARIOS: Array<{ id: ResearchScenario; title: string; description: string }> = [
+  { id: 'uncertain', title: 'ما زلت أستكشف', description: 'لدي مجال اهتمام، لكن لا أملك فكرة أو عنواناً واضحاً.' },
+  { id: 'idea', title: 'لدي فكرة أولية', description: 'أريد معرفة ما بُحث حولها وكيف يمكن تطويرها.' },
+  { id: 'rejected_title', title: 'عنواني رُفض', description: 'أريد فهم سبب الرفض واقتراح مسار أدق.' },
+  { id: 'compare_titles', title: 'أقارن بين عناوين', description: 'أريد معرفة أي عنوان أوضح وأغنى بالأدلة.' },
+];
 
 // ============================================================
 // COUNTRY CODE → ARABIC NAME (top ones only)
@@ -89,16 +97,21 @@ function EvidenceBadge({ kind }: { kind: 'verified' | 'inference' | 'suggestion'
 // MAIN PAGE
 // ============================================================
 export default function VerifyIdeaPage() {
+  const [scenario, setScenario] = useState<ResearchScenario>('idea');
   const [topic, setTopic] = useState(() => {
     if (typeof window === 'undefined') return '';
     return new URLSearchParams(window.location.search).get('idea')?.trim() || '';
   });
+  const [candidateTitles, setCandidateTitles] = useState(['', '']);
+  const [rejectionFeedback, setRejectionFeedback] = useState('');
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<VerifyReport | null>(null);
   const [error, setError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'local' | 'cloud'>('idle');
+  const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
+  const [adoptingPath, setAdoptingPath] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -118,7 +131,7 @@ export default function VerifyIdeaPage() {
       .catch(() => {});
   }, [report]); // Refresh after each new verification
 
-  const saveJourney = async (verification: VerifyReport, serverProjectId: string | null) => {
+  const saveJourney = async (verification: VerifyReport, serverProjectId: string | null, selectedResearchPath: ResearchPath) => {
     const snapshot: JourneySnapshot = {
       topic: verification.topic,
       decision: verification.decision,
@@ -126,6 +139,7 @@ export default function VerifyIdeaPage() {
       completedStage: 'idea',
       nextStage: verification.decision === 'proceed' ? 'title' : null,
       updatedAt: new Date().toISOString(),
+      selectedResearchPath,
     };
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -153,6 +167,8 @@ export default function VerifyIdeaPage() {
         researcherContext: verification.researcherContext,
         contextMatch: verification.contextMatch,
         researchPaths: verification.researchPaths,
+        selectedResearchPath,
+        researcherInput: verification.researcherInput,
         evidenceLimitations: verification.evidenceLimitations,
       });
       setProjectId(serverProjectId);
@@ -163,19 +179,48 @@ export default function VerifyIdeaPage() {
     }
   };
 
+  const adoptResearchPath = async (path: ResearchPath) => {
+    if (!report || report.decision !== 'proceed') return;
+    setAdoptingPath(true);
+    setError('');
+    setSelectedPathId(path.id);
+    try {
+      await saveJourney(report, projectId, path);
+    } finally {
+      setAdoptingPath(false);
+    }
+  };
+
   const handleVerify = async () => {
     if (!topic.trim() || topic.trim().length < 5) {
       setError('اكتب موضوعاً بحثياً واضحاً (5 أحرف على الأقل)');
       return;
     }
+    const normalizedTitles = candidateTitles.map((title) => title.trim()).filter(Boolean);
+    if (scenario === 'compare_titles' && (normalizedTitles.length < 2 || normalizedTitles.some((title) => title.length < 10))) {
+      setError('اكتب عنوانين واضحين على الأقل، لا يقل كل عنوان عن 10 أحرف.');
+      return;
+    }
+    if (scenario === 'rejected_title' && rejectionFeedback.trim().length < 5) {
+      setError('اكتب ملاحظة المشرف أو سبب رفض العنوان كما فهمته.');
+      return;
+    }
     setError('');
     setReport(null);
+    setSelectedPathId(null);
+    setSaveStatus('idle');
+    setProjectId(null);
     setLoading(true);
     try {
       const res = await fetch('/api/verify-idea', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: topic.trim() }),
+        body: JSON.stringify({
+          topic: topic.trim(),
+          scenario,
+          candidateTitles: normalizedTitles,
+          rejectionFeedback: rejectionFeedback.trim() || null,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -184,9 +229,8 @@ export default function VerifyIdeaPage() {
         return;
       }
       const serverProjectId = data.usageInfo?.projectId || null;
-      if (serverProjectId) setProjectId(serverProjectId);
+      setProjectId(serverProjectId);
       setReport(data);
-      void saveJourney(data, serverProjectId);
     } catch {
       setError('تعذّر الاتصال بالخادم. تحقق من الإنترنت وحاول مجدداً.');
     } finally {
@@ -252,8 +296,28 @@ export default function VerifyIdeaPage() {
 
         {/* INPUT */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+          <fieldset className="mb-6">
+            <legend className="mb-3 text-sm font-bold text-slate-800">أين أنت الآن؟</legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {RESEARCH_SCENARIOS.map((option) => {
+                const active = scenario === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setScenario(option.id)}
+                    className={`rounded-xl border p-4 text-right transition ${active ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 bg-white hover:border-blue-200'}`}
+                  >
+                    <span className={`block text-sm font-black ${active ? 'text-blue-800' : 'text-slate-800'}`}>{option.title}</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">{option.description}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
           <label className="block text-sm font-semibold text-slate-700 mb-2">
-            ما الذي تفكر في بحثه؟ <span className="text-slate-400 font-normal">(فكرة، عنوان، اهتمام، أو ملاحظة من المشرف)</span>
+            {scenario === 'uncertain' ? 'ما المجال أو المشكلة التي تهمك؟' : scenario === 'compare_titles' ? 'ما الموضوع المشترك بين العناوين؟' : 'ما الذي تفكر في بحثه؟'}
           </label>
           <textarea
             value={topic}
@@ -262,6 +326,25 @@ export default function VerifyIdeaPage() {
             className="w-full min-h-[100px] px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none text-slate-800 text-lg resize-none"
             disabled={loading}
           />
+          {scenario === 'rejected_title' && (
+            <div className="mt-4">
+              <label htmlFor="rejection-feedback" className="mb-2 block text-sm font-semibold text-slate-700">ما ملاحظة المشرف أو سبب الرفض؟</label>
+              <textarea id="rejection-feedback" value={rejectionFeedback} onChange={(event) => setRejectionFeedback(event.target.value)} placeholder="مثال: العنوان واسع، المتغيرات غير واضحة، أو لا توجد فجوة محددة" className="min-h-24 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" disabled={loading} />
+            </div>
+          )}
+          {scenario === 'compare_titles' && (
+            <div className="mt-4 space-y-3">
+              <div className="text-sm font-semibold text-slate-700">العناوين التي تريد مقارنتها</div>
+              {candidateTitles.map((title, index) => (
+                <label key={index} className="block">
+                  <span className="sr-only">العنوان {index + 1}</span>
+                  <input value={title} onChange={(event) => setCandidateTitles((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} placeholder={`العنوان ${index + 1}`} className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" disabled={loading} />
+                </label>
+              ))}
+              {candidateTitles.length < 4 && <button type="button" onClick={() => setCandidateTitles((current) => [...current, ''])} className="text-xs font-bold text-blue-700">+ إضافة عنوان آخر</button>}
+              <p className="text-xs leading-5 text-slate-500">سنحفظ هذه العناوين داخل المشروع لتظهر في خطوة المقارنة التفصيلية، ولن نختار نيابة عنك.</p>
+            </div>
+          )}
           {error && (
             <div className="mt-3 px-4 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">
               {error}
@@ -449,14 +532,16 @@ export default function VerifyIdeaPage() {
 
             {/* GROUNDED RESEARCH PATHS */}
             {report.researchPaths.length > 0 && (
-              <div className="rounded-2xl border border-violet-200 bg-white p-6">
+              <div id="research-paths" className="scroll-mt-24 rounded-2xl border border-violet-200 bg-white p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                   <div><h3 className="font-bold text-slate-900">مسارات بحثية قابلة للمناقشة</h3><p className="mt-1 text-xs text-slate-500">ليست عناوين نهائية؛ اختر مساراً بعد مراجعة المراجع وسياقك مع المشرف.</p></div>
                   <EvidenceBadge kind="suggestion" />
                 </div>
                 <div className="space-y-4">
-                  {report.researchPaths.map((path, index) => (
-                    <article key={path.id} className="rounded-xl border border-slate-200 p-4">
+                  {report.researchPaths.map((path, index) => {
+                    const selected = selectedPathId === path.id;
+                    return (
+                    <article key={path.id} className={`rounded-xl border p-4 transition ${selected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200'}`}>
                       <div className="flex gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-violet-600 text-sm font-black text-white">{index + 1}</span><div><h4 className="font-bold leading-7 text-slate-900">{path.title}</h4><p className="mt-1 text-sm leading-7 text-slate-600">{path.rationale}</p></div></div>
                       {path.supportingReferences.length > 0 && (
                         <div className="mt-3 border-t border-slate-100 pt-3">
@@ -471,8 +556,13 @@ export default function VerifyIdeaPage() {
                           </ul>
                         </div>
                       )}
+                      {report.decision === 'proceed' && (
+                        <button type="button" onClick={() => void adoptResearchPath(path)} disabled={adoptingPath} className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-bold transition disabled:opacity-50 ${selected && (saveStatus === 'cloud' || saveStatus === 'local') ? 'bg-emerald-600 text-white' : 'border border-blue-200 bg-white text-blue-700 hover:bg-blue-50'}`}>
+                          {selected && adoptingPath ? 'جارٍ اعتماد المسار وحفظه…' : selected && (saveStatus === 'cloud' || saveStatus === 'local') ? '✓ تم اعتماد هذا المسار' : 'اختيار هذا المسار واعتماده'}
+                        </button>
+                      )}
                     </article>
-                  ))}
+                  );})}
                 </div>
               </div>
             )}
@@ -482,21 +572,29 @@ export default function VerifyIdeaPage() {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className={`text-sm font-bold ${report.decision === 'proceed' ? 'text-emerald-800' : 'text-amber-900'}`}>
-                    {report.decision === 'proceed' ? 'بوابة الفكرة مفتوحة' : 'بوابة الفكرة ما زالت مغلقة'}
+                    {report.decision === 'proceed' && selectedPathId && (saveStatus === 'cloud' || saveStatus === 'local') ? 'تم اعتماد المسار البحثي' : 'بوابة الفكرة ما زالت مغلقة'}
                   </div>
                   <p className={`mt-1 text-sm leading-6 ${report.decision === 'proceed' ? 'text-emerald-700' : 'text-amber-800'}`}>
-                    {report.decision === 'proceed'
-                      ? 'تم توثيق نتائج الاستكشاف ومؤشرات الفجوة الأولية. يمكنك الآن صياغة عنوان متسق معها، ثم مراجعته قبل الاعتماد.'
-                      : 'لا ننتقل إلى العنوان أو الأدبيات قبل معالجة الملاحظات أعلاه وإعادة فحص الفكرة.'}
+                    {report.decision !== 'proceed'
+                      ? 'لا ننتقل إلى العنوان أو الأدبيات قبل معالجة الملاحظات أعلاه وإعادة فحص الفكرة.'
+                      : selectedPathId && (saveStatus === 'cloud' || saveStatus === 'local')
+                        ? 'حُفظ اختيارك مع الأدلة والسياق. الخطوة التالية هي مقارنة العناوين وصياغة عنوان متسق مع المسار.'
+                        : 'راجع المسارات المرتبطة بالأدلة أعلاه، ثم اختر مساراً واحداً واعتمده قبل الانتقال.'}
                   </p>
                   <p className="mt-2 text-xs text-slate-500">
-                    {saveStatus === 'cloud' ? 'تم حفظ التقرير داخل مشروعك.' : 'تم حفظ آخر حالة للرحلة على هذا الجهاز.'}
+                    {saveStatus === 'cloud' ? 'تم حفظ التقرير والاختيار داخل مشروعك.' : saveStatus === 'local' ? 'تم حفظ آخر حالة للرحلة على هذا الجهاز.' : 'لم يُعتمد مسار بعد.'}
                   </p>
                 </div>
-                {report.decision === 'proceed' ? (
+                {report.decision === 'proceed' && selectedPathId && saveStatus === 'cloud' ? (
                   <Link href={`/research?topic=${encodeURIComponent(report.topic)}${projectId ? `&projectId=${projectId}` : ''}`} className="inline-flex shrink-0 items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700">
-                    انتقل إلى صياغة العنوان ←
+                    انتقل إلى مقارنة العناوين ←
                   </Link>
+                ) : report.decision === 'proceed' && selectedPathId && saveStatus === 'local' ? (
+                  <Link href={`/signup?redirect=${encodeURIComponent('/verify-idea')}`} className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700">أنشئ حساباً لحفظ المشروع والمتابعة</Link>
+                ) : report.decision === 'proceed' ? (
+                  <button type="button" onClick={() => document.getElementById('research-paths')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="inline-flex shrink-0 items-center justify-center rounded-xl border border-blue-300 bg-white px-5 py-3 font-semibold text-blue-800 transition hover:bg-blue-50">
+                    اختر مساراً من القائمة أعلاه
+                  </button>
                 ) : (
                   <button type="button" onClick={() => document.querySelector('textarea')?.focus()} className="inline-flex shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-white px-5 py-3 font-semibold text-amber-800 transition hover:bg-amber-100">
                     حسّن الفكرة وأعد الفحص

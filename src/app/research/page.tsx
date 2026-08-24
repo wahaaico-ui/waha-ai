@@ -15,7 +15,13 @@ type ComparisonResponse = {
   sourceStatus: { source: string; availableForAllTitles: boolean; checkedAt: string; note: string };
 };
 
-type VerifyOutput = { topic?: string; decision?: string; acceptanceScore?: number };
+type VerifyOutput = {
+  topic?: string;
+  decision?: string;
+  acceptanceScore?: number;
+  selectedResearchPath?: { id?: string; title?: string };
+  researcherInput?: { scenario?: string; candidateTitles?: string[]; rejectionFeedback?: string | null };
+};
 
 function ScoreCell({ label, value }: { label: string; value: number }) {
   const color = value >= 75 ? 'text-emerald-700 bg-emerald-50' : value >= 50 ? 'text-amber-700 bg-amber-50' : 'text-rose-700 bg-rose-50';
@@ -41,6 +47,8 @@ export default function ResearchTitlePage() {
       .then((journey) => {
         const verify = journey.outputs.verify as VerifyOutput | undefined;
         setVerifyOutput(verify || null);
+        const candidateTitles = verify?.researcherInput?.candidateTitles?.filter((title) => typeof title === 'string' && title.trim().length >= 10) || [];
+        if (candidateTitles.length >= 2) setOwnTitles(candidateTitles.slice(0, 4));
         const title = journey.outputs.title?.title;
         if (typeof title === 'string') setSavedTitle(title);
       })
@@ -77,7 +85,7 @@ export default function ResearchTitlePage() {
     finally { setSavingId(null); }
   };
 
-  const canEnter = verifyOutput?.decision === 'proceed';
+  const canEnter = verifyOutput?.decision === 'proceed' && Boolean(verifyOutput.selectedResearchPath?.id);
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#F8FAFC] pb-20 text-slate-950">
@@ -94,7 +102,7 @@ export default function ResearchTitlePage() {
         : journeyError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">{journeyError} <Link href="/login" className="font-bold underline">سجّل الدخول بالحساب المالك للمشروع</Link>.</section>
         : !canEnter ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة العنوان ما زالت مغلقة</h2><p className="mt-3 text-sm leading-7 text-amber-900">أكمل تقرير الاستكشاف المدعوم بالأدلة واعتمده أولاً. لا تفتح الدرجة الرقمية وحدها هذه المرحلة.</p><Link href="/verify-idea" className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى استكشاف الفكرة</Link></section>
         : <>
-          <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">بوابة الفكرة مفتوحة من سجل المشروع</div><p className="mt-2 text-sm leading-7 text-emerald-950"><strong>الفكرة المعتمدة للاستكشاف:</strong> {verifyOutput?.topic}</p>{savedTitle && <p className="mt-2 rounded-xl border border-emerald-200 bg-white p-3 text-sm text-emerald-900"><strong>العنوان المحفوظ حالياً:</strong> {savedTitle}</p>}</section>
+          <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">بوابة الفكرة مفتوحة من سجل المشروع</div><p className="mt-2 text-sm leading-7 text-emerald-950"><strong>الفكرة التي جرى استكشافها:</strong> {verifyOutput?.topic}</p><p className="mt-2 text-sm leading-7 text-emerald-950"><strong>المسار الذي اعتمدته:</strong> {verifyOutput?.selectedResearchPath?.title}</p>{savedTitle && <p className="mt-2 rounded-xl border border-emerald-200 bg-white p-3 text-sm text-emerald-900"><strong>العنوان المحفوظ حالياً:</strong> {savedTitle}</p>}</section>
 
           <div className="grid gap-6 lg:grid-cols-2">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-lg font-black">خيارات مبنية على تقرير الاستكشاف</h2><p className="mt-2 text-sm leading-7 text-slate-600">نحوّل المسارات المحفوظة إلى ثلاثة خيارات، ثم نبحث كل خيار فعلياً ونقارن نتائجه.</p><button type="button" onClick={() => void runComparison()} disabled={comparisonLoading} className="mt-5 w-full rounded-xl bg-blue-600 px-5 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-600/15 disabled:opacity-50">{comparisonLoading ? 'جارٍ البحث والمقارنة…' : 'ابنِ وقارن 3 عناوين من التقرير'}</button></section>

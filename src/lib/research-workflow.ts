@@ -27,7 +27,12 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
         ? Number((coverage as Record<string, unknown>).uniqueStudies || 0)
         : 0;
       const paths = Array.isArray(output.researchPaths) ? output.researchPaths : [];
-      return output.decision === 'proceed' && uniqueStudies >= 3 && paths.length >= 3;
+      const selectedPath = output.selectedResearchPath;
+      const selectedPathId = selectedPath && typeof selectedPath === 'object'
+        ? asText((selectedPath as Record<string, unknown>).id)
+        : '';
+      const selectedPathExists = paths.some((path) => path && typeof path === 'object' && asText((path as Record<string, unknown>).id) === selectedPathId);
+      return output.decision === 'proceed' && uniqueStudies >= 3 && paths.length >= 3 && selectedPathExists;
     }
     case 'title': return asText(output.title).length >= 10;
     case 'problem': return asText(output.problemStatement).length >= 30 && asText(output.researchGap).length >= 20 && asText(output.researcherNote).length >= 20;
@@ -86,7 +91,7 @@ export function stageLabel(stage: WorkflowStage) {
 
 function requirementFor(stage: WorkflowStage) {
   return ({
-    verify: 'لا تُفتح الرحلة إلا بعد قرار قابل للمتابعة، وثلاث دراسات فريدة على الأقل، وثلاثة مسارات بحثية مرتبطة بالأدلة؛ الدرجة وحدها لا تكفي.',
+    verify: 'لا تُفتح الرحلة إلا بعد قرار قابل للمتابعة، وثلاث دراسات فريدة على الأقل، وثلاثة مسارات مرتبطة بالأدلة، ثم اختيار الباحث لمسار واحد واعتماده؛ الدرجة وحدها لا تكفي.',
     title: 'اعتمد عنواناً واضحاً لا يقل عن 10 أحرف قبل الانتقال.',
     problem: 'اكتب وصفاً للمشكلة (30 حرفاً)، وفجوة محتملة (20 حرفاً)، وملاحظة بصوتك تشرح أهمية الاختيار (20 حرفاً) قبل الانتقال.',
     objectives: 'أضف هدفين محددين على الأقل، لا يقل كل منهما عن 20 حرفاً.',

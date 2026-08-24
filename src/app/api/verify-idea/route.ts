@@ -7,6 +7,7 @@ import {
   buildSearchCoverage,
   filterRelevantPapers,
   inferMethodologyDistribution,
+  normalizeResearcherInput,
   paperRelevanceScore,
   type EvidencePaper as Paper,
   type ResearcherContext,
@@ -478,12 +479,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const topic = (body.topic || '').trim();
+    const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
+    const researcherInput = normalizeResearcherInput(body);
     if (!topic || topic.length < 5) {
       return NextResponse.json({ error: 'الرجاء إدخال موضوع بحثي واضح (5 أحرف على الأقل)' }, { status: 400 });
     }
     if (topic.length > 500) {
       return NextResponse.json({ error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' }, { status: 400 });
+    }
+    if (researcherInput.scenario === 'compare_titles' && researcherInput.candidateTitles.length < 2) {
+      return NextResponse.json({ error: 'أدخل عنوانين واضحين على الأقل حتى نستطيع مقارنتهما.' }, { status: 400 });
+    }
+    if (researcherInput.scenario === 'rejected_title' && !researcherInput.rejectionFeedback) {
+      return NextResponse.json({ error: 'اكتب ملاحظة المشرف أو سبب رفض العنوان حتى يكون التحليل مرتبطاً بالمشكلة الحقيقية.' }, { status: 400 });
     }
 
     // Resolve the cookie-bound identity once. The client cannot submit or
@@ -544,6 +552,7 @@ export async function POST(request: NextRequest) {
 
     const report: VerifyReport = {
       topic,
+      researcherInput,
       translatedQuery: englishQuery,
       totalPapers: merged.length,
       yearDistribution: yearDist.slice(0, 10),
