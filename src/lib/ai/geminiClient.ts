@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js';
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { ownsProject } from '@/lib/supabase/authorization';
 
@@ -76,16 +75,9 @@ const modelName = 'gemini-flash-latest';
     confidenceLabel = 'متوسط';
   }
 
-  // تسجيل العملية في جدول ai_generations_log إذا تم تمرير projectId
-  if (projectId) {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (supabaseUrl && supabaseKey) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      await supabase.from('ai_generations_log').insert({
+  // سجّل العملية من خلال عميل المستخدم نفسه؛ لا حاجة لتجاوز RLS بمفتاح خدمة.
+  if (projectId && callerSupabase) {
+      await callerSupabase.from('ai_generations_log').insert({
         project_id: projectId,
         feature,
         model: modelName,
@@ -93,7 +85,6 @@ const modelName = 'gemini-flash-latest';
         confidence_label: confidenceLabel,
         prompt_hash: Buffer.from(prompt).toString('base64').substring(0, 32),
       });
-    }
   }
 
   return {

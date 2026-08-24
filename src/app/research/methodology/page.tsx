@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
+import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
 import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
+import { stageComplete } from '@/lib/research-workflow';
 
 type Methodology = { approach: string; population: string; sample: string; instrument: string };
 const EMPTY_METHOD: Methodology = { approach: '', population: '', sample: '', instrument: '' };
@@ -27,6 +29,7 @@ export default function ResearchMethodologyPage() {
   const [loading, setLoading] = useState(() => Boolean(projectId));
   const [loadError, setLoadError] = useState('');
   const [questions, setQuestions] = useState<string[]>([]);
+  const [questionsReady, setQuestionsReady] = useState(false);
   const [methodology, setMethodology] = useState<Methodology>(EMPTY_METHOD);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
@@ -37,6 +40,7 @@ export default function ResearchMethodologyPage() {
       .then((journey) => {
         const savedQuestions = journey.outputs.questions?.questions;
         setQuestions(Array.isArray(savedQuestions) ? savedQuestions.filter((item): item is string => typeof item === 'string') : []);
+        setQuestionsReady(stageComplete('questions', journey.outputs.questions));
         const savedMethod = journey.outputs.methodology;
         if (savedMethod && typeof savedMethod === 'object') {
           setMethodology({
@@ -77,8 +81,17 @@ export default function ResearchMethodologyPage() {
     {loading ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">جارٍ تحميل الأسئلة المعتمدة…</section>
     : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
     : loadError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{loadError}</section>
-    : questions.length < 2 ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة المنهجية مغلقة</h2><p className="mt-3 text-sm text-amber-900">اعتمد أسئلة البحث أولاً؛ لا نختار المنهج بمعزل عنها.</p><Link href={`/research/questions?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى الأسئلة</Link></section>
-    : <><section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">الأسئلة المعتمدة من سجل المشروع</div><ol className="mt-3 space-y-2 text-sm leading-7 text-emerald-950">{questions.map((question, index) => <li key={`${index}-${question}`}><strong>{index + 1}.</strong> {question}</li>)}</ol></section>
+    : !questionsReady || questions.length < 2 ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة المنهجية مغلقة</h2><p className="mt-3 text-sm leading-7 text-amber-900">أسئلة البحث المحفوظة لم تجتز فحص الوضوح والاتساق مع الأهداف.</p><Link href={`/research/questions?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">مراجعة الأسئلة</Link></section>
+    : <><section className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">الأسئلة المعتمدة من سجل المشروع</div><ol className="mt-3 space-y-2 text-sm leading-7 text-emerald-950">{questions.map((question, index) => <li className="break-words [overflow-wrap:anywhere]" key={`${index}-${question}`}><strong>{index + 1}.</strong> {question}</li>)}</ol></section>
+      <ResearchDraftAssistant projectId={projectId} stage="methodology" onDraft={(draft) => {
+        setMethodology((current) => ({
+          approach: typeof draft.approach === 'string' && APPROACHES.some((item) => item.value === draft.approach) ? draft.approach : current.approach,
+          population: typeof draft.population === 'string' ? draft.population : current.population,
+          sample: typeof draft.sample === 'string' ? draft.sample : current.sample,
+          instrument: typeof draft.instrument === 'string' ? draft.instrument : current.instrument,
+        }));
+        setStatus('idle');
+      }} />
       <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><fieldset><legend className="text-sm font-black">المنهج البحثي</legend><div className="mt-3 grid gap-3 sm:grid-cols-2">{APPROACHES.map((approach) => <label key={approach.value} className={`cursor-pointer rounded-xl border p-4 transition ${methodology.approach === approach.value ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 bg-slate-50'}`}><input type="radio" name="approach" value={approach.value} checked={methodology.approach === approach.value} onChange={() => update('approach', approach.value)} className="sr-only" /><span className="text-sm font-black">{approach.label}</span><span className="mt-1 block text-xs leading-6 text-slate-600">{approach.note}</span></label>)}</div></fieldset>
         {([['population', 'مجتمع الدراسة', 'من يشملهم البحث؟ حدّد الفئة والمكان والزمن إن أمكن.'], ['sample', 'العينة المقترحة', 'كيف ستختار المشاركين أو الحالات؟ لا تضع رقماً بلا مبرر.'], ['instrument', 'أداة جمع البيانات', 'مثال: استبانة محكّمة، مقابلات شبه منظمة، أو تحليل وثائق.']] as const).map(([field, label, placeholder]) => <div key={field}><label htmlFor={field} className="text-sm font-black">{label}</label><textarea id={field} value={methodology[field]} onChange={(event) => update(field, event.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm leading-7 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder={placeholder} /><div className="mt-1 text-left text-xs text-slate-400">{methodology[field].trim().length}/10</div></div>)}
         {issue && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">{issue}</p>}{status === 'error' && <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{saveError || 'تعذر الحفظ؛ لم تُفتح الأدبيات.'}</p>}<button type="button" disabled={!canSave || status === 'saving'} onClick={() => void saveMethodology()} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? 'جارٍ الحفظ وفحص الاتساق…' : 'اعتماد المنهجية وفتح الأدبيات'}</button>{status === 'saved' && <Link href={`/research/literature?projectId=${encodeURIComponent(projectId)}`} className="block rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold text-emerald-800">تم الحفظ والاتساق. انتقل إلى الأدبيات ←</Link>}</section></>}

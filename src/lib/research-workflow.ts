@@ -1,3 +1,5 @@
+import { assessAcademicText, firstAcademicTextIssue } from '@/lib/academic-content-quality';
+
 export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'methodology', 'literature', 'analysis'] as const;
 
 export type WorkflowStage = (typeof WORKFLOW_STAGES)[number];
@@ -34,11 +36,18 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
       const selectedPathExists = paths.some((path) => path && typeof path === 'object' && asText((path as Record<string, unknown>).id) === selectedPathId);
       return output.decision === 'proceed' && uniqueStudies >= 3 && paths.length >= 3 && selectedPathExists;
     }
-    case 'title': return asText(output.title).length >= 10;
-    case 'problem': return asText(output.problemStatement).length >= 30 && asText(output.researchGap).length >= 20 && asText(output.researcherNote).length >= 20;
-    case 'objectives': return asList(output.objectives, 20).length >= 2;
-    case 'questions': return asList(output.questions, 15).length >= 2;
-    case 'methodology': return ['approach', 'population', 'sample', 'instrument'].every((key) => asText(output[key]).length >= 3);
+    case 'title': return assessAcademicText(output.title, { minChars: 15, minWords: 4, label: 'العنوان' }).valid;
+    case 'problem': return [
+      assessAcademicText(output.problemStatement, { minChars: 50, minWords: 8, label: 'مشكلة البحث' }),
+      assessAcademicText(output.researchGap, { minChars: 35, minWords: 6, label: 'الفجوة البحثية' }),
+      assessAcademicText(output.researcherNote, { minChars: 20, minWords: 4, label: 'سبب اهتمام الباحث' }),
+    ].every((assessment) => assessment.valid);
+    case 'objectives': return !firstAcademicTextIssue(output.objectives, { minChars: 25, minWords: 5, label: 'الهدف' }, 2);
+    case 'questions': return !firstAcademicTextIssue(output.questions, { minChars: 20, minWords: 5, label: 'السؤال', requireQuestion: true }, 2);
+    case 'methodology': {
+      const fields = { population: 'مجتمع الدراسة', sample: 'العينة', instrument: 'أداة جمع البيانات' } as const;
+      return Boolean(asText(output.approach)) && Object.entries(fields).every(([key, label]) => assessAcademicText(output[key], { minChars: 20, minWords: 4, label }).valid);
+    }
     case 'literature': return Array.isArray(output.papers) && output.papers.length >= 3;
     case 'analysis': return asText(output.introduction).length >= 20 && asText(output.conclusion).length >= 20;
   }
@@ -63,7 +72,21 @@ export function evaluateGate(stage: WorkflowStage, outputs: Partial<Record<Workf
 }
 
 function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<WorkflowStage, WorkflowOutput>>) {
+  if (stage === 'title') {
+    return assessAcademicText(outputs.title?.title, { minChars: 15, minWords: 4, label: 'العنوان' }).reason;
+  }
+  if (stage === 'problem') {
+    const checks = [
+      assessAcademicText(outputs.problem?.problemStatement, { minChars: 50, minWords: 8, label: 'مشكلة البحث' }),
+      assessAcademicText(outputs.problem?.researchGap, { minChars: 35, minWords: 6, label: 'الفجوة البحثية' }),
+      assessAcademicText(outputs.problem?.researcherNote, { minChars: 20, minWords: 4, label: 'سبب اهتمام الباحث' }),
+    ];
+    return checks.find((check) => !check.valid)?.reason || null;
+  }
+  if (stage === 'objectives') return firstAcademicTextIssue(outputs.objectives?.objectives, { minChars: 25, minWords: 5, label: 'الهدف' }, 2);
   if (stage === 'questions') {
+    const qualityIssue = firstAcademicTextIssue(outputs.questions?.questions, { minChars: 20, minWords: 5, label: 'السؤال', requireQuestion: true }, 2);
+    if (qualityIssue) return qualityIssue;
     const objectives = asList(outputs.objectives?.objectives, 20);
     const questions = asList(outputs.questions?.questions, 15);
     if (objectives.length !== questions.length) return 'يجب أن يقابل كل هدف سؤال بحث واحد واضح على الأقل.';
@@ -92,10 +115,10 @@ export function stageLabel(stage: WorkflowStage) {
 function requirementFor(stage: WorkflowStage) {
   return ({
     verify: 'لا تُفتح الرحلة إلا بعد قرار قابل للمتابعة، وثلاث دراسات فريدة على الأقل، وثلاثة مسارات مرتبطة بالأدلة، ثم اختيار الباحث لمسار واحد واعتماده؛ الدرجة وحدها لا تكفي.',
-    title: 'اعتمد عنواناً واضحاً لا يقل عن 10 أحرف قبل الانتقال.',
-    problem: 'اكتب وصفاً للمشكلة (30 حرفاً)، وفجوة محتملة (20 حرفاً)، وملاحظة بصوتك تشرح أهمية الاختيار (20 حرفاً) قبل الانتقال.',
-    objectives: 'أضف هدفين محددين على الأقل، لا يقل كل منهما عن 20 حرفاً.',
-    questions: 'أضف سؤالاً واضحاً لكل هدف، لا يقل كل سؤال عن 15 حرفاً.',
+    title: 'اعتمد عنواناً أكاديمياً واضحاً يحدد الموضوع والسياق، ولا يكتفي بكلمات عامة.',
+    problem: 'راجع مسودة المشكلة والفجوة وسبب اهتمامك. لا تُقبل الأحرف المتكررة أو الجمل غير المفهومة.',
+    objectives: 'اعتمد هدفين محددين ومفهومين على الأقل، يوضح كل منهما ما الذي سيفحصه البحث.',
+    questions: 'اعتمد سؤالاً بحثياً واضحاً ومفهوماً مقابل كل هدف.',
     methodology: 'حدد المنهج ومجتمع الدراسة والعينة والأداة.',
     literature: 'اختر ثلاث دراسات موثقة على الأقل.',
     analysis: 'أضف تأطيراً وخلاصة مبنيين على الدراسات المختارة.',

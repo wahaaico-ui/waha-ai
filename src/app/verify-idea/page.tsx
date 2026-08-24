@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import JourneyProgress from '@/components/JourneyProgress';
+import SiteHeader from '@/components/SiteHeader';
 import { supabase } from '@/lib/supabase/client';
 import AuthGate from '@/components/AuthGate';
 import { saveJourneyStage } from '@/lib/research-journey';
@@ -108,6 +109,7 @@ export default function VerifyIdeaPage() {
   const [report, setReport] = useState<VerifyReport | null>(null);
   const [error, setError] = useState('');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authResolved, setAuthResolved] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'local' | 'cloud'>('idle');
   const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
@@ -116,20 +118,25 @@ export default function VerifyIdeaPage() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setIsAuthenticated(!!data.user);
+      setAuthResolved(true);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
       setIsAuthenticated(!!session?.user);
+      setAuthResolved(true);
     });
     return () => listener.subscription.unsubscribe();
   }, []);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   useEffect(() => {
+    if (!authResolved || !isAuthenticated) {
+      return;
+    }
     fetch('/api/verify-idea/history')
       .then(r => r.json())
       .then(d => setHistory(d.items || []))
       .catch(() => {});
-  }, [report]); // Refresh after each new verification
+  }, [authResolved, isAuthenticated, report]); // Refresh after each new verification
 
   const saveJourney = async (verification: VerifyReport, serverProjectId: string | null, selectedResearchPath: ResearchPath) => {
     const snapshot: JourneySnapshot = {
@@ -242,6 +249,8 @@ export default function VerifyIdeaPage() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#f8fafc] text-slate-900">
+      <SiteHeader />
+      {authResolved && !isAuthenticated && <aside className="border-b border-blue-200 bg-blue-50 px-4 py-3 text-center text-sm leading-7 text-blue-950"><strong>يمكنك تجربة الاستكشاف مجاناً.</strong> يلزم حساب مجاني قبل اعتماد المسار وحفظه والانتقال إلى بقية مراحل البحث. <Link href="/signup" className="font-black text-blue-700 underline">إنشاء حساب</Link> أو <Link href="/login" className="font-black text-blue-700 underline">تسجيل الدخول</Link>.</aside>}
       <JourneyProgress current="verify" lang="ar" />
       <div className="max-w-4xl mx-auto px-6 py-12">
         {/* HEADER */}
@@ -259,7 +268,7 @@ export default function VerifyIdeaPage() {
         </div>
 
         {/* HISTORY */}
-        {history.length > 0 && !report && !loading && (
+        {isAuthenticated && history.length > 0 && !report && !loading && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-bold text-slate-800 text-sm">استكشافاتك السابقة</h3>
@@ -404,9 +413,8 @@ export default function VerifyIdeaPage() {
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-xl bg-slate-50 p-3"><div className="text-2xl font-black text-slate-900">{report.searchCoverage.queryCount}</div><div className="mt-1 text-xs text-slate-600">صياغات بحثية استُخدمت</div></div>
                 <div className="rounded-xl bg-slate-50 p-3"><div className="text-2xl font-black text-slate-900">{report.searchCoverage.uniqueStudies}</div><div className="mt-1 text-xs text-slate-600">نتيجة فريدة بعد إزالة التكرار</div></div>
-                {report.searchCoverage.sources.map((source) => (
-                  <div key={source.id} className="rounded-xl bg-blue-50 p-3"><div className="text-2xl font-black text-blue-700">{source.uniqueMatches}</div><div className="mt-1 text-xs text-blue-800">ظهرت في {source.label}</div></div>
-                ))}
+                <div className="rounded-xl bg-blue-50 p-3"><div className="text-2xl font-black text-blue-700">{report.totalPapers}</div><div className="mt-1 text-xs text-blue-800">دراسة أقرب إلى موضوعك</div></div>
+                <div className="rounded-xl bg-blue-50 p-3"><div className="text-2xl font-black text-blue-700">{report.yearDistribution.length}</div><div className="mt-1 text-xs text-blue-800">سنوات نشر ممثلة في النتائج</div></div>
               </div>
               {report.searchCoverage.excludedByRelevance > 0 && <p className="mt-3 text-xs text-slate-500">فُحصت {report.searchCoverage.candidateResults} نتيجة مرشحة، واستُبعدت {report.searchCoverage.excludedByRelevance} نتيجة ضعيفة الصلة قبل بناء التقرير.</p>}
               <p className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs leading-6 text-slate-600">{report.searchCoverage.scopeNote}</p>
@@ -646,7 +654,7 @@ export default function VerifyIdeaPage() {
                     <div key={i} className="border-r-4 border-teal-500 pr-4 py-2">
                       <div className="flex items-start justify-between gap-3 mb-1">
                         <div className="text-xs font-semibold text-teal-600">
-                          {p.source === 'both' ? 'مصدران' : p.source === 'openalex' ? 'OpenAlex' : 'Semantic Scholar'}
+                          دراسة أكاديمية موثقة
                           {p.year > 0 && ` · ${p.year}`}
                           {p.citations > 0 && ` · ${p.citations} استشهاد`}
                           {p.countries && p.countries.length > 0 && ` · ${p.countries.slice(0, 2).map(countryName).join('، ')}`}

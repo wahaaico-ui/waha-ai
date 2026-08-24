@@ -43,7 +43,7 @@ describe('research workflow quality gates', () => {
 
   test('requires evidence before literature is considered complete', () => {
     expect(stageComplete('literature', { papers: [{ id: '1' }, { id: '2' }] })).toBe(false);
-    expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['قياس أثر التقنية على تحصيل طلبة الدراسات العليا', 'تحديد العوامل المؤثرة في تبني التقنية لدى الباحثين'] }, questions: { questions: ['ما أثر التقنية على تحصيل طلبة الدراسات العليا؟', 'ما العوامل المؤثرة في تبني التقنية لدى الباحثين؟'] }, methodology: { approach: 'quantitative', population: 'طلبة الدراسات العليا', sample: 'عينة طبقية', instrument: 'استبانة محكمة' }, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
+    expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['قياس أثر التقنية على تحصيل طلبة الدراسات العليا', 'تحديد العوامل المؤثرة في تبني التقنية لدى الباحثين'] }, questions: { questions: ['ما أثر التقنية على تحصيل طلبة الدراسات العليا؟', 'ما العوامل المؤثرة في تبني التقنية لدى الباحثين؟'] }, methodology: { approach: 'quantitative', population: 'جميع طلبة الدراسات العليا المسجلين في الجامعة', sample: 'عينة طبقية ممثلة من طلبة الكليات المختلفة', instrument: 'استبانة أكاديمية محكمة تقيس المتغيرات المحددة' }, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
   });
 
   test('flags an incompatible qualitative method and questionnaire', () => {
@@ -51,7 +51,7 @@ describe('research workflow quality gates', () => {
       verify: verified, title, problem,
       objectives: { objectives: ['قياس أثر الاستخدام الفعلي للذكاء الاصطناعي على تعلم الباحثين', 'تحديد العوامل التي تؤثر في تبني الذكاء الاصطناعي'] },
       questions: { questions: ['ما أثر الاستخدام الفعلي للذكاء الاصطناعي على تعلم الباحثين؟', 'ما العوامل التي تؤثر في تبني الذكاء الاصطناعي؟'] },
-      methodology: { approach: 'qualitative', population: 'طلبة الدراسات العليا', sample: 'عينة قصدية من الطلبة', instrument: 'استبانة محكمة من ثلاثين فقرة' },
+      methodology: { approach: 'qualitative', population: 'طلبة الدراسات العليا المسجلون في الجامعة', sample: 'عينة قصدية متنوعة من طلبة الكليات المختلفة', instrument: 'استبانة محكمة من ثلاثين فقرة أكاديمية' },
     });
     expect(gate.status).toBe('needs_improvement');
     expect(gate.reason).toContain('تعارض');

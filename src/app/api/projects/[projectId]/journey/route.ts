@@ -79,6 +79,9 @@ export async function POST(request: Request, context: { params: Promise<{ projec
 
     const candidate = { ...outputs, [stage]: content as WorkflowOutput };
     const gate = evaluateGate(stage, candidate);
+    if (gate.status !== 'open') {
+      return NextResponse.json({ error: gate.reason, gate }, { status: 422 });
+    }
     const versions = documents.filter((item) => item.type === `journey:${stage}`).map((item) => item.version || 0);
     const version = Math.max(0, ...versions) + 1;
     const { error: insertError } = await access.supabase.from('documents').insert({ project_id: projectId, type: `journey:${stage}`, content: serialized, version });

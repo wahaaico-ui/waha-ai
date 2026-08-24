@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { filterRelevantPapers, paperRelevanceScore, type EvidencePaper } from '@/lib/research-exploration';
+import { CrossrefService, type CrossrefPaper } from '@/lib/academic/services/CrossrefService';
 
 type LiteraturePaper = {
   id: string;
@@ -9,9 +10,10 @@ type LiteraturePaper = {
   year: number | string;
   citationCount: number;
   abstract: string;
-  source: 'OpenAlex' | 'Semantic Scholar' | 'OpenAlex + Semantic Scholar';
+  source: string;
   pdfUrl: string | null;
   relevanceScore: number;
+  doi?: string | null;
 };
 
 type OpenAlexWork = {
@@ -35,10 +37,51 @@ type SemanticWork = {
   url?: string | null;
   openAccessPdf?: { url?: string | null } | null;
   authors?: Array<{ name?: string }>;
+  externalIds?: { DOI?: string | null } | null;
 };
 
 function normaliseTitle(title: string) {
   return title.toLowerCase().replace(/[^a-z؀-ۿ0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function normaliseDoi(doi: string | null | undefined) {
+  return doi?.trim().toLowerCase().replace(/^https?:\/\/(?:dx\.)?doi\.org\//, '') || null;
+}
+
+function paperKey(doi: string | null | undefined, title: string) {
+  const normalisedDoi = normaliseDoi(doi);
+  return normalisedDoi ? `doi:${normalisedDoi}` : `title:${normaliseTitle(title)}`;
+}
+
+function mergeSource(first: string, second: string) {
+  return [...new Set([...first.split(' + '), ...second.split(' + ')])].join(' + ');
+}
+
+function mergePaper(existing: LiteraturePaper | undefined, incoming: LiteraturePaper): LiteraturePaper {
+  if (!existing) return incoming;
+  return {
+    ...existing,
+    doi: existing.doi || incoming.doi,
+    source: mergeSource(existing.source, incoming.source),
+    abstract: existing.abstract || incoming.abstract,
+    authors: existing.authors === 'بيانات المؤلفين غير متاحة' ? incoming.authors : existing.authors,
+    year: existing.year === 'د.ت' ? incoming.year : existing.year,
+    pdfUrl: existing.pdfUrl || incoming.pdfUrl,
+    citationCount: Math.max(existing.citationCount, incoming.citationCount),
+  };
+}
+
+function upsertPaper(papers: Map<string, LiteraturePaper>, incoming: LiteraturePaper) {
+  const incomingDoi = normaliseDoi(incoming.doi);
+  const incomingTitle = normaliseTitle(incoming.title);
+  const existingEntry = [...papers.entries()].find(([, paper]) => {
+    const existingDoi = normaliseDoi(paper.doi);
+    if (incomingDoi && existingDoi) return incomingDoi === existingDoi;
+    return normaliseTitle(paper.title) === incomingTitle;
+  });
+  const key = paperKey(incomingDoi, incoming.title);
+  if (existingEntry && existingEntry[0] !== key) papers.delete(existingEntry[0]);
+  papers.set(key, mergePaper(existingEntry?.[1] || papers.get(key), incoming));
 }
 
 function reconstructAbstract(index?: Record<string, number[]>) {
@@ -71,7 +114,7 @@ function asEvidence(paper: LiteraturePaper): EvidencePaper {
     year: typeof paper.year === 'number' ? paper.year : 0,
     citations: paper.citationCount,
     url: paper.pdfUrl || '',
-    source: paper.source === 'OpenAlex' ? 'openalex' : paper.source === 'Semantic Scholar' ? 'semanticscholar' : 'both',
+    source: paper.source === 'Semantic Scholar' ? 'semanticscholar' : paper.source.includes('Semantic Scholar') ? 'both' : 'openalex',
   };
 }
 
@@ -90,54 +133,75 @@ export async function POST(request: Request) {
       .from('documents')
       .select('type, content, version, created_at')
       .eq('project_id', projectId)
-      .in('type', ['journey:title', 'journey:methodology'])
+      .in('type', ['journey:verify', 'journey:title', 'journey:methodology'])
       .order('created_at', { ascending: false });
     if (documentsError) throw documentsError;
 
     const titleOutput = parseDocument((documents || []).find((document) => document.type === 'journey:title')?.content || null);
     const methodologyOutput = parseDocument((documents || []).find((document) => document.type === 'journey:methodology')?.content || null);
+    const verificationOutput = parseDocument((documents || []).find((document) => document.type === 'journey:verify')?.content || null);
     const title = typeof titleOutput?.title === 'string' ? titleOutput.title.trim() : '';
     if (title.length < 10 || !methodologyOutput) return NextResponse.json({ success: false, error: 'اعتمد العنوان والمنهجية داخل المشروع قبل البحث في الأدبيات.' }, { status: 409 });
 
-    const encodedQuery = encodeURIComponent(title);
+    const selectedPath = verificationOutput?.selectedResearchPath && typeof verificationOutput.selectedResearchPath === 'object'
+      ? verificationOutput.selectedResearchPath as Record<string, unknown>
+      : null;
+    const queries = [...new Set([
+      title,
+      typeof verificationOutput?.translatedQuery === 'string' ? verificationOutput.translatedQuery.trim() : '',
+      typeof selectedPath?.title === 'string' ? selectedPath.title.trim() : '',
+      typeof verificationOutput?.topic === 'string' ? verificationOutput.topic.trim() : '',
+    ].filter((query) => query.length >= 5))].slice(0, 4);
     const email = process.env.OPENALEX_EMAIL;
     const mailto = email ? `&mailto=${encodeURIComponent(email)}` : '';
     const semanticHeaders: HeadersInit = process.env.SEMANTIC_SCHOLAR_API_KEY ? { 'x-api-key': process.env.SEMANTIC_SCHOLAR_API_KEY } : {};
-    const [openAlexResult, semanticResult] = await Promise.allSettled([
-      fetch(`https://api.openalex.org/works?search=${encodedQuery}&per-page=25${mailto}`, { signal: AbortSignal.timeout(15_000) }),
-      fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodedQuery}&limit=25&fields=paperId,title,abstract,year,citationCount,url,openAccessPdf,authors`, { headers: semanticHeaders, signal: AbortSignal.timeout(15_000) }),
-    ]);
+    const searches = await Promise.allSettled(queries.flatMap((query) => {
+      const encodedQuery = encodeURIComponent(query);
+      return [
+        fetch(`https://api.openalex.org/works?search=${encodedQuery}&per-page=25${mailto}`, { signal: AbortSignal.timeout(15_000) }).then(async (response) => ({ provider: 'openalex' as const, available: response.ok, payload: response.ok ? await response.json() as { results?: OpenAlexWork[] } : { results: [] } })),
+        fetch(`https://api.semanticscholar.org/graph/v1/paper/search?query=${encodedQuery}&limit=25&fields=paperId,title,abstract,year,citationCount,url,openAccessPdf,authors,externalIds`, { headers: semanticHeaders, signal: AbortSignal.timeout(15_000) }).then(async (response) => ({ provider: 'semantic' as const, available: response.ok, payload: response.ok ? await response.json() as { data?: SemanticWork[] } : { data: [] } })),
+        CrossrefService.searchWorks(query, 25).then((items) => ({ provider: 'crossref' as const, available: true, payload: { items } })),
+      ];
+    }));
 
-    const openAlexAvailable = openAlexResult.status === 'fulfilled' && openAlexResult.value.ok;
-    const semanticAvailable = semanticResult.status === 'fulfilled' && semanticResult.value.ok;
-    if (!openAlexAvailable && !semanticAvailable) return NextResponse.json({ success: false, error: 'تعذر الوصول إلى مصادر الأدبيات حالياً. أعد المحاولة لاحقاً.' }, { status: 503 });
-
-    const openAlexData = openAlexAvailable ? await openAlexResult.value.json() as { results?: OpenAlexWork[] } : { results: [] };
-    const semanticData = semanticAvailable ? await semanticResult.value.json() as { data?: SemanticWork[] } : { data: [] };
+    const fulfilled = searches.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
+    const openAlexAvailable = fulfilled.some((result) => result.provider === 'openalex' && result.available);
+    const semanticAvailable = fulfilled.some((result) => result.provider === 'semantic' && result.available);
+    const crossrefAvailable = fulfilled.some((result) => result.provider === 'crossref' && result.available);
+    if (!openAlexAvailable && !semanticAvailable && !crossrefAvailable) return NextResponse.json({ success: false, error: 'تعذر الوصول إلى مصادر الأدبيات حالياً. أعد المحاولة لاحقاً.' }, { status: 503 });
+    const openAlexWorks = fulfilled.flatMap((result) => result.provider === 'openalex' && result.available && 'results' in result.payload ? result.payload.results || [] : []);
+    const semanticWorks = fulfilled.flatMap((result) => result.provider === 'semantic' && result.available && 'data' in result.payload ? result.payload.data || [] : []);
+    const crossrefWorks = fulfilled.flatMap((result) => result.provider === 'crossref' && result.available && 'items' in result.payload ? result.payload.items || [] : []) as CrossrefPaper[];
     const papers = new Map<string, LiteraturePaper>();
 
-    (openAlexData.results || []).forEach((work) => {
+    openAlexWorks.forEach((work) => {
       const titleValue = work.title?.trim();
       if (!titleValue) return;
       const abstract = reconstructAbstract(work.abstract_inverted_index);
       const pdfUrl = safeExternalUrl(work.open_access?.oa_url || work.primary_location?.pdf_url || (work.doi ? `https://doi.org/${work.doi.replace('https://doi.org/', '')}` : null));
-      papers.set(normaliseTitle(titleValue), { id: (work.id || `openalex-${normaliseTitle(titleValue)}`).slice(0, 500), title: titleValue.slice(0, 500), authors: ((work.authorships || []).map((author) => author.author?.display_name).filter(Boolean).join('، ') || 'بيانات المؤلفين غير متاحة').slice(0, 1_000), year: work.publication_year || 'د.ت', citationCount: work.cited_by_count || 0, abstract, source: 'OpenAlex', pdfUrl, relevanceScore: 0 });
+      const doi = normaliseDoi(work.doi);
+      const paper = { id: (work.id || `openalex-${normaliseTitle(titleValue)}`).slice(0, 500), doi, title: titleValue.slice(0, 500), authors: ((work.authorships || []).map((author) => author.author?.display_name).filter(Boolean).join('، ') || 'بيانات المؤلفين غير متاحة').slice(0, 1_000), year: work.publication_year || 'د.ت', citationCount: work.cited_by_count || 0, abstract, source: 'OpenAlex', pdfUrl, relevanceScore: 0 } satisfies LiteraturePaper;
+      upsertPaper(papers, paper);
     });
-    (semanticData.data || []).forEach((work) => {
+    semanticWorks.forEach((work) => {
       const titleValue = work.title?.trim();
       if (!titleValue) return;
-      const key = normaliseTitle(titleValue);
-      const existing = papers.get(key);
-      const semanticPaper: LiteraturePaper = { id: (work.paperId || `semantic-${key}`).slice(0, 500), title: titleValue.slice(0, 500), authors: ((work.authors || []).map((author) => author.name).filter(Boolean).join('، ') || 'بيانات المؤلفين غير متاحة').slice(0, 1_000), year: work.year || 'د.ت', citationCount: work.citationCount || 0, abstract: (work.abstract || '').slice(0, 4_000), source: 'Semantic Scholar', pdfUrl: safeExternalUrl(work.openAccessPdf?.url || work.url), relevanceScore: 0 };
-      papers.set(key, existing ? { ...existing, source: 'OpenAlex + Semantic Scholar', abstract: existing.abstract || semanticPaper.abstract, pdfUrl: existing.pdfUrl || semanticPaper.pdfUrl, citationCount: Math.max(existing.citationCount, semanticPaper.citationCount) } : semanticPaper);
+      const doi = normaliseDoi(work.externalIds?.DOI);
+      const key = paperKey(doi, titleValue);
+      const semanticPaper: LiteraturePaper = { id: (work.paperId || `semantic-${key}`).slice(0, 500), doi, title: titleValue.slice(0, 500), authors: ((work.authors || []).map((author) => author.name).filter(Boolean).join('، ') || 'بيانات المؤلفين غير متاحة').slice(0, 1_000), year: work.year || 'د.ت', citationCount: work.citationCount || 0, abstract: (work.abstract || '').slice(0, 4_000), source: 'Semantic Scholar', pdfUrl: safeExternalUrl(work.openAccessPdf?.url || work.url), relevanceScore: 0 };
+      upsertPaper(papers, semanticPaper);
+    });
+    crossrefWorks.forEach((work) => {
+      const crossrefPaper: LiteraturePaper = { id: (work.doi ? `crossref-${work.doi}` : `crossref-${normaliseTitle(work.title)}`).slice(0, 500), doi: work.doi, title: work.title.slice(0, 500), authors: (work.authors.join('، ') || 'بيانات المؤلفين غير متاحة').slice(0, 1_000), year: work.year || 'د.ت', citationCount: work.citationCount, abstract: work.abstract, source: 'Crossref', pdfUrl: safeExternalUrl(work.url), relevanceScore: 0 };
+      upsertPaper(papers, crossrefPaper);
     });
 
     const candidates = Array.from(papers.values());
-    const relevantEvidence = filterRelevantPapers(candidates.map(asEvidence), [title]);
+    const relevantEvidence = filterRelevantPapers(candidates.map(asEvidence), queries);
     const relevantTitles = new Set(relevantEvidence.map((paper) => normaliseTitle(paper.title)));
     const relevant = candidates
       .filter((paper) => relevantTitles.has(normaliseTitle(paper.title)))
-      .map((paper) => ({ ...paper, relevanceScore: Math.round(paperRelevanceScore(asEvidence(paper), [title]) * 100) }))
+      .map((paper) => ({ ...paper, relevanceScore: Math.round(paperRelevanceScore(asEvidence(paper), queries) * 100) }))
       .sort((first, second) => (second.relevanceScore - first.relevanceScore) || (second.citationCount - first.citationCount));
 
     return NextResponse.json({
@@ -150,10 +214,13 @@ export async function POST(request: Request) {
         excludedByRelevance: candidates.length - relevant.length,
         searchedAt: new Date().toISOString(),
         sources: [
-          { name: 'OpenAlex', available: openAlexAvailable, returned: (openAlexData.results || []).length },
-          { name: 'Semantic Scholar', available: semanticAvailable, returned: (semanticData.data || []).length },
+          { name: 'academic-index-a', available: openAlexAvailable, returned: openAlexWorks.length },
+          { name: 'academic-index-b', available: semanticAvailable, returned: semanticWorks.length },
+          { name: 'doi-registry', available: crossrefAvailable, returned: crossrefWorks.length },
         ],
-        note: 'العدد يصف النتائج ذات الصلة ضمن أول 25 نتيجة من كل مصدر في هذا الفحص، وليس جميع ما نُشر عالمياً.',
+        note: relevant.length >= 3
+          ? 'عُثر على تغطية أولية صالحة للمراجعة. اقرأ الملخص والنص الكامل قبل اعتماد أي دراسة.'
+          : 'التغطية الحالية غير كافية للحكم على غياب الدراسات؛ جرّب توسيع المفاهيم أو مراجعة صياغة العنوان.',
       },
     });
   } catch {
