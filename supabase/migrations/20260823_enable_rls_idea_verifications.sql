@@ -11,11 +11,13 @@ create index if not exists idx_verifications_user_id_created
 -- controlled persistence operations.
 alter table public.idea_verifications enable row level security;
 
+drop policy if exists "Users can read own verifications" on public.idea_verifications;
 create policy "Users can read own verifications"
   on public.idea_verifications
   for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert own verifications" on public.idea_verifications;
 create policy "Users can insert own verifications"
   on public.idea_verifications
   for insert

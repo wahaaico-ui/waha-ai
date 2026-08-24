@@ -12,6 +12,47 @@ export type EvidencePaper = {
   countries?: string[];
 };
 
+export type VerifyReport = {
+  topic: string;
+  translatedQuery?: string;
+  totalPapers: number;
+  yearDistribution: { year: number; count: number }[];
+  geographicDistribution: { region: string; count: number }[];
+  methodologyDistribution: { type: string; count: number }[];
+  methodologyNote: string;
+  gaps: string[];
+  acceptanceScore: number;
+  scoreBreakdown: {
+    gapExists: number;
+    recency: number;
+    methodDiversity: number;
+    geoDiversity: number;
+    sufficientRefs: number;
+    consistency: number;
+  };
+  decision: 'reject' | 'improve' | 'proceed';
+  decisionMessage: string;
+  alternativeAngles?: string[];
+  improvements?: string[];
+  topPapers: EvidencePaper[];
+  searchCoverage: SearchCoverage;
+  researcherContext: ResearcherContext;
+  contextMatch: {
+    localAffiliationMatches: number;
+    note: string;
+  };
+  researchPaths: ResearchPath[];
+  evidenceLimitations: string[];
+  usageInfo?: {
+    count: number;
+    limit: number;
+    isFirstCheck: boolean;
+    isBlurred: boolean;
+    isBlocked: boolean;
+    projectId: string | null;
+  };
+};
+
 export type ResearcherContext = {
   countryCode: string | null;
   countryName: string | null;

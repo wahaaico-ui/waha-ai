@@ -60,10 +60,10 @@ export async function requestFingerprint(request: NextRequest) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-async function isRateLimited(request: NextRequest, policy: { maxRequests: number; windowSeconds: number }) {
+async function rateLimitStatus(request: NextRequest, policy: { maxRequests: number; windowSeconds: number }) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) return false;
+  if (!url || !serviceRoleKey) return process.env.NODE_ENV === 'production' ? 'unavailable' : 'allowed';
 
   try {
     const response = await fetch(`${url}/rest/v1/rpc/check_rate_limit`, {
@@ -79,21 +79,29 @@ async function isRateLimited(request: NextRequest, policy: { maxRequests: number
         p_window_seconds: policy.windowSeconds,
       }),
     });
-    return response.ok && (await response.json()) === false;
+    if (!response.ok) return 'unavailable';
+    return (await response.json()) === false ? 'limited' : 'allowed';
   } catch {
-    // Rate limiting is protective but must not turn an upstream telemetry failure
-    // into an authentication or authorization bypass.
-    return false;
+    return 'unavailable';
   }
 }
 
 export async function proxy(request: NextRequest) {
   const rateLimitPolicy = rateLimitFor(request.nextUrl.pathname);
-  if (rateLimitPolicy && await isRateLimited(request, rateLimitPolicy)) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please try again shortly.' },
-      { status: 429, headers: { 'Retry-After': String(rateLimitPolicy.windowSeconds) } }
-    );
+  if (rateLimitPolicy) {
+    const status = await rateLimitStatus(request, rateLimitPolicy);
+    if (status === 'limited') {
+      return NextResponse.json(
+        { error: 'Too many requests. Please try again shortly.' },
+        { status: 429, headers: { 'Retry-After': String(rateLimitPolicy.windowSeconds) } }
+      );
+    }
+    if (status === 'unavailable' && process.env.NODE_ENV === 'production') {
+      return NextResponse.json(
+        { error: 'Request protection is temporarily unavailable.' },
+        { status: 503, headers: { 'Retry-After': '30' } }
+      );
+    }
   }
 
   let response = NextResponse.next({
@@ -132,10 +140,12 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const PROTECTED_PAGE_PREFIXES = ['/academic', '/dashboard', '/projects', '/settings'];
+  const PROTECTED_PAGE_PREFIXES = ['/academic', '/analyze', '/dashboard', '/projects', '/research', '/settings'];
   if (!user && PROTECTED_PAGE_PREFIXES.some((prefix) => request.nextUrl.pathname.startsWith(prefix))) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
+    url.search = '';
+    url.searchParams.set('redirect', `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
   }
 
@@ -143,5 +153,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/academic/:path*', '/dashboard/:path*', '/projects/:path*', '/settings/:path*', '/api/:path*'],
+  matcher: ['/academic/:path*', '/analyze', '/dashboard/:path*', '/projects/:path*', '/research/:path*', '/settings/:path*', '/api/:path*'],
 };

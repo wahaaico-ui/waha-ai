@@ -3,6 +3,7 @@
 import { supabase } from '@/lib/supabase/client';
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import ZoteroImportPanel from '@/components/ZoteroImportPanel';
 type Project = {
   id: string;
@@ -43,6 +44,7 @@ function WorkspaceContent() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
+  const [uploadError, setUploadError] = useState('');
 
 const fetchProjectData = async () => {
     try {
@@ -135,6 +137,7 @@ const fetchProjectData = async () => {
     if (!selectedFile || !projectId) return;
 
     setSubmitting(true);
+    setUploadError('');
 
     try {
       // 1. استخراج النص
@@ -176,7 +179,7 @@ const fetchProjectData = async () => {
       await fetchProjectData();
 
     } catch (err: unknown) {
-      alert('خطأ: ' + (err instanceof Error ? err.message : 'حدث خطأ غير متوقع'));
+      setUploadError(err instanceof Error ? err.message : 'حدث خطأ غير متوقع');
       setUploadStatus('');
     } finally {
       setSubmitting(false);
@@ -186,8 +189,14 @@ const fetchProjectData = async () => {
 
   if (!projectId) {
     return (
-      <div className="p-8 text-center text-red-500">
-        لا يوجد معرف مشروع (projectId) في الرابط.
+      <div className="p-8 text-center space-y-4">
+        <p className="text-gray-500">لا يوجد مشروع محدد بعد.</p>
+        <Link
+          href="/projects/create"
+          className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-l from-blue-500 to-teal-400 text-gray-950 font-bold rounded-xl transition-all text-sm"
+        >
+          أنشئ مشروعاً
+        </Link>
       </div>
     );
   }
@@ -234,11 +243,13 @@ const fetchProjectData = async () => {
               {submitting ? 'جاري المعالجة التسلسلية...' : 'رفع وتحليل ملف PDF'}
             </button>
             {uploadStatus && <p className="text-sm font-medium text-blue-600 mt-2">{uploadStatus}</p>}
+            {uploadError && <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">{uploadError}</div>}
           </form>
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
           <h2 className="text-lg font-semibold mb-4">المصادر المرفوعة ({sources.length})</h2>
+          {sources.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">لا توجد مصادر بعد. ارفع ملف PDF أعلاه لبدء التحليل.</p>}
           {sources.map(src => (
             <div key={src.id} className="p-4 mb-4 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200">
               <h3 className="font-semibold text-blue-600">النص المستخرج:</h3>

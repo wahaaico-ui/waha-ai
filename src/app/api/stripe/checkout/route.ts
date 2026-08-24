@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { getStripePricePlanMap } from '@/lib/billing/stripe-plans';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'dummy_key', {
@@ -13,12 +14,17 @@ export async function POST(request: Request) {
     const body = await request.json() as { priceId?: string };
     const priceId = body.priceId || process.env.STRIPE_RESEARCHER_PRICE_ID;
     const email = access.user.email;
-    const allowedPrices = (process.env.STRIPE_ALLOWED_PRICE_IDS || '').split(',').map((value) => value.trim()).filter(Boolean);
     const origin = request.headers.get('origin');
     if (origin && origin !== new URL(request.url).origin) return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
 
-    if (!email || !priceId || (allowedPrices.length > 0 && !allowedPrices.includes(priceId))) {
-      return NextResponse.json({ error: 'بيانات المستخدم غير موجودة' }, { status: 400 });
+    const configuredPrices = getStripePricePlanMap();
+    if (configuredPrices.size === 0) {
+      console.error('Stripe checkout is disabled because no approved prices are configured');
+      return NextResponse.json({ error: 'الدفع غير متاح حالياً' }, { status: 503 });
+    }
+
+    if (!email || !priceId || !configuredPrices.has(priceId)) {
+      return NextResponse.json({ error: 'خطة الدفع المطلوبة غير متاحة' }, { status: 400 });
     }
 
     // إنشاء جلسة دفع حقيقية عبر Stripe
@@ -46,6 +52,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ url: session.url });
   } catch (error: unknown) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'فشل إنشاء جلسة الدفع' }, { status: 500 });
+    console.error('Stripe checkout failed', error);
+    return NextResponse.json({ error: 'فشل إنشاء جلسة الدفع' }, { status: 500 });
   }
 }

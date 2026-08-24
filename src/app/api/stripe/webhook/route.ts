@@ -1,32 +1,38 @@
 import Stripe from 'stripe';
+import { getStripePlanForPrice } from '@/lib/billing/stripe-plans';
 import { createServiceClient } from '@/lib/supabase/service';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'dummy_key', {
   apiVersion: '2025-02-28.acacia' as Stripe.LatestApiVersion,
 });
 
-function planForPrice(priceId?: string | null) {
-  if (!priceId) return 'researcher';
-  const institutional = (process.env.STRIPE_INSTITUTIONAL_PRICE_IDS || '').split(',').map((value) => value.trim());
-  return institutional.includes(priceId) ? 'institutional' : 'researcher';
-}
-
 async function saveSubscription(subscription: Stripe.Subscription, fallbackUserId?: string | null) {
   const userId = subscription.metadata.userId || fallbackUserId;
-  if (!userId) return;
+  if (!userId) return false;
   const item = subscription.items.data[0];
+  const priceId = item?.price.id;
+  const plan = getStripePlanForPrice(priceId);
+  if (!plan) {
+    console.warn('Ignoring Stripe subscription with an unknown price', {
+      subscriptionId: subscription.id,
+      priceId: priceId ?? null,
+    });
+    return false;
+  }
   const supabase = createServiceClient();
   const periodEnd = item?.current_period_end;
-  await supabase.from('subscriptions').upsert({
+  const { error } = await supabase.from('subscriptions').upsert({
     user_id: userId,
     stripe_customer_id: typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id,
     stripe_subscription_id: subscription.id,
-    stripe_price_id: item?.price.id || null,
-    plan: planForPrice(item?.price.id),
+    stripe_price_id: priceId,
+    plan,
     status: subscription.status,
     current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' });
+  if (error) throw new Error(`Failed to persist Stripe subscription: ${error.message}`);
+  return true;
 }
 
 export async function POST(request: Request) {
@@ -41,13 +47,18 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid webhook signature' }, { status: 400 });
   }
 
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    if (typeof session.subscription === 'string') {
-      await saveSubscription(await stripe.subscriptions.retrieve(session.subscription), session.metadata?.userId);
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      if (typeof session.subscription === 'string') {
+        await saveSubscription(await stripe.subscriptions.retrieve(session.subscription), session.metadata?.userId);
+      }
+    } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
+      await saveSubscription(event.data.object);
     }
-  } else if (event.type === 'customer.subscription.updated' || event.type === 'customer.subscription.deleted') {
-    await saveSubscription(event.data.object);
+  } catch (error) {
+    console.error('Stripe webhook processing failed', error);
+    return Response.json({ error: 'Webhook processing failed' }, { status: 500 });
   }
 
   return Response.json({ received: true });

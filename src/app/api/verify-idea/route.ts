@@ -8,50 +8,15 @@ import {
   filterRelevantPapers,
   inferMethodologyDistribution,
   paperRelevanceScore,
-  type EvidencePaper,
+  type EvidencePaper as Paper,
   type ResearcherContext,
-  type ResearchPath,
-  type SearchCoverage,
+  type VerifyReport,
 } from '@/lib/research-exploration';
 import { countryName } from '@/lib/researcher-profile';
 
 // ============================================================
 // TYPES
 // ============================================================
-type Paper = EvidencePaper;
-
-interface VerifyReport {
-  topic: string;
-  translatedQuery?: string;
-  totalPapers: number;
-  yearDistribution: { year: number; count: number }[];
-  geographicDistribution: { region: string; count: number }[];
-  methodologyDistribution: { type: string; count: number }[];
-  methodologyNote: string;
-  gaps: string[];
-  acceptanceScore: number;
-  scoreBreakdown: {
-    gapExists: number;
-    recency: number;
-    methodDiversity: number;
-    geoDiversity: number;
-    sufficientRefs: number;
-    consistency: number;
-  };
-  decision: 'reject' | 'improve' | 'proceed';
-  decisionMessage: string;
-  alternativeAngles?: string[];
-  improvements?: string[];
-  topPapers: Paper[];
-  searchCoverage: SearchCoverage;
-  researcherContext: ResearcherContext;
-  contextMatch: {
-    localAffiliationMatches: number;
-    note: string;
-  };
-  researchPaths: ResearchPath[];
-  evidenceLimitations: string[];
-}
 
 // ============================================================
 // TRANSLATE ARABIC TOPIC TO ENGLISH ACADEMIC QUERY
@@ -397,29 +362,7 @@ function makeDecision(score: number, gaps: string[], evidenceCount: number): {
 }
 
 // ============================================================
-// RATE LIMITING
-// ============================================================
-async function checkRateLimit(ip: string): Promise<boolean> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) return true;
-  try {
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const { data, error } = await supabase.rpc('check_rate_limit', {
-      p_ip: ip,
-      p_max_requests: 5,
-      p_window_seconds: 60,
-    });
-    if (error) return true;
-    return data === true;
-  } catch {
-    return true;
-  }
-}
-
-
-// ============================================================
-// SAVE VERIFICATION TO DATABASE (non-blocking)
+// SAVE VERIFICATION TO DATABASE
 // ============================================================
 async function countUserVerifications(ip: string): Promise<number> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -453,7 +396,7 @@ async function saveVerification(
   if (!supabaseUrl || !supabaseKey) return;
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
-    await supabase.from('idea_verifications').insert({
+    const { error } = await supabase.from('idea_verifications').insert({
       user_ip: ip,
       topic,
       translated_query: translatedQuery || null,
@@ -463,8 +406,10 @@ async function saveVerification(
       gaps_count: gapsCount,
       user_id: userId,
     });
-  } catch {
-    // Silent fail — saving is not critical for the response
+    if (error) throw error;
+  } catch (error) {
+    console.error('Unable to persist idea verification', error);
+    throw new Error('Unable to persist idea verification');
   }
 }
 
@@ -530,11 +475,6 @@ async function persistAuthenticatedVerification(
 // ============================================================
 export async function POST(request: NextRequest) {
   const ip = await requestFingerprint(request);
-
-  const allowed = await checkRateLimit(ip);
-  if (!allowed) {
-    return NextResponse.json({ error: 'تجاوزت الحد المسموح. حاول بعد دقيقة.' }, { status: 429 });
-  }
 
   try {
     const body = await request.json();
@@ -637,10 +577,13 @@ export async function POST(request: NextRequest) {
       ],
     };
 
-    // Save verification asynchronously (do not await — non-blocking). Guests
-    // retain the anonymous freemium flow, while authenticated records receive
-    // an owner for RLS-protected history.
-    saveVerification(
+    // Count before scheduling the current write so the freemium decision does
+    // not depend on a race between INSERT and COUNT.
+    const usageCount = await countUserVerifications(ip);
+
+    // Wait for the usage write to finish. Serverless runtimes may terminate work
+    // that is left running after the response has been returned.
+    await saveVerification(
       ip,
       topic,
       englishQuery,
@@ -649,15 +592,14 @@ export async function POST(request: NextRequest) {
       merged.length,
       gaps.length,
       access?.user.id || null
-    ).catch(() => {});
+    );
 
     // Persist an authenticated researcher's output before returning the next
     // journey link. Anonymous visitors deliberately keep the existing local
     // exploration flow and never receive a project id.
     const projectId = await persistAuthenticatedVerification(report, access);
 
-    // Freemium: compute usage info based on IP history
-    const usageCount = await countUserVerifications(ip);
+    // Freemium: compute usage info based on the history before this request.
     const FREE_LIMIT = 3;
     const reportWithUsage = {
       ...report,

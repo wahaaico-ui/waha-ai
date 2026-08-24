@@ -51,7 +51,7 @@ export default function CreateProjectPage() {
       if (data && data.id) {
         setCreatedProjectId(data.id);
       } else {
-        router.push('/projects/workspace');
+        router.push('/dashboard');
       }
     } catch (err: unknown) {
       console.error(err);

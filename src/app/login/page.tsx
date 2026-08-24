@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase/client';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
+import { safeAuthRedirect } from '@/lib/auth/safe-redirect';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -14,7 +15,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get('redirect') || '/verify-idea';
+  const redirectTo = safeAuthRedirect(searchParams.get('redirect'), '/verify-idea');
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
@@ -22,7 +23,7 @@ function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}${redirectTo}`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     });
     if (error) {

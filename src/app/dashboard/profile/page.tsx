@@ -13,22 +13,23 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [university, setUniversity] = useState('');
   const [degree, setDegree] = useState('ماجستير');
+  const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const router = useRouter();
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
+      const { data: { user: authenticatedUser } } = await supabase.auth.getUser();
+      if (!authenticatedUser) {
         router.push('/login');
         return;
       }
-      setUser(session.user);
+      setUser(authenticatedUser);
 
       // جلب بيانات الملف الشخصي إن وجدت
       const { data } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('id', authenticatedUser.id)
         .single();
 
       if (data) {
@@ -42,8 +43,9 @@ export default function ProfilePage() {
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    setBanner(null);
     if (!user) {
-      alert('يجب تسجيل الدخول أولاً');
+      setBanner({ type: 'error', message: 'يجب تسجيل الدخول أولاً' });
       return;
     }
     setSaving(true);
@@ -55,9 +57,9 @@ export default function ProfilePage() {
 
     setSaving(false);
     if (error) {
-      alert('حدث خطأ أثناء التحديث: ' + error.message);
+      setBanner({ type: 'error', message: 'حدث خطأ أثناء التحديث: ' + error.message });
     } else {
-      alert('تم تحديث الملف الشخصي بنجاح!');
+      setBanner({ type: 'success', message: 'تم تحديث الملف الشخصي بنجاح!' });
     }
   };
 
@@ -66,12 +68,24 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#09090b] text-white p-6 md:p-12">
       <div className="max-w-2xl mx-auto">
-        <Link href="/projects/create" className="inline-flex items-center gap-2 text-gray-400 hover:text-cyan-400 mb-8 transition">
-          <ArrowRight className="w-4 h-4" /> العودة لمساحة العمل
+        <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-cyan-400 mb-8 transition">
+          <ArrowRight className="w-4 h-4" /> العودة إلى مشاريعي
         </Link>
 
         <h1 className="text-3xl font-bold mb-2">إدارة الحساب والملف الأكاديمي</h1>
         <p className="text-gray-400 mb-8">تعديل بياناتك الشخصية والمؤسسية لضمان دقة التقارير الصادرة.</p>
+
+        {banner && (
+          <div
+            className={`mb-6 rounded-2xl border p-4 text-sm ${
+              banner.type === 'success'
+                ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-300'
+                : 'border-red-500/20 bg-red-500/5 text-red-300'
+            }`}
+          >
+            {banner.message}
+          </div>
+        )}
 
         <Link href="/settings/integrations" className="mb-6 flex items-center justify-between rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-cyan-300 transition hover:bg-cyan-500/10">
           <span className="flex items-center gap-3"><Plug className="h-5 w-5" /><span><strong className="block">التكاملات البحثية</strong><small className="text-gray-400">ربط Zotero وإدارة مصادر البحث الخارجية</small></span></span>

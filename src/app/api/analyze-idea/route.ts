@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { createClient as createSessionClient } from '@/lib/supabase/server';
-import { requestFingerprint } from '@/proxy';
+import { createServiceClient } from '@/lib/supabase/service';
 
 const GEMINI_TIMEOUT_MS = 30000;
 const GEMINI_MAX_ATTEMPTS = 2;
@@ -138,34 +137,10 @@ function mergeAndRankPapers(
   return scored.slice(0, finalCount).map((x) => x.paper);
 }
 
-const RATE_LIMIT_MAX = 5;
-const RATE_LIMIT_WINDOW_SECONDS = 60;
 const PAPERS_PER_SOURCE = 10;
 const FINAL_PAPERS_COUNT = 5;
 
 export async function POST(request: NextRequest) {
-  const ip = await requestFingerprint(request);
-
-  const serviceClient = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
-  const { data: allowed, error: rateLimitError } = await serviceClient.rpc('check_rate_limit', {
-    p_ip: ip,
-    p_max_requests: RATE_LIMIT_MAX,
-    p_window_seconds: RATE_LIMIT_WINDOW_SECONDS,
-  });
-
-  if (rateLimitError) {
-    console.error('Rate limit check failed:', rateLimitError);
-  } else if (allowed === false) {
-    return NextResponse.json(
-      { error: 'عدد كبير من الطلبات، حاول بعد دقيقة' },
-      { status: 429 }
-    );
-  }
-
   try {
     const { idea } = await request.json();
     if (!idea) return NextResponse.json({ error: 'الفكرة مطلوبة' }, { status: 400 });
@@ -273,12 +248,16 @@ export async function POST(request: NextRequest) {
 
     let saved = false;
     if (user) {
-      await serviceClient.from('users_usage').insert({
+      // users_usage intentionally has no client INSERT policy. Identity is
+      // derived from the verified session before this privileged write.
+      const serviceClient = createServiceClient();
+      const { error: saveError } = await serviceClient.from('users_usage').insert({
         user_id: user.id,
         idea_text: idea,
         report_score: reportScore,
       });
-      saved = true;
+      if (saveError) console.error('Unable to save authenticated usage record', saveError.message);
+      saved = !saveError;
     }
 
     return NextResponse.json({

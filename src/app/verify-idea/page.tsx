@@ -6,7 +6,7 @@ import JourneyProgress from '@/components/JourneyProgress';
 import { supabase } from '@/lib/supabase/client';
 import AuthGate from '@/components/AuthGate';
 import { saveJourneyStage } from '@/lib/research-journey';
-import type { ResearchPath, ResearcherContext, SearchCoverage } from '@/lib/research-exploration';
+import type { VerifyReport } from '@/lib/research-exploration';
 
 // ============================================================
 // TYPES (mirror API response)
@@ -18,57 +18,6 @@ interface HistoryItem {
   decision: string;
   total_papers: number;
   created_at: string;
-}
-
-interface Paper {
-  title: string;
-  year: number;
-  citations: number;
-  url: string;
-  source: 'semanticscholar' | 'openalex' | 'both';
-  authors?: string[];
-  venue?: string;
-  countries?: string[];
-}
-
-interface VerifyReport {
-  topic: string;
-  totalPapers: number;
-  yearDistribution: { year: number; count: number }[];
-  geographicDistribution: { region: string; count: number }[];
-  methodologyDistribution: { type: string; count: number }[];
-  methodologyNote: string;
-  gaps: string[];
-  acceptanceScore: number;
-  scoreBreakdown: {
-    gapExists: number;
-    recency: number;
-    methodDiversity: number;
-    geoDiversity: number;
-    sufficientRefs: number;
-    consistency: number;
-  };
-  decision: 'reject' | 'improve' | 'proceed';
-  decisionMessage: string;
-  alternativeAngles?: string[];
-  improvements?: string[];
-  topPapers: Paper[];
-  searchCoverage: SearchCoverage;
-  researcherContext: ResearcherContext;
-  contextMatch: {
-    localAffiliationMatches: number;
-    note: string;
-  };
-  researchPaths: ResearchPath[];
-  evidenceLimitations: string[];
-  usageInfo?: {
-    count: number;
-    limit: number;
-    isFirstCheck: boolean;
-    isBlurred: boolean;
-    isBlocked: boolean;
-    projectId: string | null;
-  };
 }
 
 interface JourneySnapshot {
@@ -254,7 +203,7 @@ export default function VerifyIdeaPage() {
         {/* HEADER */}
         <div className="mb-10 text-center">
           <div className="inline-block px-4 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-700 text-sm font-semibold mb-4">
-            المرحلة صفر · قبل صياغة العنوان
+            المرحلة 1 · قبل صياغة العنوان
           </div>
           <h1 className="text-4xl font-bold text-slate-800 mb-3">
             استكشاف المسار البحثي والفجوة
