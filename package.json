@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "jest --runInBand",
+    "test:integrations": "node scripts/verify-academic-integrations.mjs",
     "test:authorization": "node scripts/verify-tenant-isolation.mjs"
   },
   "dependencies": {

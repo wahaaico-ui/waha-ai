@@ -1,3 +1,5 @@
+import type { ResearchConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
+
 export type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'methodology' | 'literature' | 'analysis';
 
 export type ServerJourneyGate = {
@@ -7,6 +9,22 @@ export type ServerJourneyGate = {
   nextStage: JourneyStage | null;
 };
 
+export class JourneyStageSaveError extends Error {
+  consistency: ResearchConsistencyReport | null;
+  consistencyWarnings: ResearchObjectViewWarning[];
+
+  constructor(
+    message: string,
+    consistency: ResearchConsistencyReport | null = null,
+    consistencyWarnings: ResearchObjectViewWarning[] = [],
+  ) {
+    super(message);
+    this.name = 'JourneyStageSaveError';
+    this.consistency = consistency;
+    this.consistencyWarnings = consistencyWarnings;
+  }
+}
+
 export async function saveJourneyStage(projectId: string, stage: JourneyStage, content: Record<string, unknown>) {
   const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/journey`, {
     method: 'POST',
@@ -14,11 +32,21 @@ export async function saveJourneyStage(projectId: string, stage: JourneyStage, c
     body: JSON.stringify({ stage, content }),
   });
   const data = await response.json();
-  if (response.status === 401) throw new Error('انتهت جلسة الدخول. سجّل الدخول مجدداً لحفظ مشروعك.');
-  if (response.status === 404) throw new Error('المشروع غير موجود أو لا تملك صلاحية الوصول إليه.');
-  if (!response.ok) throw new Error(data.gate?.reason || data.error || 'تعذر حفظ مرحلة البحث');
-  if (data.gate?.status !== 'open') throw new Error(data.gate?.reason || 'لم تجتز هذه المرحلة بوابة الجودة بعد.');
-  return data as { success: true; gate: ServerJourneyGate; nextStage: JourneyStage | null };
+  if (response.status === 401) throw new JourneyStageSaveError('انتهت جلسة الدخول. سجّل الدخول مجدداً لحفظ مشروعك.');
+  if (response.status === 404) throw new JourneyStageSaveError('المشروع غير موجود أو لا تملك صلاحية الوصول إليه.');
+  if (!response.ok) throw new JourneyStageSaveError(
+    data.gate?.reason || data.error || 'تعذر حفظ مرحلة البحث',
+    data.consistency || null,
+    Array.isArray(data.consistencyWarnings) ? data.consistencyWarnings : [],
+  );
+  if (data.gate?.status !== 'open') throw new JourneyStageSaveError(data.gate?.reason || 'لم تجتز هذه المرحلة بوابة الجودة بعد.');
+  return data as {
+    success: true;
+    gate: ServerJourneyGate;
+    nextStage: JourneyStage | null;
+    consistency: ResearchConsistencyReport | null;
+    consistencyWarnings: ResearchObjectViewWarning[];
+  };
 }
 
 export async function loadJourney(projectId: string) {

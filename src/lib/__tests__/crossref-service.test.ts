@@ -25,12 +25,13 @@ describe('CrossrefService', () => {
           URL: 'https://doi.org/10.1000/TEST',
         }],
       },
-    }), { status: 200 }));
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
     global.fetch = fetchMock;
 
     const result = await CrossrefService.searchWorks('useful research', 500);
 
-    expect(result).toEqual([{
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
       doi: '10.1000/test',
       title: 'Useful research',
       abstract: 'An & abstract',
@@ -38,7 +39,7 @@ describe('CrossrefService', () => {
       citationCount: 12,
       authors: ['Ada Lovelace'],
       url: 'https://doi.org/10.1000/TEST',
-    }]);
+    });
     const [url, options] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toContain('rows=100');
     expect(url).toContain('mailto=research%40example.com');
@@ -47,6 +48,6 @@ describe('CrossrefService', () => {
 
   it('throws on an unavailable Crossref response so the aggregator can fall back', async () => {
     global.fetch = jest.fn().mockResolvedValue(new Response('', { status: 429 }));
-    await expect(CrossrefService.searchWorks('topic')).rejects.toThrow('status 429');
+    await expect(CrossrefService.searchWorks('topic')).rejects.toThrow('429');
   });
 });

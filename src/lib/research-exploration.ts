@@ -47,6 +47,8 @@ export type VerifyReport = {
   usageInfo?: {
     count: number;
     limit: number;
+    period?: 'day';
+    resetsAfterHours?: number;
     isFirstCheck: boolean;
     isBlurred: boolean;
     isBlocked: boolean;

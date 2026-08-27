@@ -365,7 +365,7 @@ function makeDecision(score: number, gaps: string[], evidenceCount: number): {
 // ============================================================
 // SAVE VERIFICATION TO DATABASE
 // ============================================================
-async function countUserVerifications(ip: string): Promise<number> {
+async function countDailyUserVerifications(ip: string): Promise<number> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !supabaseKey) return 0;
@@ -374,7 +374,8 @@ async function countUserVerifications(ip: string): Promise<number> {
     const { count, error } = await supabase
       .from('idea_verifications')
       .select('*', { count: 'exact', head: true })
-      .eq('user_ip', ip);
+      .eq('user_ip', ip)
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString());
     if (error) return 0;
     return count || 0;
   } catch {
@@ -588,7 +589,7 @@ export async function POST(request: NextRequest) {
 
     // Count before scheduling the current write so the freemium decision does
     // not depend on a race between INSERT and COUNT.
-    const usageCount = await countUserVerifications(ip);
+    const usageCount = await countDailyUserVerifications(ip);
 
     // Wait for the usage write to finish. Serverless runtimes may terminate work
     // that is left running after the response has been returned.
@@ -615,6 +616,8 @@ export async function POST(request: NextRequest) {
       usageInfo: {
         count: usageCount + 1,
         limit: FREE_LIMIT,
+        period: 'day',
+        resetsAfterHours: 24,
         isFirstCheck: usageCount === 0,
         isBlurred: usageCount >= 1 && usageCount < FREE_LIMIT,
         isBlocked: usageCount >= FREE_LIMIT,

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { generateStructured } from '@/lib/ai/geminiClient';
 import { hasEntitlement } from '@/lib/billing/entitlements';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { DeepLService } from '@/lib/language/DeepLService';
+import { MicrosoftTranslatorService } from '@/lib/language/MicrosoftTranslatorService';
+import { LanguageToolService } from '@/lib/language/LanguageToolService';
 
 const MAX_TEXT_LENGTH = 12_000;
 
@@ -51,6 +54,23 @@ export async function POST(request: Request) {
     }
     if (text.length > MAX_TEXT_LENGTH) {
       return NextResponse.json({ error: `الحد الأقصى ${MAX_TEXT_LENGTH.toLocaleString('ar')} حرفًا.` }, { status: 413 });
+    }
+
+    if (operation === 'translate') {
+      const translators = [
+        DeepLService.configured() ? () => DeepLService.translate(text, targetLanguage) : null,
+        MicrosoftTranslatorService.configured() ? () => MicrosoftTranslatorService.translate(text, targetLanguage) : null,
+      ].filter((translator): translator is () => Promise<string> => Boolean(translator));
+      for (const translate of translators) {
+        try { return NextResponse.json({ output: await translate() }); } catch { /* continue to the next configured provider */ }
+      }
+    }
+
+    if (operation === 'proofread' && LanguageToolService.configured()) {
+      try {
+        const matches = await LanguageToolService.check(text, targetLanguage);
+        return NextResponse.json({ output: LanguageToolService.applyFirstSuggestions(text, matches), issues: matches.length });
+      } catch { /* preserve the existing AI editor as a graceful fallback */ }
     }
 
     const result = await generateStructured({

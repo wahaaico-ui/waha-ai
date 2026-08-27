@@ -1,18 +1,18 @@
+import { APPLICATION_EMAIL, fetchJson } from '../integrations/http';
+import { normaliseDoi, safeUrl } from '../integrations/normalization';
+
 export class UnpaywallService {
   public static async getPdfUrl(doi: string | null): Promise<string | null> {
     if (!doi) return null;
 
-    const email = process.env.OPENALEX_EMAIL || 'researcher@waha.ai';
-    const cleanDoi = doi.trim().replace(/^https?:\/\/doi\.org\//, '');
-    const url = `https://api.unpaywall.org/v2/${cleanDoi}?email=${email}`;
+    const cleanDoi = normaliseDoi(doi);
+    if (!cleanDoi) return null;
+    const url = `https://api.unpaywall.org/v2/${encodeURIComponent(cleanDoi)}?email=${encodeURIComponent(APPLICATION_EMAIL)}`;
 
     try {
-      const response = await fetch(url);
-      if (!response.ok) return null;
-
-      const data = await response.json();
+      const data = await fetchJson<{ is_oa?: boolean; best_oa_location?: { url_for_pdf?: string; url?: string } }>(url, {}, { retries: 0 });
       if (data.is_oa && data.best_oa_location?.url_for_pdf) {
-        return data.best_oa_location.url_for_pdf;
+        return safeUrl(data.best_oa_location.url_for_pdf);
       }
       return null;
     } catch {

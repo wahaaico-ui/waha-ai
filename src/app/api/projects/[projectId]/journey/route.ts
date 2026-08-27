@@ -1,12 +1,30 @@
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import {
+  createResearchObjectView,
+  evaluateObjectivesQuestionsConsistency,
+  evaluateProblemObjectivesConsistency,
+  evaluateQuestionsMethodologyConsistency,
+} from '@/lib/research-objects';
+import type {
+  JourneyDocumentSnapshot,
+  ResearchConsistencyReport,
+  ResearchObjectViewWarning,
+} from '@/lib/research-objects/types';
 import { evaluateGate, isStage, nextAllowedStage, type WorkflowOutput, type WorkflowStage, WORKFLOW_STAGES } from '@/lib/research-workflow';
 
-type StoredDocument = { type: string | null; content: string | null; version: number | null; created_at: string | null };
+type StoredDocument = JourneyDocumentSnapshot;
 
-function parseOutput(content: string | null): WorkflowOutput | null {
+type ConsistencyEvaluation = {
+  report: ResearchConsistencyReport;
+  warnings: ResearchObjectViewWarning[];
+};
+
+function parseOutput(content: StoredDocument['content']): WorkflowOutput | null {
   if (!content) return null;
+  if (typeof content === 'object' && !Array.isArray(content)) return content as WorkflowOutput;
+  if (typeof content !== 'string') return null;
   try {
     const value: unknown = JSON.parse(content);
     return value && typeof value === 'object' && !Array.isArray(value) ? value as WorkflowOutput : null;
@@ -24,9 +42,35 @@ function extractOutputs(documents: StoredDocument[]) {
 }
 
 async function readJourney(projectId: string, supabase: SupabaseClient) {
-  const { data, error } = await supabase.from('documents').select('type, content, version, created_at').eq('project_id', projectId).like('type', 'journey:%').order('version', { ascending: false }).order('created_at', { ascending: false });
+  const { data, error } = await supabase.from('documents').select('id, project_id, type, content, version, created_at').eq('project_id', projectId).like('type', 'journey:%').order('version', { ascending: false }).order('created_at', { ascending: false });
   if (error) throw error;
   return (data || []) as StoredDocument[];
+}
+
+function evaluateConsistencyCandidate(
+  projectId: string,
+  documents: StoredDocument[],
+  stage: 'objectives' | 'questions' | 'methodology',
+  serializedContent: string,
+  version: number,
+): ConsistencyEvaluation {
+  const candidateDocument: JourneyDocumentSnapshot = {
+    id: `candidate:${projectId}:${stage}:${version}`,
+    project_id: projectId,
+    type: `journey:${stage}`,
+    content: serializedContent,
+    version,
+    created_at: new Date().toISOString(),
+  };
+  const objectView = createResearchObjectView(projectId, [...documents, candidateDocument]);
+  return {
+    report: stage === 'objectives'
+      ? evaluateProblemObjectivesConsistency(objectView)
+      : stage === 'questions'
+        ? evaluateObjectivesQuestionsConsistency(objectView)
+        : evaluateQuestionsMethodologyConsistency(objectView),
+    warnings: objectView.warnings,
+  };
 }
 
 export async function GET(_request: Request, context: { params: Promise<{ projectId: string }> }) {
@@ -84,12 +128,53 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     }
     const versions = documents.filter((item) => item.type === `journey:${stage}`).map((item) => item.version || 0);
     const version = Math.max(0, ...versions) + 1;
+    const consistency = stage === 'objectives' || stage === 'questions' || stage === 'methodology'
+      ? evaluateConsistencyCandidate(projectId, documents, stage, serialized, version)
+      : null;
+
+    if (consistency?.report.status === 'failed') {
+      const consistencyGate = {
+        status: 'needs_improvement' as const,
+        stage,
+        reason: consistency.report.summary,
+        nextStage: stage,
+      };
+      return NextResponse.json({
+        error: consistency.report.summary,
+        gate: consistencyGate,
+        consistency: consistency.report,
+        consistencyWarnings: consistency.warnings,
+      }, { status: 422 });
+    }
+
     const { error: insertError } = await access.supabase.from('documents').insert({ project_id: projectId, type: `journey:${stage}`, content: serialized, version });
     if (insertError) throw insertError;
     const decisionVersion = Math.max(0, ...documents.filter((item) => item.type === 'journey:decision').map((item) => item.version || 0)) + 1;
-    const { error: decisionError } = await access.supabase.from('documents').insert({ project_id: projectId, type: 'journey:decision', content: JSON.stringify({ ...gate, recordedAt: new Date().toISOString() }), version: decisionVersion });
+    const decisionContent = {
+      ...gate,
+      recordedAt: new Date().toISOString(),
+      ...(consistency ? {
+        consistency: {
+          checkType: consistency.report.checkType,
+          formulaVersion: consistency.report.formulaVersion,
+          status: consistency.report.status,
+          overallScore: consistency.report.overallScore,
+          coverageScore: consistency.report.coverageScore,
+          issues: consistency.report.issues,
+        },
+      } : {}),
+    };
+    const { error: decisionError } = await access.supabase.from('documents').insert({ project_id: projectId, type: 'journey:decision', content: JSON.stringify(decisionContent), version: decisionVersion });
     if (decisionError) throw decisionError;
     await access.supabase.from('projects').update({ status: gate.status === 'open' ? `${stage}_completed` : `${stage}_needs_improvement` }).eq('id', projectId).eq('user_id', access.user.id);
-    return NextResponse.json({ success: true, stage, version, gate, nextStage: nextAllowedStage(candidate) });
+    return NextResponse.json({
+      success: true,
+      stage,
+      version,
+      gate,
+      nextStage: nextAllowedStage(candidate),
+      consistency: consistency?.report ?? null,
+      consistencyWarnings: consistency?.warnings ?? [],
+    });
   } catch { return NextResponse.json({ error: 'Unable to save research stage' }, { status: 500 }); }
 }

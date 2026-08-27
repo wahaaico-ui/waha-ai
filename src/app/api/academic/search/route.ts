@@ -1,58 +1,32 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { UnifiedResearchEngine } from '@/lib/academic/services/UnifiedResearchEngine';
+import { CitationResolver } from '@/lib/citations';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
     const access = await requireAuthenticatedUser();
     if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { query } = await req.json();
-
-    if (!query || !query.trim()) {
-      return NextResponse.json({ success: false, error: 'الرجاء إدخال كلمة مفتاحية للبحث' }, { status: 400 });
-    }
-
-    const email = process.env.OPENALEX_EMAIL || 'waha.ai.co@gmail.com';
-    const encodedQuery = encodeURIComponent(query);
-
-    // جلب الأبحاث بالتوازي من OpenAlex ومصادر أكاديمية عالمية
-    const openAlexPromise = fetch(`https://api.openalex.org/works?search=${encodedQuery}&per_page=10&mailto=${email}`)
-      .then(res => res.json())
-      .catch(() => ({ results: [] }));
-
-    const [openAlexData] = await Promise.all([openAlexPromise]);
-
-    let papers: any[] = [];
-
-    if (openAlexData && openAlexData.results) {
-      const mappedOpenAlex = openAlexData.results.map((work: any) => ({
-        id: work.id,
-        title: work.title || 'عنوان غير متوفر',
-        authors: work.authorships?.map((a: any) => a.author.name).join(', ') || 'باحثون متعددون',
-        year: work.publication_year || 'د.ت',
-        citationCount: work.cited_by_count || 0,
-        abstract: work.abstract_inverted_index ? reconstructAbstract(work.abstract_inverted_index) : 'المستخلص غير متوفر',
-        source: work.primary_location?.source?.display_name || 'OpenAlex Academic',
-        pdfUrl: work.open_access?.oa_url || work.primary_location?.pdf_url || null,
-      }));
-      papers = [...papers, ...mappedOpenAlex];
-    }
-
-    return NextResponse.json({ success: true, data: papers });
-
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'حدث خطأ أثناء الاتصال بمحركات البحث' }, { status: 500 });
-  }
-}
-
-function reconstructAbstract(invertedIndex: any) {
-  if (!invertedIndex) return '';
-  const wordIndexes: { [index: number]: string } = {};
-  for (const word in invertedIndex) {
-    const positions = invertedIndex[word];
-    positions.forEach((pos: number) => {
-      wordIndexes[pos] = word;
+    const body: unknown = await request.json();
+    const query = body && typeof body === 'object' && !Array.isArray(body) && typeof (body as { query?: unknown }).query === 'string'
+      ? (body as { query: string }).query.trim() : '';
+    const specialty = body && typeof body === 'object' && !Array.isArray(body) && typeof (body as { specialty?: unknown }).specialty === 'string'
+      ? (body as { specialty: string }).specialty.trim() : '';
+    if (query.length < 3 || query.length > 500) return NextResponse.json({ success: false, error: 'أدخل استعلامًا بحثيًا صالحًا.' }, { status: 400 });
+    const result = await UnifiedResearchEngine.searchDetailed({ query, specialty, limit: 25 });
+    return NextResponse.json({
+      success: true,
+      data: result.papers.map((paper) => ({
+        ...paper,
+        item: CitationResolver.fromPaper(paper),
+        authorsLabel: paper.authors.join('، ') || 'بيانات المؤلفين غير متاحة',
+        year: paper.year || 'د.ت', citationCount: paper.citationCount, abstract: paper.abstract,
+        sourceLabel: paper.sources.length > 1 ? 'تطابق في أكثر من فهرس' : 'سجل من فهرس أكاديمي',
+        pdfUrl: paper.pdfUrl || paper.url, doi: paper.doi, relevanceScore: paper.relevanceScore,
+      })),
+      coverage: { domain: result.domain, availableSources: result.providers.filter((provider) => provider.available).length, attemptedSources: result.providers.length },
     });
+  } catch {
+    return NextResponse.json({ success: false, error: 'تعذر إكمال البحث الأكاديمي.' }, { status: 500 });
   }
-  const sortedKeys = Object.keys(wordIndexes).map(Number).sort((a, b) => a - b);
-  return sortedKeys.map(key => wordIndexes[key]).join(' ');
 }

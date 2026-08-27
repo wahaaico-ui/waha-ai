@@ -1,15 +1,37 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
+import QuestionsMethodologyConsistencyPanel from '@/components/QuestionsMethodologyConsistencyPanel';
+import type { ConsistencyPanelStatus } from '@/components/ProblemObjectivesConsistencyPanel';
 import SiteHeader from '@/components/SiteHeader';
 import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
-import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
+import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
+import type { QuestionsMethodologyConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
 
 type Methodology = { approach: string; population: string; sample: string; instrument: string };
 const EMPTY_METHOD: Methodology = { approach: '', population: '', sample: '', instrument: '' };
+
+type ConsistencyResponse = {
+  report?: QuestionsMethodologyConsistencyReport;
+  inputWarnings?: ResearchObjectViewWarning[];
+  error?: string;
+};
+
+async function loadQuestionsMethodologyConsistency(projectId: string, signal?: AbortSignal) {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/consistency/questions-methodology`, {
+    cache: 'no-store',
+    signal,
+  });
+  const body: ConsistencyResponse = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(body.error || 'تعذر تحميل فحص الاتساق.');
+  if (!body.report || body.report.checkType !== 'question_methodology_consistency') {
+    throw new Error('وصلت نتيجة غير صالحة من محرك الاتساق.');
+  }
+  return { report: body.report, warnings: Array.isArray(body.inputWarnings) ? body.inputWarnings : [] };
+}
 
 const APPROACHES = [
   { value: 'quantitative', label: 'كمي', note: 'لقياس المتغيرات واختبار العلاقات أو الفروق بأداة كمية مناسبة.' },
@@ -33,6 +55,25 @@ export default function ResearchMethodologyPage() {
   const [methodology, setMethodology] = useState<Methodology>(EMPTY_METHOD);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
+  const [consistencyStatus, setConsistencyStatus] = useState<ConsistencyPanelStatus>(() => projectId ? 'loading' : 'idle');
+  const [consistencyReport, setConsistencyReport] = useState<QuestionsMethodologyConsistencyReport | null>(null);
+  const [consistencyWarnings, setConsistencyWarnings] = useState<ResearchObjectViewWarning[]>([]);
+  const [consistencyError, setConsistencyError] = useState('');
+
+  const refreshConsistency = useCallback(async (signal?: AbortSignal) => {
+    if (!projectId) return;
+    try {
+      const result = await loadQuestionsMethodologyConsistency(projectId, signal);
+      if (signal?.aborted) return;
+      setConsistencyReport(result.report);
+      setConsistencyWarnings(result.warnings);
+      setConsistencyStatus('ready');
+    } catch (reason) {
+      if (signal?.aborted) return;
+      setConsistencyError(reason instanceof Error ? reason.message : 'تعذر تحميل فحص الاتساق.');
+      setConsistencyStatus('error');
+    }
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId) return;
@@ -55,22 +96,63 @@ export default function ResearchMethodologyPage() {
       .finally(() => setLoading(false));
   }, [projectId]);
 
+  useEffect(() => {
+    if (!projectId) return;
+    const controller = new AbortController();
+    loadQuestionsMethodologyConsistency(projectId, controller.signal)
+      .then((result) => {
+        if (controller.signal.aborted) return;
+        setConsistencyReport(result.report);
+        setConsistencyWarnings(result.warnings);
+        setConsistencyStatus('ready');
+      })
+      .catch((reason) => {
+        if (controller.signal.aborted) return;
+        setConsistencyError(reason instanceof Error ? reason.message : 'تعذر تحميل فحص الاتساق.');
+        setConsistencyStatus('error');
+      });
+    return () => controller.abort();
+  }, [projectId]);
+
   const issue = useMemo(() => compatibilityIssue(methodology), [methodology]);
   const canSave = questions.length >= 2 && Boolean(methodology.approach) && methodology.population.trim().length >= 10 && methodology.sample.trim().length >= 10 && methodology.instrument.trim().length >= 10 && !issue;
-  const update = (field: keyof Methodology, value: string) => { setMethodology((current) => ({ ...current, [field]: value })); setStatus('idle'); };
+  const markEdited = () => {
+    setStatus('idle');
+    setConsistencyStatus((current) => current === 'ready' ? 'stale' : current);
+  };
+  const update = (field: keyof Methodology, value: string) => {
+    setMethodology((current) => ({ ...current, [field]: value }));
+    markEdited();
+  };
 
   const saveMethodology = async () => {
     if (!projectId || !canSave) return;
     setStatus('saving'); setSaveError('');
     try {
-      await saveJourneyStage(projectId, 'methodology', {
+      const result = await saveJourneyStage(projectId, 'methodology', {
         approach: methodology.approach,
         population: methodology.population.trim(),
         sample: methodology.sample.trim(),
         instrument: methodology.instrument.trim(),
       });
+      if (result.consistency?.checkType === 'question_methodology_consistency') {
+        setConsistencyReport(result.consistency);
+        setConsistencyWarnings(result.consistencyWarnings);
+        setConsistencyStatus('ready');
+      } else {
+        setConsistencyStatus('loading');
+        await refreshConsistency();
+      }
       setStatus('saved');
     } catch (reason) {
+      if (
+        reason instanceof JourneyStageSaveError
+        && reason.consistency?.checkType === 'question_methodology_consistency'
+      ) {
+        setConsistencyReport(reason.consistency);
+        setConsistencyWarnings(reason.consistencyWarnings);
+        setConsistencyStatus('ready');
+      }
       setSaveError(reason instanceof Error ? reason.message : 'تعذر حفظ المنهجية.');
       setStatus('error');
     }
@@ -90,10 +172,11 @@ export default function ResearchMethodologyPage() {
           sample: typeof draft.sample === 'string' ? draft.sample : current.sample,
           instrument: typeof draft.instrument === 'string' ? draft.instrument : current.instrument,
         }));
-        setStatus('idle');
+        markEdited();
       }} />
       <section className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"><fieldset><legend className="text-sm font-black">المنهج البحثي</legend><div className="mt-3 grid gap-3 sm:grid-cols-2">{APPROACHES.map((approach) => <label key={approach.value} className={`cursor-pointer rounded-xl border p-4 transition ${methodology.approach === approach.value ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-100' : 'border-slate-200 bg-slate-50'}`}><input type="radio" name="approach" value={approach.value} checked={methodology.approach === approach.value} onChange={() => update('approach', approach.value)} className="sr-only" /><span className="text-sm font-black">{approach.label}</span><span className="mt-1 block text-xs leading-6 text-slate-600">{approach.note}</span></label>)}</div></fieldset>
         {([['population', 'مجتمع الدراسة', 'من يشملهم البحث؟ حدّد الفئة والمكان والزمن إن أمكن.'], ['sample', 'العينة المقترحة', 'كيف ستختار المشاركين أو الحالات؟ لا تضع رقماً بلا مبرر.'], ['instrument', 'أداة جمع البيانات', 'مثال: استبانة محكّمة، مقابلات شبه منظمة، أو تحليل وثائق.']] as const).map(([field, label, placeholder]) => <div key={field}><label htmlFor={field} className="text-sm font-black">{label}</label><textarea id={field} value={methodology[field]} onChange={(event) => update(field, event.target.value)} className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm leading-7 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder={placeholder} /><div className="mt-1 text-left text-xs text-slate-400">{methodology[field].trim().length}/10</div></div>)}
         {issue && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">{issue}</p>}{status === 'error' && <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{saveError || 'تعذر الحفظ؛ لم تُفتح الأدبيات.'}</p>}<button type="button" disabled={!canSave || status === 'saving'} onClick={() => void saveMethodology()} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? 'جارٍ الحفظ وفحص الاتساق…' : 'اعتماد المنهجية وفتح الأدبيات'}</button>{status === 'saved' && <Link href={`/research/literature?projectId=${encodeURIComponent(projectId)}`} className="block rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold text-emerald-800">تم الحفظ والاتساق. انتقل إلى الأدبيات ←</Link>}</section></>}
+      <QuestionsMethodologyConsistencyPanel status={consistencyStatus} report={consistencyReport} warnings={consistencyWarnings} error={consistencyError} onRetry={() => { setConsistencyStatus('loading'); setConsistencyError(''); void refreshConsistency(); }} />
   </main></div>;
 }
