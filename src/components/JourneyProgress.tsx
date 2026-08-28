@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from 'react';
+import { useProjectId } from '@/lib/use-project-id';
 
 // The 6 phases of the Waha research journey
 export const JOURNEY_PHASES = [
@@ -23,7 +23,7 @@ interface JourneyProgressProps {
 }
 
 export default function JourneyProgress({ current, lang = "ar" }: JourneyProgressProps) {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const currentIndex = JOURNEY_PHASES.findIndex(p => p.id === current);
   const totalPhases = JOURNEY_PHASES.length;
   const percentComplete = Math.round(((currentIndex + 1) / totalPhases) * 100);
