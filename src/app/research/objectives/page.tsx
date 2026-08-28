@@ -10,6 +10,7 @@ import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/rese
 import { stageComplete } from '@/lib/research-workflow';
 import { firstAcademicTextIssue } from '@/lib/academic-content-quality';
 import type { ProblemObjectivesConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
+import { useProjectId } from '@/lib/use-project-id';
 
 type ProblemOutput = { problemStatement?: string; researchGap?: string; researcherNote?: string };
 
@@ -36,7 +37,7 @@ async function loadProblemObjectivesConsistency(projectId: string, signal?: Abor
 }
 
 export default function ResearchObjectivesPage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [loading, setLoading] = useState(() => Boolean(projectId));
   const [loadError, setLoadError] = useState('');
   const [problem, setProblem] = useState<ProblemOutput | null>(null);

@@ -6,12 +6,13 @@ import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
 import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import type { ResearchAnalysis } from '@/lib/research-analysis';
+import { useProjectId } from '@/lib/use-project-id';
 
 type Paper = { id: string; title: string; authors?: string; year?: number | string; source?: string };
 type AnalysisResponse = { success: boolean; analysis: ResearchAnalysis; sources: Paper[]; generatedAt: string; evidenceNote: string; error?: string };
 
 export default function ResearchAnalysisPage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [loadingJourney, setLoadingJourney] = useState(() => Boolean(projectId));
   const [journeyError, setJourneyError] = useState('');
   const [title, setTitle] = useState('');

@@ -10,6 +10,7 @@ import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import type { QuestionsMethodologyConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
+import { useProjectId } from '@/lib/use-project-id';
 
 type Methodology = { approach: string; population: string; sample: string; instrument: string };
 const EMPTY_METHOD: Methodology = { approach: '', population: '', sample: '', instrument: '' };
@@ -47,7 +48,7 @@ function compatibilityIssue(methodology: Methodology) {
 }
 
 export default function ResearchMethodologyPage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [loading, setLoading] = useState(() => Boolean(projectId));
   const [loadError, setLoadError] = useState('');
   const [questions, setQuestions] = useState<string[]>([]);

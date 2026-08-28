@@ -7,6 +7,7 @@ import SiteHeader from '@/components/SiteHeader';
 import { JOURNEY_STAGES, loadJourney } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import type { ResearchAnalysis } from '@/lib/research-analysis';
+import { useProjectId } from '@/lib/use-project-id';
 
 type JourneyData = Awaited<ReturnType<typeof loadJourney>>;
 type Paper = { id: string; title: string; authors?: string; year?: number | string; citationCount?: number; source?: string; pdfUrl?: string | null };
@@ -19,7 +20,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function ResearchSeminarPage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [journey, setJourney] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(() => Boolean(projectId));
   const [error, setError] = useState('');

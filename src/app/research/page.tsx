@@ -6,6 +6,7 @@ import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
 import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import type { TitleComparison } from '@/lib/title-comparison';
+import { useProjectId } from '@/lib/use-project-id';
 
 type ComparisonResponse = {
   success: boolean;
@@ -29,7 +30,7 @@ function ScoreCell({ label, value }: { label: string; value: number }) {
 }
 
 export default function ResearchTitlePage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [verifyOutput, setVerifyOutput] = useState<VerifyOutput | null>(null);
   const [savedTitle, setSavedTitle] = useState('');
   const [loadingJourney, setLoadingJourney] = useState(() => Boolean(projectId));

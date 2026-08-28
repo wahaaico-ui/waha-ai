@@ -6,12 +6,13 @@ import { useEffect, useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
 import { CITATION_STYLES, type CitationItem, type CitationStyle } from '@/lib/citations';
+import { useProjectId } from '@/lib/use-project-id';
 
 type BibliographyEntry = { itemId: string; number: number; text: string };
 const STYLE_LABELS: Record<CitationStyle, string> = { 'apa-7': 'APA 7', ieee: 'IEEE', harvard: 'Harvard', vancouver: 'Vancouver', chicago: 'Chicago', mla: 'MLA' };
 
 export default function ResearchLibraryPage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [items, setItems] = useState<CitationItem[]>([]);
   const [bibliographies, setBibliographies] = useState<Record<CitationStyle, BibliographyEntry[]>>({ 'apa-7': [], ieee: [], harvard: [], vancouver: [], chicago: [], mla: [] });
   const [style, setStyle] = useState<CitationStyle>('apa-7');

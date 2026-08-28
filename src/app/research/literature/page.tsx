@@ -7,13 +7,14 @@ import SiteHeader from '@/components/SiteHeader';
 import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import type { CitationItem } from '@/lib/citations';
+import { useProjectId } from '@/lib/use-project-id';
 
 type Paper = { id: string; title: string; authors: string; year: number | string; citationCount: number; abstract: string; source: string; pdfUrl?: string | null; relevanceScore?: number; item?: CitationItem };
 type SearchCoverage = { candidateResults: number; relevantResults: number; excludedByRelevance: number; searchedAt: string; sources: Array<{ name: string; available: boolean; returned: number }>; note: string };
 type LiteratureResponse = { success: boolean; query: string; data: Paper[]; searchCoverage: SearchCoverage; error?: string };
 
 export default function ResearchLiteraturePage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [loadingJourney, setLoadingJourney] = useState(() => Boolean(projectId));
   const [journeyError, setJourneyError] = useState('');
   const [title, setTitle] = useState('');

@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, Circle, Eye, EyeOff, LockKeyhole } from 'lucid
 import SiteHeader from '@/components/SiteHeader';
 import { JOURNEY_STAGES, loadJourney, type JourneyStage } from '@/lib/research-journey';
 import { stageComplete, stageLabel } from '@/lib/research-workflow';
+import { useProjectId } from '@/lib/use-project-id';
 
 type JourneyData = Awaited<ReturnType<typeof loadJourney>>;
 
@@ -25,7 +26,7 @@ function outputPreview(stage: JourneyStage, output: Record<string, unknown> | un
 }
 
 export default function JourneyDashboardPage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [journey, setJourney] = useState<JourneyData | null>(null);
   const [loading, setLoading] = useState(() => Boolean(projectId));
   const [error, setError] = useState('');

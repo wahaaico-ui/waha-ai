@@ -7,13 +7,14 @@ import SiteHeader from '@/components/SiteHeader';
 import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
 import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { assessAcademicText } from '@/lib/academic-content-quality';
+import { useProjectId } from '@/lib/use-project-id';
 
 type VerifyOutput = { topic?: string; gaps?: string[] };
 type TitleOutput = { title?: string };
 type ProblemOutput = { problemStatement?: string; researchGap?: string; researcherNote?: string };
 
 export default function ResearchProblemPage() {
-  const [projectId] = useState(() => typeof window === 'undefined' ? '' : new URLSearchParams(window.location.search).get('projectId') || '');
+  const projectId = useProjectId();
   const [loading, setLoading] = useState(() => Boolean(projectId));
   const [loadError, setLoadError] = useState('');
   const [verify, setVerify] = useState<VerifyOutput | null>(null);
