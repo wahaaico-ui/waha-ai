@@ -1,11 +1,6 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
-
-function subscribeToLocationChange(onStoreChange: () => void) {
-  window.addEventListener('popstate', onStoreChange);
-  return () => window.removeEventListener('popstate', onStoreChange);
-}
+import { useEffect, useState } from 'react';
 
 function readProjectIdFromLocation() {
   return new URLSearchParams(window.location.search).get('projectId')?.trim() || '';
@@ -13,10 +8,18 @@ function readProjectIdFromLocation() {
 
 /** Reads projectId after hydration instead of freezing the server-side empty value. */
 export function useProjectId() {
-  return useSyncExternalStore(
-    subscribeToLocationChange,
-    readProjectIdFromLocation,
-    () => '',
-  );
-}
+  const [projectId, setProjectId] = useState('');
 
+  useEffect(() => {
+    const syncProjectId = () => setProjectId(readProjectIdFromLocation());
+    const hydrationTimer = window.setTimeout(syncProjectId, 0);
+    window.addEventListener('popstate', syncProjectId);
+
+    return () => {
+      window.clearTimeout(hydrationTimer);
+      window.removeEventListener('popstate', syncProjectId);
+    };
+  }, []);
+
+  return projectId;
+}
