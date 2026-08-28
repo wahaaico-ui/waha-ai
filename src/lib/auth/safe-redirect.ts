@@ -3,7 +3,6 @@ const ALLOWED_EXACT_PATHS = new Set([
   '/dashboard',
   '/email-confirmed',
   '/pricing',
-  '/projects/create',
   '/reset-password',
   '/verify-idea',
 ]);

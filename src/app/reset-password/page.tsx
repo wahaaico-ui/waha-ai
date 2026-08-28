@@ -14,13 +14,34 @@ export default function ResetPasswordPage() {
   const [saving, setSaving] = useState(false);
   const [complete, setComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { supabase.auth.getUser().then(({ data }) => setReady(Boolean(data.user))); }, []);
+  useEffect(() => {
+    let mounted = true;
+    if (new URLSearchParams(window.location.search).has('error')) {
+      Promise.resolve().then(() => {
+        if (mounted) setReady(false);
+      });
+      return () => {
+        mounted = false;
+      };
+    }
+
+    supabase.auth.getUser().then(({ data }) => {
+      if (mounted) setReady(Boolean(data.user));
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (mounted && session?.user) setReady(true);
+    });
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
   const submit = async (event: React.FormEvent) => {
     event.preventDefault(); setError(null);
     if (!passwordStrength(password).isStrong) return setError('اختر كلمة مرور تحقق جميع المتطلبات.');
     if (password !== confirmation) return setError('كلمتا المرور غير متطابقتين.');
     setSaving(true);
-    try { const response = await fetch('/api/auth/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) }); const result = await response.json() as { error?: string }; if (!response.ok) throw new Error(result.error || 'تعذر التحديث.'); setComplete(true); }
+    try { const response = await fetch('/api/auth/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) }); const result = await response.json() as { error?: string }; if (response.status === 401) { setReady(false); return; } if (!response.ok) throw new Error(result.error || 'تعذر التحديث.'); setComplete(true); }
     catch (reason) { setError(reason instanceof Error ? reason.message : 'تعذر تحديث كلمة المرور.'); }
     finally { setSaving(false); }
   };
