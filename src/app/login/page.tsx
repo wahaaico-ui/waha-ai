@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { safeAuthRedirect } from '@/lib/auth/safe-redirect';
+import Logo from '@/components/Logo';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -54,9 +55,8 @@ function LoginForm() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#090D16] to-[#0D1220] text-white flex items-center justify-center p-6" dir="rtl">
       <div className="max-w-md w-full">
-        <Link href="/" className="block text-center mb-6">
-          <div className="inline-block w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 mb-3"></div>
-          <div className="text-emerald-400 text-sm font-semibold">WAHA AI</div>
+        <Link href="/" className="block text-center mb-6" aria-label="WAHA AI">
+          <Logo variant="full" inverted className="mx-auto h-9 w-auto" />
         </Link>
 
         <div className="bg-[#111827]/80 backdrop-blur border border-gray-800 rounded-2xl p-8 shadow-2xl">

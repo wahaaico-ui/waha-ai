@@ -1,5 +1,25 @@
 @import "tailwindcss";
 
+@theme {
+  --color-primary: #3093CE;
+  --color-primary-dark: #1E6B9C;
+  --color-primary-tint: #EAF4FB;
+  --color-ink: #232B31;
+  --color-ink-soft: #5B6770;
+  --color-line: #E4E9ED;
+  --color-bg: #FBFCFD;
+  --color-surface: #FFFFFF;
+  --color-success: #2E9E6D;
+  --color-error: #D14343;
+  --color-warning: #C98A2E;
+
+  --font-sans: var(--font-inter), Inter, sans-serif;
+  --font-arabic: var(--font-plex-arabic), "IBM Plex Sans Arabic", sans-serif;
+
+  --radius-card: 16px;
+  --radius-modal: 20px;
+}
+
 :root { --waha-navy: #10213c; --waha-blue: #2563eb; --waha-canvas: #f8fafc; }
 html { scroll-behavior: smooth; }
 body { background: var(--waha-canvas); color: var(--waha-navy); }
