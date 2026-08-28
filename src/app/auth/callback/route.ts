@@ -3,6 +3,13 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { safeAuthRedirect } from '@/lib/auth/safe-redirect';
 
+function secureRedirect(url: URL | string) {
+  const response = NextResponse.redirect(url);
+  response.headers.set('Cache-Control', 'no-store, max-age=0');
+  response.headers.set('Referrer-Policy', 'no-referrer');
+  return response;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
@@ -30,13 +37,25 @@ export async function GET(request: Request) {
       flowId ? { flowId } : undefined,
     );
     if (!error) {
-      return NextResponse.redirect(new URL(next, origin));
+      return secureRedirect(new URL(next, origin));
     }
+
+    console.error('[auth/callback] code exchange failed', {
+      errorCode: error.code ?? 'unknown',
+      status: error.status ?? null,
+      destination: next,
+      hasFlowId: Boolean(flowId),
+    });
+  } else {
+    console.error('[auth/callback] missing authorization code', {
+      destination: next,
+      hasFlowId: Boolean(flowId),
+    });
   }
 
   if (next === '/reset-password') {
-    return NextResponse.redirect(`${origin}/reset-password?error=invalid-or-expired`);
+    return secureRedirect(`${origin}/reset-password?error=invalid-or-expired`);
   }
 
-  return NextResponse.redirect(`${origin}/login?error=auth-code-error`);
+  return secureRedirect(`${origin}/login?error=auth-code-error`);
 }
