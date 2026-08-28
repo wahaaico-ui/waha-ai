@@ -20,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ar" dir="rtl" className={`${inter.variable} ${plexArabic.variable}`}>
+    <html lang="ar" dir="rtl" data-scroll-behavior="smooth" className={`${inter.variable} ${plexArabic.variable}`}>
       <body className="bg-bg text-ink antialiased min-h-screen font-arabic">
         {children}
       </body>

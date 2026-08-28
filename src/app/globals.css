@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #3093CE;
-  --color-primary-dark: #1E6B9C;
-  --color-primary-tint: #EAF4FB;
-  --color-ink: #232B31;
-  --color-ink-soft: #5B6770;
-  --color-line: #E4E9ED;
-  --color-bg: #FBFCFD;
+  --color-primary: #1E5EFF;
+  --color-primary-dark: #1647C9;
+  --color-primary-tint: #EEF4FF;
+  --color-ink: #111827;
+  --color-ink-soft: #64748B;
+  --color-line: #E2E8F0;
+  --color-bg: #F8FAFC;
   --color-surface: #FFFFFF;
   --color-success: #2E9E6D;
   --color-error: #D14343;
@@ -20,11 +20,46 @@
   --radius-modal: 20px;
 }
 
-:root { --waha-navy: #10213c; --waha-blue: #2563eb; --waha-canvas: #f8fafc; }
+:root {
+  --waha-navy: #111827;
+  --waha-blue: #1e5eff;
+  --waha-blue-dark: #1647c9;
+  --waha-blue-soft: #eef4ff;
+  --waha-canvas: #f8fafc;
+  --waha-line: #e2e8f0;
+}
 html { scroll-behavior: smooth; }
 body { background: var(--waha-canvas); color: var(--waha-navy); }
 .font-display { font-family: Georgia, 'Times New Roman', serif; }
-::selection { background: #bfdbfe; color: #10213c; }
+::selection { background: #cfe0ff; color: #111827; }
+
+@keyframes waha-flow {
+  0% { offset-distance: 0%; opacity: 0; }
+  8%, 88% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+@keyframes waha-float {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+  50% { transform: translate3d(0, -10px, 0) rotate(2deg); }
+}
+
+@keyframes waha-pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(30 94 255 / 0.16); }
+  50% { box-shadow: 0 0 0 9px rgb(30 94 255 / 0); }
+}
+
+.waha-flow-dot {
+  offset-path: path("M 8 40 C 85 0 165 80 242 40 C 319 0 399 80 476 40");
+  animation: waha-flow 5.5s linear infinite;
+}
+
+.waha-float { animation: waha-float 7s ease-in-out infinite; }
+.waha-pulse-ring { animation: waha-pulse-ring 2.4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .waha-flow-dot, .waha-float, .waha-pulse-ring { animation: none !important; }
+}
 
 /* Compatibility layer: legacy routes inherit the current WAHA white/blue identity. */
 :is([class*="bg-[#0A0F1C]"], [class*="bg-[#090D16]"], [class*="bg-[#111827]"], [class*="bg-slate-950"], [class*="bg-slate-900"]) { background-color: #f8fafc !important; }
