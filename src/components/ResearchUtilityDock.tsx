@@ -1,41 +1,46 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { BookOpen, CreditCard, FolderKanban, Languages, Settings, Type, UserRound } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
 import { useProjectId } from '@/lib/use-project-id';
+import { useAuthSession } from '@/components/AuthSessionProvider';
 
 const FONT_SIZES = [15, 16, 18] as const;
 const FONT_KEY = 'waha-font-size';
+const FONT_EVENT = 'waha-font-size-change';
+
+function getFontSize() {
+  const saved = Number(localStorage.getItem(FONT_KEY));
+  return FONT_SIZES.includes(saved as (typeof FONT_SIZES)[number]) ? saved : 16;
+}
+
+function subscribeToFontSize(callback: () => void) {
+  window.addEventListener(FONT_EVENT, callback);
+  window.addEventListener('storage', callback);
+  return () => {
+    window.removeEventListener(FONT_EVENT, callback);
+    window.removeEventListener('storage', callback);
+  };
+}
 
 export default function ResearchUtilityDock() {
   const projectId = useProjectId();
-  const [name, setName] = useState('باحث');
-  const [specialty, setSpecialty] = useState('');
-  const [fontSize, setFontSize] = useState<number>(() => {
-    if (typeof window === 'undefined') return 16;
-    const saved = Number(localStorage.getItem(FONT_KEY));
-    return FONT_SIZES.includes(saved as (typeof FONT_SIZES)[number]) ? saved : 16;
-  });
+  const { user } = useAuthSession();
+  const fontSize = useSyncExternalStore(subscribeToFontSize, getFontSize, () => 16);
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
   }, [fontSize]);
 
-  useEffect(() => {
-    void supabase.auth.getUser().then(({ data }) => {
-      const metadata = data.user?.user_metadata || {};
-      const displayName = typeof metadata.full_name === 'string' ? metadata.full_name : typeof metadata.name === 'string' ? metadata.name : data.user?.email?.split('@')[0];
-      const researcherSpecialty = typeof metadata.specialty === 'string' ? metadata.specialty : '';
-      if (displayName) setName(displayName); if (researcherSpecialty) setSpecialty(researcherSpecialty);
-    });
-  }, []);
+  const name = user?.fullName || user?.email?.split('@')[0] || 'باحث';
+  const specialty = user?.specialty || '';
 
   const changeFont = () => {
     const currentIndex = FONT_SIZES.indexOf(fontSize as (typeof FONT_SIZES)[number]);
     const next = FONT_SIZES[(currentIndex + 1) % FONT_SIZES.length];
-    setFontSize(next); localStorage.setItem(FONT_KEY, String(next));
+    localStorage.setItem(FONT_KEY, String(next));
+    window.dispatchEvent(new Event(FONT_EVENT));
   };
 
   const itemClass = 'flex min-w-20 flex-col items-center justify-center gap-1 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700';

@@ -30,6 +30,20 @@ describe('research workflow quality gates', () => {
     expect(gate.nextStage).toBe('problem');
   });
 
+  test('rejects a meaningful-looking problem that is unrelated to the approved title', () => {
+    const gate = evaluateGate('problem', {
+      verify: verified,
+      title,
+      problem: {
+        problemStatement: 'تعاني المدن الساحلية من ارتفاع مستمر في كميات النفايات المنزلية وصعوبة إدارتها خلال مواسم السياحة السنوية.',
+        researchGap: 'ما زالت الأدلة المتاحة محدودة بشأن كفاءة أساليب الفرز المنزلي في الأحياء الساحلية المكتظة بالسكان.',
+        researcherNote: 'اخترت هذه المشكلة لأهميتها العملية في المجتمع الذي أعيش وأعمل فيه.',
+      },
+    });
+    expect(gate.status).toBe('needs_improvement');
+    expect(gate.reason).toContain('العنوان');
+  });
+
   test('keeps the objectives locked until the researcher records their own rationale', () => {
     expect(stageComplete('problem', { problemStatement: problem.problemStatement, researchGap: problem.researchGap })).toBe(false);
     expect(stageComplete('problem', problem)).toBe(true);

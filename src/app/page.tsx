@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { BookOpenCheck, BrainCircuit, FileCheck2, FolderKanban, Globe2, Route, ShieldCheck, Sparkles } from 'lucide-react';
 import Hero from './components/Hero';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
+import { useWahaLanguage } from '@/lib/use-language';
 
-const LANG_KEY = 'waha_lang';
 const features = [
   { icon: BrainCircuit, ar: ['استكشاف بحثي موثّق', 'حلّل الفكرة ضمن سياقها واكتشف ما يحتاج بحثاً أعمق.'], en: ['Evidence-led exploration', 'Analyse the idea in context and identify what needs deeper research.'] },
   { icon: Route, ar: ['رحلة مترابطة', 'كل مخرج يصبح مدخلاً للمرحلة التالية داخل المشروع نفسه.'], en: ['Connected journey', 'Every output becomes an input to the next stage in the same project.'] },
@@ -17,12 +16,7 @@ const features = [
 ];
 
 export default function HomePage() {
-  const [lang, setLang] = useState<'ar' | 'en'>(() => typeof window !== 'undefined' && localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ar');
-  useEffect(() => {
-    const sync = (event: Event) => setLang((event as CustomEvent<'ar' | 'en'>).detail);
-    window.addEventListener('waha-language-change', sync);
-    return () => window.removeEventListener('waha-language-change', sync);
-  }, []);
+  const { language: lang } = useWahaLanguage();
   const ar = lang === 'ar';
   const text = ar ? { features: 'منظومة واحدة لرحلة بحثية متسقة', sub: 'ليست نافذة محادثة تعطيك نصاً وتنتهي؛ بل مشروع محفوظ يربط القرار بالدليل والمرحلة بما بعدها.', how: 'كيف تبدأ رحلتك؟', howSub: 'أربع خطوات واضحة، وكل خطوة تنتج مخرجاً حقيقياً داخل مشروعك.', steps: [['اكتب ما تعرفه', 'صف فكرتك بلغتك، حتى لو كانت أولية أو غير مصاغة أكاديمياً.'], ['استكشف السياق', 'نحلل الفكرة ونراجع الأدلة ونوضح الفجوات والبدائل الممكنة.'], ['اعتمد المسار', 'قارن المقترحات واعتمد الخيار الأنسب قبل بناء عناصر البحث.'], ['ابنِ البحث', 'انتقل بتسلسل مترابط من المشكلة إلى الأهداف والأسئلة والمنهجية.']], cta: 'ابدأ من فكرتك، مهما كانت أولية', ctaSub: 'لن نطلب منك أن تكون خبيراً في الصياغة؛ اكتب ما تفهمه وسنساعدك على تنظيم الخطوة التالية.', button: 'ابدأ الاستكشاف', trust: 'خصوصية المشروع وملكية الباحث أساس في كل مرحلة.' } : { features: 'One system for a coherent research journey', sub: 'Not a chat window that returns text and stops, but a saved project connecting each decision to evidence and the next stage.', how: 'How do you begin?', howSub: 'Four clear steps, each producing a real output inside your project.', steps: [['Write what you know', 'Describe the idea in your own words, even if it is early or not academically phrased.'], ['Explore the context', 'We analyse the idea, review evidence, and clarify gaps and possible alternatives.'], ['Approve the path', 'Compare proposals and approve the strongest direction before building the research.'], ['Build the research', 'Move coherently from the problem to objectives, questions, and methodology.']], cta: 'Start with your idea, however early it is', ctaSub: 'You do not need to be an expert in academic phrasing. Write what you understand, and we will help structure the next step.', button: 'Start exploring', trust: 'Project privacy and researcher ownership are foundational at every stage.' };
   return <div dir={ar ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f8fafc] text-slate-900"><SiteHeader /><main className="mx-auto max-w-7xl px-4 sm:px-6"><Hero lang={lang} />

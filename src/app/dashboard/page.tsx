@@ -2,11 +2,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase/client';
 import SiteHeader from '@/components/SiteHeader';
 import ScoreCircle from '@/components/ScoreCircle';
+import { useWahaLanguage } from '@/lib/use-language';
+import { useAuthSession } from '@/components/AuthSessionProvider';
 
-const LANG_KEY = 'waha_lang';
 
 interface HistoryRow {
   id: string;
@@ -92,7 +92,8 @@ function projectStatus(status: string | null, lang: 'ar' | 'en') {
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [lang, setLang] = useState<'ar' | 'en'>(() => typeof window !== 'undefined' && localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ar');
+  const { language: lang } = useWahaLanguage();
+  const { user, authResolved } = useAuthSession();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<{ total: number; avg: number; best: number } | null>(null);
   const [history, setHistory] = useState<HistoryRow[] | null>(null);
@@ -101,38 +102,30 @@ export default function DashboardPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const handleLanguageChange = (event: Event) => {
-      const next = (event as CustomEvent<'ar' | 'en'>).detail;
-      if (next === 'ar' || next === 'en') setLang(next);
-    };
-    window.addEventListener('waha-language-change', handleLanguageChange);
-
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        router.push('/login');
-        return;
-      }
-      fetch('/api/dashboard-stats', { cache: 'no-store' })
-        .then(async (res) => ({ ok: res.ok, status: res.status, data: await res.json() }))
-        .then(({ ok, status, data }) => {
-          if (status === 401) {
-            router.push('/login');
-            return;
-          }
-          if (ok && data.success) {
-            setStats(data.stats);
-            setHistory(data.history);
-            setProjects(data.projects || []);
-            setResearcher(data.researcher || null);
-          } else {
-            setError(data.error || '');
-          }
-        })
-        .catch(() => setError('حدث خطأ، يرجى المحاولة مجدداً.'))
-        .finally(() => setLoading(false));
-    });
-    return () => window.removeEventListener('waha-language-change', handleLanguageChange);
-  }, [router]);
+    if (!authResolved) return;
+    if (!user) {
+      router.push('/login?redirect=/dashboard');
+      return;
+    }
+    fetch('/api/dashboard-stats', { cache: 'no-store' })
+      .then(async (res) => ({ ok: res.ok, status: res.status, data: await res.json() }))
+      .then(({ ok, status, data }) => {
+        if (status === 401) {
+          router.push('/login?redirect=/dashboard');
+          return;
+        }
+        if (ok && data.success) {
+          setStats(data.stats);
+          setHistory(data.history);
+          setProjects(data.projects || []);
+          setResearcher(data.researcher || null);
+        } else {
+          setError(data.error || '');
+        }
+      })
+      .catch(() => setError('حدث خطأ، يرجى المحاولة مجدداً.'))
+      .finally(() => setLoading(false));
+  }, [authResolved, router, user]);
 
   const t = COPY[lang];
   const dir = lang === 'ar' ? 'rtl' : 'ltr';

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { generateStructured } from '@/lib/ai/geminiClient';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import type { WorkflowStage } from '@/lib/research-workflow';
+import { assessProblemDraft } from '@/lib/academic-content-quality';
 
 const DRAFTABLE_STAGES = new Set<WorkflowStage>(['problem', 'objectives', 'questions', 'methodology']);
 
@@ -26,7 +27,7 @@ function parseJsonObject(value: string) {
 }
 
 function stageInstructions(stage: WorkflowStage) {
-  if (stage === 'problem') return 'أعد JSON فقط بالمفاتيح problemStatement وresearchGap وresearcherNote. اكتب مشكلة من 90-150 كلمة، وفجوة محتملة من 50-90 كلمة بصياغة متحفظة لا تدعي غياب الدراسات قطعياً، وملاحظة شخصية قصيرة قابلة للتعديل تبدأ بسبب اهتمام الباحث.';
+  if (stage === 'problem') return 'أعد JSON فقط بالمفتاحين problemStatement وresearchGap. اكتب مشكلة واضحة من 70-110 كلمات تشرح الواقع والنقص المعرفي، وفجوة محتملة من 40-70 كلمة مرتبطة مباشرة بالعنوان وبالأدلة المتاحة. استخدم صياغة متحفظة ولا تدّعِ غياب الدراسات قطعياً. لا تكتب سبباً شخصياً نيابة عن الباحث.';
   if (stage === 'objectives') return 'أعد JSON فقط بالمفتاح objectives وهو مصفوفة من 3 إلى 5 أهداف عربية محددة تبدأ بأفعال قابلة للفحص، وكل هدف مرتبط بالمشكلة والفجوة.';
   if (stage === 'questions') return 'أعد JSON فقط بالمفتاح questions وهو مصفوفة أسئلة عربية؛ سؤال واحد مقابل كل هدف وبالترتيب نفسه، وكل سؤال ينتهي بعلامة استفهام.';
   return 'أعد JSON فقط بالمفاتيح approach وpopulation وsample وinstrument. اقترح منهجاً متسقاً مع الأسئلة، وحدد مجتمعاً وعينة وأداة بصياغة قابلة للمراجعة. لا تختر حجماً رقمياً للعينة دون بيانات حساب القوة.';
@@ -54,7 +55,21 @@ export async function POST(request: Request) {
 
     const prompt = `أنت مساعد منهجي أكاديمي عربي داخل منصة WAHA. ابنِ مسودة قابلة للمراجعة اعتماداً حصراً على سجل المشروع التالي. لا تختلق مراجع أو نتائج أو أرقاماً أو حقائق غير موجودة. إذا كانت البيانات غير كافية، استخدم صياغة مقترحة متحفظة واذكر حدودها داخل النص. ${stageInstructions(stage as WorkflowStage)}\n\nسجل المشروع:\n${JSON.stringify(context).slice(0, 18_000)}`;
     const generated = await generateStructured({ prompt, projectId, userId: access.user.id, supabase: access.supabase, feature: `research-draft-${stage}` });
-    return NextResponse.json({ success: true, stage, draft: parseJsonObject(generated.output), notice: 'هذه مسودة مساعدة مبنية على سجل مشروعك؛ راجعها وعدّلها قبل الاعتماد.' });
+    const draft = parseJsonObject(generated.output);
+    if (stage === 'problem') {
+      const title = context.title && typeof context.title === 'object' && !Array.isArray(context.title)
+        ? (context.title as Record<string, unknown>).title
+        : '';
+      const assessment = assessProblemDraft({
+        title,
+        problemStatement: draft.problemStatement,
+        researchGap: draft.researchGap,
+        researcherNote: '',
+        requireResearcherNote: false,
+      });
+      if (!assessment.valid) return NextResponse.json({ error: assessment.reason || 'المسودة لا تجتاز فحص الجودة.' }, { status: 422 });
+    }
+    return NextResponse.json({ success: true, stage, draft, notice: 'أعددنا المشكلة والفجوة من سجل مشروعك. راجعهما، ثم أضف سبب اهتمامك بكلماتك قبل الاعتماد.' });
   } catch {
     return NextResponse.json({ error: 'تعذر إعداد المسودة الآن. حاول مجدداً بعد قليل.' }, { status: 500 });
   }

@@ -64,7 +64,7 @@ export type ResearcherContext = {
   level: string | null;
 };
 
-export type ResearchScenario = 'uncertain' | 'idea' | 'rejected_title' | 'compare_titles';
+export type ResearchScenario = 'uncertain' | 'idea' | 'rejected_title' | 'compare_titles' | 'references_only';
 
 export type ResearcherInput = {
   scenario: ResearchScenario;
@@ -91,7 +91,7 @@ export type ResearchPath = {
 };
 
 export function isResearchScenario(value: unknown): value is ResearchScenario {
-  return value === 'uncertain' || value === 'idea' || value === 'rejected_title' || value === 'compare_titles';
+  return value === 'uncertain' || value === 'idea' || value === 'rejected_title' || value === 'compare_titles' || value === 'references_only';
 }
 
 export function normalizeResearcherInput(value: unknown): ResearcherInput {

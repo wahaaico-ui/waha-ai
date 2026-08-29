@@ -1,10 +1,9 @@
 "use client";
-import { useState } from 'react';
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
 import StripeCheckoutButton from '@/components/StripeCheckoutButton';
+import { useWahaLanguage } from '@/lib/use-language';
 
-const LANG_KEY = 'waha_lang';
 
 const PLANS = {
   ar: [
@@ -123,7 +122,7 @@ const COPY = {
 };
 
 export default function PricingPage() {
-  const [lang] = useState<'ar' | 'en'>(() => typeof window !== 'undefined' && localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ar');
+  const { language: lang } = useWahaLanguage();
 
   const t = COPY[lang];
   const dir = lang === 'ar' ? 'rtl' : 'ltr';

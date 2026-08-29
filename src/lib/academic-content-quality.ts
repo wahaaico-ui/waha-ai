@@ -12,9 +12,19 @@ export type AcademicTextAssessment = {
   words: number;
 };
 
+export type ProblemDraftAssessment = {
+  valid: boolean;
+  reason: string | null;
+};
+
 const WORD_PATTERN = /[\p{L}\p{N}]+/gu;
 const LETTER_PATTERN = /\p{L}/gu;
 const REPEATED_CHARACTER_PATTERN = /(\p{L})\1{6,}/u;
+const ARABIC_STOP_WORDS = new Set([
+  'أثر', 'اثر', 'دور', 'مدى', 'حول', 'على', 'إلى', 'الى', 'عند', 'بين', 'ضمن', 'نحو',
+  'هذه', 'هذا', 'التي', 'الذي', 'من', 'في', 'عن', 'مع', 'لدى', 'وجهة', 'نظر', 'دراسة',
+  'دراسات', 'بحث', 'البحث', 'سياق', 'واقع',
+]);
 
 function normalizedText(value: unknown) {
   return typeof value === 'string' ? value.normalize('NFKC').replace(/\s+/g, ' ').trim() : '';
@@ -58,4 +68,51 @@ export function firstAcademicTextIssue(items: unknown, rule: AcademicTextRule, m
     if (!assessment.valid) return assessment.reason;
   }
   return null;
+}
+
+function meaningfulTokens(value: unknown) {
+  const text = normalizedText(value).toLocaleLowerCase('ar');
+  const words = text.match(WORD_PATTERN) || [];
+  return new Set(words
+    .map((word) => word.replace(/^[وفبكله]/u, '').replace(/^ال/u, ''))
+    .filter((word) => word.length >= 4 && !ARABIC_STOP_WORDS.has(word)));
+}
+
+function tokenOverlap(left: Set<string>, right: Set<string>) {
+  if (left.size === 0 || right.size === 0) return 0;
+  let shared = 0;
+  for (const token of left) if (right.has(token)) shared += 1;
+  return shared;
+}
+
+export function assessProblemDraft(input: {
+  title: unknown;
+  problemStatement: unknown;
+  researchGap: unknown;
+  researcherNote: unknown;
+  requireResearcherNote?: boolean;
+}): ProblemDraftAssessment {
+  const checks = [
+    assessAcademicText(input.problemStatement, { minChars: 50, minWords: 8, label: 'مشكلة البحث' }),
+    assessAcademicText(input.researchGap, { minChars: 35, minWords: 6, label: 'الفجوة البحثية' }),
+    ...(input.requireResearcherNote === false ? [] : [assessAcademicText(input.researcherNote, { minChars: 20, minWords: 4, label: 'سبب اهتمام الباحث' })]),
+  ];
+  const failed = checks.find((check) => !check.valid);
+  if (failed) return { valid: false, reason: failed.reason };
+
+  const titleTokens = meaningfulTokens(input.title);
+  const problemTokens = meaningfulTokens(`${normalizedText(input.problemStatement)} ${normalizedText(input.researchGap)}`);
+  if (titleTokens.size > 0 && tokenOverlap(titleTokens, problemTokens) === 0) {
+    return { valid: false, reason: 'المشكلة والفجوة لا ترتبطان بوضوح بالعنوان المعتمد. اذكر موضوع العنوان أو متغيره أو سياقه بصورة صريحة.' };
+  }
+
+  const statementTokens = meaningfulTokens(input.problemStatement);
+  const gapTokens = meaningfulTokens(input.researchGap);
+  const shared = tokenOverlap(statementTokens, gapTokens);
+  const smallerSet = Math.min(statementTokens.size, gapTokens.size);
+  if (smallerSet >= 5 && shared / smallerSet > 0.8) {
+    return { valid: false, reason: 'الفجوة تكرر مشكلة البحث تقريباً. وضّح ما الذي لم تحسمه الأدلة أو ما السياق الذي ما زال ناقصاً.' };
+  }
+
+  return { valid: true, reason: null };
 }

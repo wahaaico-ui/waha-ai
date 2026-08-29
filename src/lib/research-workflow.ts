@@ -1,4 +1,4 @@
-import { assessAcademicText, firstAcademicTextIssue } from '@/lib/academic-content-quality';
+import { assessAcademicText, assessProblemDraft, firstAcademicTextIssue } from '@/lib/academic-content-quality';
 
 export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'methodology', 'literature', 'analysis'] as const;
 
@@ -37,11 +37,12 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
       return output.decision === 'proceed' && uniqueStudies >= 3 && paths.length >= 3 && selectedPathExists;
     }
     case 'title': return assessAcademicText(output.title, { minChars: 15, minWords: 4, label: 'العنوان' }).valid;
-    case 'problem': return [
-      assessAcademicText(output.problemStatement, { minChars: 50, minWords: 8, label: 'مشكلة البحث' }),
-      assessAcademicText(output.researchGap, { minChars: 35, minWords: 6, label: 'الفجوة البحثية' }),
-      assessAcademicText(output.researcherNote, { minChars: 20, minWords: 4, label: 'سبب اهتمام الباحث' }),
-    ].every((assessment) => assessment.valid);
+    case 'problem': return assessProblemDraft({
+      title: '',
+      problemStatement: output.problemStatement,
+      researchGap: output.researchGap,
+      researcherNote: output.researcherNote,
+    }).valid;
     case 'objectives': return !firstAcademicTextIssue(output.objectives, { minChars: 25, minWords: 5, label: 'الهدف' }, 2);
     case 'questions': return !firstAcademicTextIssue(output.questions, { minChars: 20, minWords: 5, label: 'السؤال', requireQuestion: true }, 2);
     case 'methodology': {
@@ -76,12 +77,12 @@ function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<Workf
     return assessAcademicText(outputs.title?.title, { minChars: 15, minWords: 4, label: 'العنوان' }).reason;
   }
   if (stage === 'problem') {
-    const checks = [
-      assessAcademicText(outputs.problem?.problemStatement, { minChars: 50, minWords: 8, label: 'مشكلة البحث' }),
-      assessAcademicText(outputs.problem?.researchGap, { minChars: 35, minWords: 6, label: 'الفجوة البحثية' }),
-      assessAcademicText(outputs.problem?.researcherNote, { minChars: 20, minWords: 4, label: 'سبب اهتمام الباحث' }),
-    ];
-    return checks.find((check) => !check.valid)?.reason || null;
+    return assessProblemDraft({
+      title: outputs.title?.title,
+      problemStatement: outputs.problem?.problemStatement,
+      researchGap: outputs.problem?.researchGap,
+      researcherNote: outputs.problem?.researcherNote,
+    }).reason;
   }
   if (stage === 'objectives') return firstAcademicTextIssue(outputs.objectives?.objectives, { minChars: 25, minWords: 5, label: 'الهدف' }, 2);
   if (stage === 'questions') {

@@ -23,6 +23,7 @@ describe('safeAuthRedirect', () => {
 
   test('allows the dedicated confirmation and recovery destinations', () => {
     expect(safeAuthRedirect('/email-confirmed')).toBe('/email-confirmed');
+    expect(safeAuthRedirect('/email-confirmed?next=%2Fpricing')).toBe('/email-confirmed?next=%2Fpricing');
     expect(safeAuthRedirect('/reset-password')).toBe('/reset-password');
   });
 });

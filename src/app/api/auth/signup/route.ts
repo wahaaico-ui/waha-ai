@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { passwordStrength } from '@/lib/password-policy';
 import { isSupportedCountry } from '@/lib/researcher-profile';
+import { safeAuthRedirect } from '@/lib/auth/safe-redirect';
 
 type SignupPayload = {
   email?: unknown;
@@ -11,6 +12,7 @@ type SignupPayload = {
   university?: unknown;
   level?: unknown;
   country?: unknown;
+  redirectTo?: unknown;
 };
 
 const isText = (value: unknown, maximum: number): value is string => typeof value === 'string' && value.trim().length > 0 && value.trim().length <= maximum;
@@ -31,6 +33,11 @@ export async function POST(request: Request) {
     const university = body.university.trim();
     const level = body.level.trim();
     const country = body.country;
+    const destination = safeAuthRedirect(
+      typeof body.redirectTo === 'string' ? body.redirectTo : null,
+      '/verify-idea',
+    );
+    const confirmationDestination = `/email-confirmed?next=${encodeURIComponent(destination)}`;
 
     const supabase = await createClient();
     const origin = new URL(request.url).origin;
@@ -39,12 +46,15 @@ export async function POST(request: Request) {
       password,
       options: {
         data: { full_name: fullName, specialty, university, level, country },
-        emailRedirectTo: `${origin}/auth/callback?next=/email-confirmed`,
+        emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(confirmationDestination)}`,
       },
     });
 
     if (error) return NextResponse.json({ error: 'تعذر إنشاء الحساب. تحقق من البيانات أو حاول لاحقاً.' }, { status: 400 });
-    return NextResponse.json({ needsEmailConfirmation: Boolean(data.user && !data.session) });
+    return NextResponse.json({
+      needsEmailConfirmation: Boolean(data.user && !data.session),
+      redirectTo: destination,
+    });
   } catch {
     return NextResponse.json({ error: 'تعذر معالجة طلب إنشاء الحساب.' }, { status: 400 });
   }

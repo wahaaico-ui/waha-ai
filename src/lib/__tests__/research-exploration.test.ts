@@ -31,7 +31,7 @@ const papers: EvidencePaper[] = [
 ];
 
 describe('research exploration evidence model', () => {
-  test('normalizes the four researcher entry scenarios without accepting arbitrary client values', () => {
+  test('normalizes the supported researcher entry scenarios without accepting arbitrary client values', () => {
     expect(normalizeResearcherInput({ scenario: 'compare_titles', candidateTitles: [' عنوان أول صالح للبحث ', 'عنوان ثان صالح للمقارنة', 'قصير'] })).toEqual({
       scenario: 'compare_titles',
       candidateTitles: ['عنوان أول صالح للبحث', 'عنوان ثان صالح للمقارنة'],
@@ -41,6 +41,11 @@ describe('research exploration evidence model', () => {
       scenario: 'idea',
       candidateTitles: [],
       rejectionFeedback: 'ملاحظة',
+    });
+    expect(normalizeResearcherInput({ scenario: 'references_only' })).toEqual({
+      scenario: 'references_only',
+      candidateTitles: [],
+      rejectionFeedback: null,
     });
   });
   test('reports unique coverage per real source without inflating the merged total', () => {

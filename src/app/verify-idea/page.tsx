@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
-import { supabase } from '@/lib/supabase/client';
 import AuthGate from '@/components/AuthGate';
 import { saveJourneyStage } from '@/lib/research-journey';
 import type { ResearchPath, ResearchScenario, VerifyReport } from '@/lib/research-exploration';
+import { useAuthSession } from '@/components/AuthSessionProvider';
 
 // ============================================================
 // TYPES (mirror API response)
@@ -38,6 +38,7 @@ const RESEARCH_SCENARIOS: Array<{ id: ResearchScenario; title: string; descripti
   { id: 'idea', title: 'لدي فكرة أولية', description: 'أريد معرفة ما بُحث حولها وكيف يمكن تطويرها.' },
   { id: 'rejected_title', title: 'عنواني رُفض', description: 'أريد فهم سبب الرفض واقتراح مسار أدق.' },
   { id: 'compare_titles', title: 'أقارن بين عناوين', description: 'أريد معرفة أي عنوان أوضح وأغنى بالأدلة.' },
+  { id: 'references_only', title: 'أبحث عن مراجع', description: 'لدي موضوع أو عنوان وأريد الدراسات المرتبطة به فقط.' },
 ];
 
 // ============================================================
@@ -94,6 +95,28 @@ function EvidenceBadge({ kind }: { kind: 'verified' | 'inference' | 'suggestion'
   return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold ${config.className}`}>{config.label}</span>;
 }
 
+function VerificationHistory({ items, onReuse }: { items: HistoryItem[]; onReuse: (topic: string) => void }) {
+  if (items.length === 0) return null;
+  return <section id="verification-history" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <div><h2 className="text-sm font-black text-slate-900">استكشافاتك السابقة</h2><p className="mt-1 text-xs text-slate-500">للمراجعة أو إعادة استخدام الفكرة في فحص جديد.</p></div>
+      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{items.length} نتيجة</span>
+    </div>
+    <div className="space-y-2">
+      {items.slice(0, 5).map((item) => {
+        const label = item.decision === 'proceed' ? 'قابل للتطوير' : item.decision === 'improve' ? 'يحتاج تحسيناً' : 'يحتاج إعادة صياغة';
+        const badge = item.decision === 'proceed' ? 'bg-emerald-50 text-emerald-700' : item.decision === 'improve' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700';
+        const date = new Date(item.created_at).toLocaleDateString('ar', { day: 'numeric', month: 'short', year: 'numeric' });
+        return <button key={item.id} type="button" onClick={() => onReuse(item.topic)} className="w-full rounded-xl border border-slate-200 p-3 text-right transition hover:border-blue-300 hover:bg-blue-50/40">
+          <div className="flex flex-wrap items-center justify-between gap-2"><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${badge}`}>{label}</span><span className="text-[11px] text-slate-500">{date} · {item.total_papers} دراسة مرتبطة</span></div>
+          <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-700">{item.topic}</p>
+          <span className="mt-2 inline-block text-xs font-bold text-blue-700">استخدمها في فحص جديد ↑</span>
+        </button>;
+      })}
+    </div>
+  </section>;
+}
+
 // ============================================================
 // MAIN PAGE
 // ============================================================
@@ -108,24 +131,12 @@ export default function VerifyIdeaPage() {
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState<VerifyReport | null>(null);
   const [error, setError] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authResolved, setAuthResolved] = useState(false);
+  const { user, isAuthenticated, authResolved } = useAuthSession();
   const [projectId, setProjectId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'local' | 'cloud'>('idle');
   const [selectedPathId, setSelectedPathId] = useState<string | null>(null);
   const [adoptingPath, setAdoptingPath] = useState(false);
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setIsAuthenticated(!!data.user);
-      setAuthResolved(true);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session?.user);
-      setAuthResolved(true);
-    });
-    return () => listener.subscription.unsubscribe();
-  }, []);
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   useEffect(() => {
@@ -149,7 +160,6 @@ export default function VerifyIdeaPage() {
       selectedResearchPath,
     };
 
-    const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       localStorage.setItem(JOURNEY_SNAPSHOT_KEY, JSON.stringify(snapshot));
       setSaveStatus('local');
@@ -164,6 +174,9 @@ export default function VerifyIdeaPage() {
     localStorage.removeItem(JOURNEY_SNAPSHOT_KEY);
 
     try {
+      const researchPaths = verification.researchPaths.some((path) => path.id === selectedResearchPath.id)
+        ? verification.researchPaths
+        : [...verification.researchPaths, selectedResearchPath];
       await saveJourneyStage(serverProjectId, 'verify', {
         topic: verification.topic,
         decision: verification.decision,
@@ -173,7 +186,7 @@ export default function VerifyIdeaPage() {
         searchCoverage: verification.searchCoverage,
         researcherContext: verification.researcherContext,
         contextMatch: verification.contextMatch,
-        researchPaths: verification.researchPaths,
+        researchPaths,
         selectedResearchPath,
         researcherInput: verification.researcherInput,
         evidenceLimitations: verification.evidenceLimitations,
@@ -267,44 +280,8 @@ export default function VerifyIdeaPage() {
           </p>
         </div>
 
-        {/* HISTORY */}
-        {isAuthenticated && history.length > 0 && !report && !loading && (
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-slate-800 text-sm">استكشافاتك السابقة</h3>
-              <span className="text-xs text-slate-500">{history.length} نتيجة</span>
-            </div>
-            <div className="space-y-2">
-              {history.slice(0, 5).map((h) => {
-                const scoreColor = h.acceptance_score >= 60 ? 'text-emerald-600' : h.acceptance_score >= 30 ? 'text-amber-600' : 'text-rose-600';
-                const decisionLabel = h.decision === 'proceed' ? 'قوية' : h.decision === 'improve' ? 'تحتاج تحسين' : 'ضعيفة';
-                const decisionBg = h.decision === 'proceed' ? 'bg-emerald-50 text-emerald-700' : h.decision === 'improve' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700';
-                const date = new Date(h.created_at).toLocaleDateString('ar', { day: 'numeric', month: 'short' });
-                return (
-                  <button
-                    key={h.id}
-                    onClick={() => setTopic(h.topic)}
-                    className="w-full text-right p-3 rounded-lg border border-slate-200 hover:border-teal-300 hover:bg-slate-50 transition group"
-                  >
-                    <div className="flex items-center justify-between gap-3 mb-1">
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${decisionBg}`}>{decisionLabel}</span>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
-                        <span className={`font-bold ${scoreColor}`}>{h.acceptance_score}/100</span>
-                        <span>·</span>
-                        <span>{date}</span>
-                      </div>
-                    </div>
-                    <div className="text-sm text-slate-700 line-clamp-1 group-hover:text-teal-700">{h.topic}</div>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs text-slate-400 text-center mt-3">اضغط على أي نتيجة لإعادة استخدام نصها</p>
-          </div>
-        )}
-
         {/* INPUT */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+        <div id="new-exploration" className="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <fieldset className="mb-6">
             <legend className="mb-3 text-sm font-bold text-slate-800">أين أنت الآن؟</legend>
             <div className="grid gap-3 sm:grid-cols-2">
@@ -326,12 +303,12 @@ export default function VerifyIdeaPage() {
             </div>
           </fieldset>
           <label className="block text-sm font-semibold text-slate-700 mb-2">
-            {scenario === 'uncertain' ? 'ما المجال أو المشكلة التي تهمك؟' : scenario === 'compare_titles' ? 'ما الموضوع المشترك بين العناوين؟' : 'ما الذي تفكر في بحثه؟'}
+            {scenario === 'uncertain' ? 'ما المجال أو المشكلة التي تهمك؟' : scenario === 'compare_titles' ? 'ما الموضوع المشترك بين العناوين؟' : scenario === 'references_only' ? 'ما الموضوع أو العنوان الذي تريد مراجع له؟' : 'ما الذي تفكر في بحثه؟'}
           </label>
           <textarea
             value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            placeholder="مثال: عنواني رُفض، وأفكر في أثر الذكاء الاصطناعي على تعلم اللغة العربية لدى طلبة الجامعات"
+            onChange={(e) => { setTopic(e.target.value); setError(''); }}
+            placeholder={scenario === 'references_only' ? 'اكتب الموضوع أو العنوان كما هو للبحث عن الأدلة المرتبطة به' : 'مثال: عنواني رُفض، وأفكر في أثر الذكاء الاصطناعي على تعلم اللغة العربية لدى طلبة الجامعات'}
             className="w-full min-h-[100px] px-4 py-3 rounded-xl border border-slate-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-100 outline-none text-slate-800 text-lg resize-none"
             disabled={loading}
           />
@@ -369,7 +346,14 @@ export default function VerifyIdeaPage() {
           <p className="mt-3 text-xs text-slate-500 text-center">
             قد يستغرق التحليل 10–20 ثانية
           </p>
+          {isAuthenticated && history.length > 0 && topic.trim() && !loading && !report && <button type="button" onClick={() => document.getElementById('verification-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="mx-auto mt-4 flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700"><span className="animate-bounce" aria-hidden="true">↓</span> لديك {history.length} استكشافات سابقة أسفل الفحص</button>}
         </div>
+
+        {isAuthenticated && !report && !loading && <VerificationHistory items={history} onReuse={(previousTopic) => {
+          setTopic(previousTopic);
+          setError('');
+          document.getElementById('new-exploration')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }} />}
 
         {/* LOADING STATE */}
         {loading && (
@@ -385,6 +369,15 @@ export default function VerifyIdeaPage() {
           const showBlur = !isAuthenticated && usage?.isBlurred;
           const showBlock = !isAuthenticated && usage?.isBlocked;
           const searchedAt = new Date(report.searchCoverage.searchedAt).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' });
+          const referencesOnly = report.researcherInput.scenario === 'references_only';
+          const comparisonScenario = report.researcherInput.scenario === 'compare_titles';
+          const providedTitlesPath: ResearchPath = {
+            id: 'provided-title-comparison',
+            title: 'مقارنة العناوين التي قدّمها الباحث',
+            rationale: 'هذا الاتجاه يحفظ العناوين المدخلة كما هي لقياس وضوحها وغنى أدلتها قبل اعتماد أحدها.',
+            evidenceLevel: 'suggestion',
+            supportingReferences: report.topPapers.slice(0, 3).map((paper) => ({ title: paper.title, year: paper.year, url: paper.url })),
+          };
           return (
             <div className="relative">
               {showBlock && <AuthGate variant="block" />}
@@ -400,6 +393,41 @@ export default function VerifyIdeaPage() {
               <div className="text-lg font-semibold mb-2">{decisionLabel(report.decision)}</div>
               <div className="text-sm opacity-95 leading-relaxed">{report.decisionMessage}</div>
             </div>
+
+            {/* PLAIN-LANGUAGE OUTCOME */}
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
+              <h3 className="text-lg font-black text-slate-900">ماذا تعني هذه النتيجة؟</h3>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-xl bg-white p-4">
+                  <div className="text-2xl font-black text-blue-700">{report.totalPapers}</div>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">دراسة قريبة ظهرت ضمن نطاق البحث الحالي، وليست حصراً لكل ما نُشر عالمياً.</p>
+                </div>
+                <div className="rounded-xl bg-white p-4">
+                  <div className="text-2xl font-black text-violet-700">{report.gaps.length}</div>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">مؤشر فجوة محتملة يحتاج مراجعة الأدلة، وليس حكماً نهائياً بأن الموضوع لم يُبحث.</p>
+                </div>
+                <div className="rounded-xl bg-white p-4">
+                  <div className="font-black text-slate-900">خطوتك الآن</div>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {referencesOnly
+                      ? 'راجع قائمة الدراسات أدناه، وافتح الدراسة الأصلية قبل الاستشهاد بها.'
+                      : comparisonScenario
+                        ? 'احفظ العناوين التي أدخلتها، ثم انتقل مباشرة إلى مقارنة الوضوح والأدلة.'
+                      : report.decision === 'proceed'
+                      ? 'اختر اتجاه تطوير واحداً أدناه؛ بعدها نصوغ عناوين أكاديمية متسقة معه.'
+                      : 'راجع التحسينات المقترحة، عدّل فكرتك، ثم أعد التحليل قبل الانتقال.'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <details className="group rounded-2xl border border-slate-200 bg-white p-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 font-bold text-slate-800">
+                <span>عرض التفاصيل الرقمية ومنهج قراءة النتيجة</span>
+                <span className="text-blue-600 transition group-open:rotate-180" aria-hidden="true">⌄</span>
+              </summary>
+              <p className="mt-2 text-xs leading-6 text-slate-500">هذه التفاصيل مفيدة للباحث المتقدم، ولا تحتاجها لاتخاذ الخطوة التالية.</p>
+              <div className="mt-5 space-y-6">
 
             {/* SEARCH COVERAGE — factual and bounded */}
             <div className="rounded-2xl border border-blue-200 bg-white p-6">
@@ -493,6 +521,9 @@ export default function VerifyIdeaPage() {
               </div>
             </div>
 
+              </div>
+            </details>
+
             {/* GAPS */}
             {report.gaps.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6">
@@ -539,10 +570,10 @@ export default function VerifyIdeaPage() {
             )}
 
             {/* GROUNDED RESEARCH PATHS */}
-            {report.researchPaths.length > 0 && (
+            {!referencesOnly && !comparisonScenario && report.researchPaths.length > 0 && (
               <div id="research-paths" className="scroll-mt-24 rounded-2xl border border-violet-200 bg-white p-6">
                 <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-                  <div><h3 className="font-bold text-slate-900">مسارات بحثية قابلة للمناقشة</h3><p className="mt-1 text-xs text-slate-500">ليست عناوين نهائية؛ اختر مساراً بعد مراجعة المراجع وسياقك مع المشرف.</p></div>
+                  <div><h3 className="font-bold text-slate-900">اتجاهات لتطوير فكرتك</h3><p className="mt-1 text-xs leading-6 text-slate-500">كل اتجاه يغيّر زاوية الدراسة أو سياقها، وليس عنواناً نهائياً. اختر الأنسب، ثم نقترح عناوين أكاديمية متسقة معه.</p></div>
                   <EvidenceBadge kind="suggestion" />
                 </div>
                 <div className="space-y-4">
@@ -566,7 +597,7 @@ export default function VerifyIdeaPage() {
                       )}
                       {report.decision === 'proceed' && (
                         <button type="button" onClick={() => void adoptResearchPath(path)} disabled={adoptingPath} className={`mt-4 w-full rounded-xl px-4 py-3 text-sm font-bold transition disabled:opacity-50 ${selected && (saveStatus === 'cloud' || saveStatus === 'local') ? 'bg-emerald-600 text-white' : 'border border-blue-200 bg-white text-blue-700 hover:bg-blue-50'}`}>
-                          {selected && adoptingPath ? 'جارٍ اعتماد المسار وحفظه…' : selected && (saveStatus === 'cloud' || saveStatus === 'local') ? '✓ تم اعتماد هذا المسار' : 'اختيار هذا المسار واعتماده'}
+                          {selected && adoptingPath ? 'جارٍ اعتماد الاتجاه وحفظه…' : selected && (saveStatus === 'cloud' || saveStatus === 'local') ? '✓ تم اعتماد هذا الاتجاه' : 'اعتماد هذا الاتجاه'}
                         </button>
                       )}
                     </article>
@@ -576,18 +607,36 @@ export default function VerifyIdeaPage() {
             )}
 
             {/* PROCEED CTA (if strong) */}
-            <div className={`rounded-2xl border-2 p-6 ${report.decision === 'proceed' ? 'border-emerald-300 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+            {referencesOnly ? (
+              <div className="rounded-2xl border-2 border-blue-200 bg-blue-50 p-6">
+                <h3 className="font-black text-blue-950">وجدنا لك مراجع مرتبطة بالموضوع</h3>
+                <p className="mt-2 text-sm leading-7 text-blue-900">هذه ليست بوابة انتقال إلى بناء البحث. راجع النتائج الأصلية أدناه، ويمكنك لاحقاً العودة واختيار «لدي فكرة أولية» إذا أردت بناء رحلة بحثية كاملة.</p>
+                <button type="button" onClick={() => document.getElementById('top-papers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="mt-4 rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">عرض الدراسات المرتبطة ↓</button>
+              </div>
+            ) : comparisonScenario ? (
+              <div className="rounded-2xl border-2 border-violet-200 bg-violet-50 p-6">
+                <h3 className="font-black text-violet-950">عناوينك جاهزة للمقارنة</h3>
+                <p className="mt-2 text-sm leading-7 text-violet-900">لن نطلب منك اختيار اتجاه بحثي جديد؛ سننقل العناوين التي أدخلتها كما هي إلى مقارنة الأدلة والوضوح.</p>
+                {saveStatus === 'cloud' && projectId ? <Link href={`/research?projectId=${projectId}`} className="mt-4 inline-flex rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white">انتقل إلى مقارنة عناويني ←</Link>
+                  : saveStatus === 'local' ? <Link href={`/signup?redirect=${encodeURIComponent('/verify-idea')}`} className="mt-4 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">أنشئ حساباً لحفظ المقارنة</Link>
+                    : <button type="button" onClick={() => void adoptResearchPath(providedTitlesPath)} disabled={adoptingPath || report.decision !== 'proceed'} className="mt-4 rounded-xl bg-violet-700 px-5 py-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-50">{adoptingPath ? 'جارٍ حفظ العناوين…' : report.decision === 'proceed' ? 'حفظ العناوين ومتابعة المقارنة' : 'حسّن الصياغة وفق الملاحظات أولاً'}</button>}
+              </div>
+            ) : <div className={`rounded-2xl border-2 p-6 ${report.decision === 'proceed' ? 'border-emerald-300 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className={`text-sm font-bold ${report.decision === 'proceed' ? 'text-emerald-800' : 'text-amber-900'}`}>
-                    {report.decision === 'proceed' && selectedPathId && (saveStatus === 'cloud' || saveStatus === 'local') ? 'تم اعتماد المسار البحثي' : 'بوابة الفكرة ما زالت مغلقة'}
+                    {report.decision === 'proceed' && selectedPathId && (saveStatus === 'cloud' || saveStatus === 'local')
+                      ? 'تم اعتماد اتجاه تطوير الفكرة'
+                      : report.decision === 'proceed'
+                        ? 'اختر اتجاه التطوير أولاً'
+                        : 'تحتاج الفكرة إلى تحسين قبل الانتقال'}
                   </div>
                   <p className={`mt-1 text-sm leading-6 ${report.decision === 'proceed' ? 'text-emerald-700' : 'text-amber-800'}`}>
                     {report.decision !== 'proceed'
                       ? 'لا ننتقل إلى العنوان أو الأدبيات قبل معالجة الملاحظات أعلاه وإعادة فحص الفكرة.'
                       : selectedPathId && (saveStatus === 'cloud' || saveStatus === 'local')
-                        ? 'حُفظ اختيارك مع الأدلة والسياق. الخطوة التالية هي مقارنة العناوين وصياغة عنوان متسق مع المسار.'
-                        : 'راجع المسارات المرتبطة بالأدلة أعلاه، ثم اختر مساراً واحداً واعتمده قبل الانتقال.'}
+                        ? 'حُفظ اختيارك مع الأدلة والسياق. الخطوة التالية هي صياغة عنوان أكاديمي متسق مع هذا الاتجاه.'
+                        : 'راجع الاتجاهات المرتبطة بالأدلة أعلاه، ثم اختر اتجاهاً واحداً قبل الانتقال.'}
                   </p>
                   <p className="mt-2 text-xs text-slate-500">
                     {saveStatus === 'cloud' ? 'تم حفظ التقرير والاختيار داخل مشروعك.' : saveStatus === 'local' ? 'تم حفظ آخر حالة للرحلة على هذا الجهاز.' : 'لم يُعتمد مسار بعد.'}
@@ -595,13 +644,13 @@ export default function VerifyIdeaPage() {
                 </div>
                 {report.decision === 'proceed' && selectedPathId && saveStatus === 'cloud' ? (
                   <Link href={`/research?topic=${encodeURIComponent(report.topic)}${projectId ? `&projectId=${projectId}` : ''}`} className="inline-flex shrink-0 items-center justify-center rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700">
-                    انتقل إلى مقارنة العناوين ←
+                    انتقل إلى صياغة العنوان ←
                   </Link>
                 ) : report.decision === 'proceed' && selectedPathId && saveStatus === 'local' ? (
                   <Link href={`/signup?redirect=${encodeURIComponent('/verify-idea')}`} className="inline-flex shrink-0 items-center justify-center rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700">أنشئ حساباً لحفظ المشروع والمتابعة</Link>
                 ) : report.decision === 'proceed' ? (
                   <button type="button" onClick={() => document.getElementById('research-paths')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="inline-flex shrink-0 items-center justify-center rounded-xl border border-blue-300 bg-white px-5 py-3 font-semibold text-blue-800 transition hover:bg-blue-50">
-                    اختر مساراً من القائمة أعلاه
+                    اختر اتجاه تطوير من القائمة أعلاه
                   </button>
                 ) : (
                   <button type="button" onClick={() => document.querySelector('textarea')?.focus()} className="inline-flex shrink-0 items-center justify-center rounded-xl border border-amber-300 bg-white px-5 py-3 font-semibold text-amber-800 transition hover:bg-amber-100">
@@ -609,11 +658,11 @@ export default function VerifyIdeaPage() {
                   </button>
                 )}
               </div>
-            </div>
+            </div>}
 
             {/* YEAR DISTRIBUTION */}
             {report.yearDistribution.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <div id="top-papers" className="scroll-mt-24 bg-white rounded-2xl border border-slate-200 p-6">
                 <h3 className="font-bold text-slate-800 mb-4">التوزيع الزمني للدراسات</h3>
                 <div className="space-y-2">
                   {report.yearDistribution.map((y) => (
