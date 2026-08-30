@@ -6,7 +6,7 @@ import SiteHeader from '@/components/SiteHeader';
 import ScoreCircle from '@/components/ScoreCircle';
 import { useWahaLanguage } from '@/lib/use-language';
 import { useAuthSession } from '@/components/AuthSessionProvider';
-import { ArrowLeft, CheckCircle2, Clock3 } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock3, Mail } from 'lucide-react';
 
 type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'methodology' | 'literature' | 'analysis';
 
@@ -48,6 +48,11 @@ const COPY = {
     lastOutput: 'من آخر نسخة محفوظة',
     nextStep: 'الخطوة التالية',
     continueCta: 'متابعة الآن',
+    emailCta: 'أرسل آخر نسخة إلى بريدي',
+    emailSending: 'جاري إرسال النسخة...',
+    emailSuccess: 'تم إرسال آخر نسخة المحفوظة إلى بريد حسابك.',
+    emailUnavailable: 'خدمة البريد تحتاج تفعيلها من إعدادات المنصة.',
+    emailError: 'تعذر إرسال النسخة الآن. حاول مجدداً.',
     journeyComplete: 'اكتملت الرحلة الأساسية — راجع تقرير السيمنار',
     projectSubtitle: 'افتح مشروعاً محفوظاً لتتابع من آخر مرحلة معتمدة، أو ابدأ مساراً جديداً.',
     newProject: 'مشروع جديد',
@@ -73,6 +78,11 @@ const COPY = {
     lastOutput: 'From your latest saved version',
     nextStep: 'Next step',
     continueCta: 'Continue now',
+    emailCta: 'Email my latest version',
+    emailSending: 'Sending your version...',
+    emailSuccess: 'Your latest saved version was sent to your account email.',
+    emailUnavailable: 'Email delivery must be enabled in platform settings.',
+    emailError: 'Unable to send the version now. Please try again.',
     journeyComplete: 'Core journey complete — review the seminar report',
     projectSubtitle: 'Open a saved project to continue from its last approved stage, or start a new path.',
     newProject: 'New project',
@@ -149,6 +159,8 @@ export default function DashboardPage() {
   const [latestProject, setLatestProject] = useState<ProjectRow | null>(null);
   const [researcher, setResearcher] = useState<ResearcherSummary | null>(null);
   const [error, setError] = useState('');
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'success' | 'error'>('idle');
+  const [emailMessage, setEmailMessage] = useState('');
 
   useEffect(() => {
     if (!authResolved) return;
@@ -179,6 +191,31 @@ export default function DashboardPage() {
 
   const t = COPY[lang];
   const dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+  async function emailLatestVersion() {
+    if (!latestProject || emailStatus === 'sending') return;
+    setEmailStatus('sending');
+    setEmailMessage('');
+    try {
+      const response = await fetch('/api/email/project-snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: latestProject.id }),
+      });
+      const data: unknown = await response.json();
+      if (!response.ok) {
+        const code = data && typeof data === 'object' ? (data as { code?: unknown }).code : null;
+        setEmailStatus('error');
+        setEmailMessage(code === 'EMAIL_NOT_CONFIGURED' ? t.emailUnavailable : t.emailError);
+        return;
+      }
+      setEmailStatus('success');
+      setEmailMessage(t.emailSuccess);
+    } catch {
+      setEmailStatus('error');
+      setEmailMessage(t.emailError);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-950 font-sans pb-20" dir={dir}>
@@ -218,6 +255,10 @@ export default function DashboardPage() {
                   <h3 className="mt-2 text-xl font-black">{latestProject.resume.nextStage ? STAGE_COPY[latestProject.resume.nextStage][lang] : t.journeyComplete}</h3>
                   <p className="mt-3 inline-flex items-center gap-2 text-xs text-blue-100"><CheckCircle2 className="h-4 w-4" />{latestProject.resume.completedStages} / 8 {lang === 'ar' ? 'مراحل مكتملة ومحفوظة' : 'stages completed and saved'}</p>
                   <Link href={resumeHref(latestProject)} className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-black text-blue-700 shadow-sm">{t.continueCta}<ArrowLeft className="h-4 w-4" /></Link>
+                  <button type="button" onClick={emailLatestVersion} disabled={emailStatus === 'sending'} className="mt-3 inline-flex items-center justify-center gap-2 rounded-xl border border-blue-300/50 bg-blue-900/20 px-5 py-3 text-sm font-bold text-white transition hover:bg-blue-900/35 disabled:cursor-wait disabled:opacity-70">
+                    <Mail className="h-4 w-4" />{emailStatus === 'sending' ? t.emailSending : t.emailCta}
+                  </button>
+                  {emailMessage && <p role="status" aria-live="polite" className={`mt-3 text-xs leading-6 ${emailStatus === 'success' ? 'text-emerald-200' : 'text-amber-200'}`}>{emailMessage}</p>}
                 </div>
               </div>
             </section>}
