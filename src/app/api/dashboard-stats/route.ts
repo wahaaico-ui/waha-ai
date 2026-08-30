@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { buildDashboardProjects } from '@/lib/dashboard-resume';
 
 export async function GET() {
   try {
@@ -27,6 +28,23 @@ export async function GET() {
       return NextResponse.json({ error: 'فشل جلب بيانات لوحة التحكم' }, { status: 500 });
     }
 
+    const projectSources = projectsResult.data || [];
+    const projectIds = projectSources.map((project) => project.id);
+    const documentsResult = projectIds.length
+      ? await access.supabase
+        .from('documents')
+        .select('project_id, type, content, version, created_at')
+        .in('project_id', projectIds)
+        .like('type', 'journey:%')
+        .order('created_at', { ascending: false })
+      : { data: [], error: null };
+
+    if (documentsResult.error) {
+      console.error('Dashboard journey query failed', { error: documentsResult.error.message });
+      return NextResponse.json({ error: 'فشل جلب آخر مرحلة محفوظة' }, { status: 500 });
+    }
+
+    const projects = buildDashboardProjects(projectSources, documentsResult.data || []);
     const history = usageResult.data || [];
     const total = history.length;
     const avg = total ? Math.round(history.reduce((sum, r) => sum + r.report_score, 0) / total) : 0;
@@ -43,7 +61,8 @@ export async function GET() {
       success: true,
       stats: { total, avg, best },
       history,
-      projects: projectsResult.data || [],
+      projects,
+      latestProject: projects[0] || null,
       researcher: {
         displayName,
         specialty: typeof metadata.specialty === 'string' ? metadata.specialty : null,

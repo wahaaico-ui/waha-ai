@@ -16,7 +16,7 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = safeAuthRedirect(searchParams.get('redirect'), '/verify-idea');
+  const redirectTo = safeAuthRedirect(searchParams.get('redirect'), '/dashboard');
 
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);

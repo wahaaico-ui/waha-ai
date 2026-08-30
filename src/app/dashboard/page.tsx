@@ -6,6 +6,9 @@ import SiteHeader from '@/components/SiteHeader';
 import ScoreCircle from '@/components/ScoreCircle';
 import { useWahaLanguage } from '@/lib/use-language';
 import { useAuthSession } from '@/components/AuthSessionProvider';
+import { ArrowLeft, CheckCircle2, Clock3 } from 'lucide-react';
+
+type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'methodology' | 'literature' | 'analysis';
 
 
 interface HistoryRow {
@@ -20,6 +23,14 @@ interface ProjectRow {
   title: string;
   status: string | null;
   created_at: string;
+  resume: {
+    lastActivityAt: string;
+    lastStage: JourneyStage | null;
+    lastVersion: number | null;
+    lastOutputPreview: string | null;
+    nextStage: JourneyStage | null;
+    completedStages: number;
+  };
 }
 
 interface ResearcherSummary {
@@ -31,6 +42,13 @@ const COPY = {
   ar: {
     title: 'مشاريعي البحثية',
     welcome: 'مرحباً',
+    welcomeBack: 'مرحباً بعودتك',
+    resumeTitle: 'لنبدأ من حيث توقفت',
+    stoppedAt: 'آخر حفظ',
+    lastOutput: 'من آخر نسخة محفوظة',
+    nextStep: 'الخطوة التالية',
+    continueCta: 'متابعة الآن',
+    journeyComplete: 'اكتملت الرحلة الأساسية — راجع تقرير السيمنار',
     projectSubtitle: 'افتح مشروعاً محفوظاً لتتابع من آخر مرحلة معتمدة، أو ابدأ مساراً جديداً.',
     newProject: 'مشروع جديد',
     projectsTitle: 'المشاريع المحفوظة',
@@ -49,6 +67,13 @@ const COPY = {
   en: {
     title: 'My research projects',
     welcome: 'Welcome',
+    welcomeBack: 'Welcome back',
+    resumeTitle: 'Continue where you left off',
+    stoppedAt: 'Last saved',
+    lastOutput: 'From your latest saved version',
+    nextStep: 'Next step',
+    continueCta: 'Continue now',
+    journeyComplete: 'Core journey complete — review the seminar report',
     projectSubtitle: 'Open a saved project to continue from its last approved stage, or start a new path.',
     newProject: 'New project',
     projectsTitle: 'Saved projects',
@@ -70,6 +95,29 @@ function formatDate(iso: string, lang: 'ar' | 'en') {
   return new Date(iso).toLocaleDateString(lang === 'ar' ? 'ar-SA' : 'en-US', {
     year: 'numeric', month: 'short', day: 'numeric',
   });
+}
+
+function formatDateTime(iso: string, lang: 'ar' | 'en') {
+  return new Date(iso).toLocaleString(lang === 'ar' ? 'ar-SA' : 'en-US', {
+    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+const STAGE_COPY: Record<JourneyStage, { ar: string; en: string; href: string }> = {
+  verify: { ar: 'استكشاف المسار', en: 'Research exploration', href: '/verify-idea' },
+  title: { ar: 'صياغة العنوان', en: 'Research title', href: '/research' },
+  problem: { ar: 'المشكلة والفجوة', en: 'Problem and gap', href: '/research/problem' },
+  objectives: { ar: 'الأهداف', en: 'Objectives', href: '/research/objectives' },
+  questions: { ar: 'الأسئلة', en: 'Questions', href: '/research/questions' },
+  methodology: { ar: 'المنهجية', en: 'Methodology', href: '/research/methodology' },
+  literature: { ar: 'الأدلة والأدبيات', en: 'Evidence and literature', href: '/research/literature' },
+  analysis: { ar: 'التحليل', en: 'Analysis', href: '/research/analysis' },
+};
+
+function resumeHref(project: ProjectRow) {
+  const stage = project.resume.nextStage;
+  if (!stage) return `/research/seminar?projectId=${encodeURIComponent(project.id)}`;
+  return `${STAGE_COPY[stage].href}?projectId=${encodeURIComponent(project.id)}`;
 }
 
 function projectStatus(status: string | null, lang: 'ar' | 'en') {
@@ -98,6 +146,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<{ total: number; avg: number; best: number } | null>(null);
   const [history, setHistory] = useState<HistoryRow[] | null>(null);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [latestProject, setLatestProject] = useState<ProjectRow | null>(null);
   const [researcher, setResearcher] = useState<ResearcherSummary | null>(null);
   const [error, setError] = useState('');
 
@@ -118,6 +167,7 @@ export default function DashboardPage() {
           setStats(data.stats);
           setHistory(data.history);
           setProjects(data.projects || []);
+          setLatestProject(data.latestProject || null);
           setResearcher(data.researcher || null);
         } else {
           setError(data.error || '');
@@ -149,10 +199,33 @@ export default function DashboardPage() {
           <p className="text-red-400 text-sm">{error}</p>
         ) : (
           <>
+            {latestProject && <section className="overflow-hidden rounded-3xl border border-blue-200 bg-white shadow-lg shadow-blue-900/5">
+              <div className="grid gap-0 lg:grid-cols-[1.45fr_.85fr]">
+                <div className="p-6 sm:p-8">
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-blue-700">
+                    <span className="rounded-full bg-blue-50 px-3 py-1">{t.welcomeBack}{researcher ? ` ${researcher.displayName}` : ''}</span>
+                    <span className="inline-flex items-center gap-1 text-slate-500"><Clock3 className="h-3.5 w-3.5" />{t.stoppedAt}: {formatDateTime(latestProject.resume.lastActivityAt, lang)}</span>
+                  </div>
+                  <h2 className="mt-4 text-xl font-black text-[#10213c] sm:text-2xl">{t.resumeTitle}</h2>
+                  <p className="mt-2 line-clamp-2 text-sm font-bold text-slate-700">{latestProject.title}</p>
+                  {latestProject.resume.lastOutputPreview && <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[11px] font-bold text-slate-500">{t.lastOutput}{latestProject.resume.lastVersion ? ` · v${latestProject.resume.lastVersion}` : ''}</p>
+                    <p className="mt-2 line-clamp-2 text-sm leading-7 text-slate-700">{latestProject.resume.lastOutputPreview}</p>
+                  </div>}
+                </div>
+                <div className="flex flex-col justify-center bg-gradient-to-br from-[#0B2551] to-[#2563EB] p-6 text-white sm:p-8">
+                  <p className="text-xs font-bold text-blue-100">{t.nextStep}</p>
+                  <h3 className="mt-2 text-xl font-black">{latestProject.resume.nextStage ? STAGE_COPY[latestProject.resume.nextStage][lang] : t.journeyComplete}</h3>
+                  <p className="mt-3 inline-flex items-center gap-2 text-xs text-blue-100"><CheckCircle2 className="h-4 w-4" />{latestProject.resume.completedStages} / 8 {lang === 'ar' ? 'مراحل مكتملة ومحفوظة' : 'stages completed and saved'}</p>
+                  <Link href={resumeHref(latestProject)} className="mt-6 inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-black text-blue-700 shadow-sm">{t.continueCta}<ArrowLeft className="h-4 w-4" /></Link>
+                </div>
+              </div>
+            </section>}
+
             <section className="space-y-4">
               <h2 className="text-lg font-black text-[#10213c]">{t.projectsTitle}</h2>
               {projects.length > 0 ? <div className="grid gap-4 md:grid-cols-2">{projects.map((project) => <article key={project.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4"><div className="min-w-0"><h3 className="truncate font-black text-[#10213c]">{project.title}</h3><p className="mt-1 text-xs text-slate-500">{formatDate(project.created_at, lang)}</p></div><span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">{projectStatus(project.status, lang)}</span></div>
+                <div className="flex items-start justify-between gap-4"><div className="min-w-0"><h3 className="truncate font-black text-[#10213c]">{project.title}</h3><p className="mt-1 text-xs text-slate-500">{formatDate(project.resume.lastActivityAt, lang)}</p></div><span className="rounded-full bg-blue-50 px-3 py-1 text-[11px] font-bold text-blue-700">{projectStatus(project.status, lang)}</span></div>
                 <div className="mt-5 flex flex-wrap gap-2"><Link href={`/research/journey?projectId=${encodeURIComponent(project.id)}`} className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white">{t.openJourney}</Link><Link href={`/projects/workspace?projectId=${encodeURIComponent(project.id)}`} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-700">{t.openWorkspace}</Link></div>
               </article>)}</div> : <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center"><p className="text-sm text-slate-500">{t.noProjects}</p><Link href="/verify-idea" className="mt-4 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">{t.emptyCta}</Link></div>}
             </section>
