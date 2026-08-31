@@ -8,7 +8,7 @@ import ResearchLanguageAssistant from '@/components/ResearchLanguageAssistant';
 
 export default function ResearchDraftAssistant({ projectId, stage, onDraft, showTools = true }: {
   projectId: string;
-  stage: Extract<JourneyStage, 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design'>;
+  stage: Extract<JourneyStage, 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument'>;
   onDraft: (draft: Record<string, unknown>) => void;
   showTools?: boolean;
 }) {

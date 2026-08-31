@@ -17,6 +17,35 @@ const design = {
   population: { description: 'جميع طلبة الدراسات العليا المسجلين في الجامعة خلال الفصل الحالي.' },
   sample: { strategy: 'عينة طبقية عشوائية من الكليات المختلفة.', inclusionCriteria: 'طلبة دراسات عليا مسجلون واستخدموا أدوات الذكاء الاصطناعي أكاديمياً.', sizeRationale: 'يحدد الحجم لاحقاً بتحليل القدرة الإحصائية وفق المتغيرات والنموذج المختار.' },
 };
+const instrument = {
+  title: 'استبانة استخدام الذكاء الاصطناعي وجودة التعلم لدى طلبة الدراسات العليا',
+  description: 'أداة أولية تقيس متغيرات الدراسة المعتمدة وتحتاج إلى تحكيم وتجربة استطلاعية.',
+  consentStatement: 'المشاركة طوعية، وتستخدم الإجابات لأغراض البحث فقط، ويمكن للمشارك الانسحاب قبل الإرسال.',
+  instructions: 'اقرأ كل عبارة بعناية، ثم اختر الإجابة التي تعبّر بدقة عن تجربتك الأكاديمية.',
+  respondentFields: [],
+  sections: [
+    {
+      title: 'محور استخدام الذكاء الاصطناعي',
+      variableName: 'استخدام الذكاء الاصطناعي',
+      description: 'يقيس أنماط الاستخدام الأكاديمي الفعلي لأدوات الذكاء الاصطناعي.',
+      items: [
+        { text: 'أستخدم أدوات الذكاء الاصطناعي لفهم المفاهيم الأكاديمية المعقدة.', kind: 'likert5', required: true, options: [] },
+        { text: 'أراجع دقة مخرجات الذكاء الاصطناعي قبل استخدامها في تعلمي.', kind: 'likert5', required: true, options: [] },
+        { text: 'أستخدم أدوات الذكاء الاصطناعي بانتظام في المهام الأكاديمية.', kind: 'likert5', required: true, options: [] },
+      ],
+    },
+    {
+      title: 'محور جودة التعلم',
+      variableName: 'جودة التعلم',
+      description: 'يقيس مؤشرات التحصيل والمشاركة والفهم الأكاديمي لدى الطلبة.',
+      items: [
+        { text: 'أستطيع ربط المفاهيم الجديدة بالمعرفة التي تعلمتها سابقاً.', kind: 'likert5', required: true, options: [] },
+        { text: 'أشارك بفاعلية في الأنشطة والنقاشات المرتبطة بمقرراتي.', kind: 'likert5', required: true, options: [] },
+        { text: 'أحقق فهماً أعمق للموضوعات الأكاديمية التي أدرسها.', kind: 'likert5', required: true, options: [] },
+      ],
+    },
+  ],
+};
 const preDesignOutputs = {
   verify: verified,
   title,
@@ -74,13 +103,25 @@ describe('research workflow quality gates', () => {
 
   test('requires evidence before literature is considered complete', () => {
     expect(stageComplete('literature', { papers: [{ id: '1' }, { id: '2' }] })).toBe(false);
-    expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['قياس أثر التقنية على تحصيل طلبة الدراسات العليا', 'تحديد العوامل المؤثرة في تبني التقنية لدى الباحثين'] }, questions: { questions: ['ما أثر التقنية على تحصيل طلبة الدراسات العليا؟', 'ما العوامل المؤثرة في تبني التقنية لدى الباحثين؟'] }, hypotheses: { mode: 'required', hypotheses: ['يوجد أثر للتقنية على تحصيل طلبة الدراسات العليا', 'توجد علاقة بين التقنية والعوامل المؤثرة في تبنيها لدى الباحثين'] }, methodology: { approach: 'quantitative', population: 'جميع طلبة الدراسات العليا المسجلين في الجامعة', sample: 'عينة طبقية ممثلة من طلبة الكليات المختلفة', instrument: 'استبانة أكاديمية محكمة تقيس المتغيرات المحددة' }, design, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
+    expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['قياس أثر التقنية على تحصيل طلبة الدراسات العليا', 'تحديد العوامل المؤثرة في تبني التقنية لدى الباحثين'] }, questions: { questions: ['ما أثر التقنية على تحصيل طلبة الدراسات العليا؟', 'ما العوامل المؤثرة في تبني التقنية لدى الباحثين؟'] }, hypotheses: { mode: 'required', hypotheses: ['يوجد أثر للتقنية على تحصيل طلبة الدراسات العليا', 'توجد علاقة بين التقنية والعوامل المؤثرة في تبنيها لدى الباحثين'] }, methodology: { approach: 'quantitative', population: 'جميع طلبة الدراسات العليا المسجلين في الجامعة', sample: 'عينة طبقية ممثلة من طلبة الكليات المختلفة', instrument: 'استبانة أكاديمية محكمة تقيس المتغيرات المحددة' }, design, instrument, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
   });
 
   test('keeps literature locked until a quantitative design defines predictor and outcome variables', () => {
     expect(evaluateGate('design', { ...preDesignOutputs, design: { ...design, variables: [design.variables[0]] } }).status).toBe('needs_improvement');
     expect(evaluateGate('design', { ...preDesignOutputs, design }).status).toBe('open');
     expect(stageComplete('design', design)).toBe(true);
+  });
+
+  test('requires the instrument to cover every approved variable before opening literature', () => {
+    expect(stageComplete('instrument', instrument)).toBe(true);
+    const incompleteInstrument = {
+      ...instrument,
+      sections: [instrument.sections[0], { ...instrument.sections[1], variableName: 'استخدام الذكاء الاصطناعي' }],
+    };
+    const gate = evaluateGate('instrument', { ...preDesignOutputs, design, instrument: incompleteInstrument });
+    expect(gate.status).toBe('needs_improvement');
+    expect(gate.reason).toContain('جودة التعلم');
+    expect(evaluateGate('instrument', { ...preDesignOutputs, design, instrument }).status).toBe('open');
   });
 
   test('locks methodology until the hypotheses decision is documented', () => {

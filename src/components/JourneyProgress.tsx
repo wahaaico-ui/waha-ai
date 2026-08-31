@@ -13,6 +13,7 @@ export const JOURNEY_PHASES = [
   { id: "hypotheses", labelAr: "الفرضيات",  labelEn: "Hypotheses", href: "/research/hypotheses", enabled: true  },
   { id: "method",     labelAr: "المنهجية",  labelEn: "Method",     href: "/research/methodology", enabled: true  },
   { id: "design",     labelAr: "التصميم",   labelEn: "Design",     href: "/research/design", enabled: true  },
+  { id: "instrument", labelAr: "الأداة",     labelEn: "Instrument", href: "/research/instrument", enabled: true  },
   { id: "literature", labelAr: "الأدبيات",  labelEn: "Literature", href: "/research/literature", enabled: true  },
   { id: "analysis",   labelAr: "التحليل",   labelEn: "Analysis",   href: "/research/analysis", enabled: true  },
 ];

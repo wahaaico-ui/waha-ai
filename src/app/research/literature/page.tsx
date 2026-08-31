@@ -18,7 +18,7 @@ export default function ResearchLiteraturePage() {
   const [loadingJourney, setLoadingJourney] = useState(() => Boolean(projectId));
   const [journeyError, setJourneyError] = useState('');
   const [title, setTitle] = useState('');
-  const [methodReady, setMethodReady] = useState(false);
+  const [instrumentReady, setInstrumentReady] = useState(false);
   const [papers, setPapers] = useState<Paper[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [coverage, setCoverage] = useState<SearchCoverage | null>(null);
@@ -32,7 +32,7 @@ export default function ResearchLiteraturePage() {
       .then((journey) => {
         const savedTitle = journey.outputs.title?.title;
         setTitle(typeof savedTitle === 'string' ? savedTitle : '');
-        setMethodReady(stageComplete('design', journey.outputs.design));
+        setInstrumentReady(stageComplete('instrument', journey.outputs.instrument));
         const savedPapers = journey.outputs.literature?.papers;
         if (Array.isArray(savedPapers)) {
           const validPapers = savedPapers.filter((paper): paper is Paper => Boolean(paper && typeof paper === 'object' && typeof paper.id === 'string' && typeof paper.title === 'string'));
@@ -80,7 +80,7 @@ export default function ResearchLiteraturePage() {
     {loadingJourney ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">جارٍ تحميل العنوان والمنهجية…</section>
     : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
     : journeyError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{journeyError}</section>
-    : !title || !methodReady ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة الأدبيات مغلقة</h2><p className="mt-3 text-sm text-amber-900">اعتمد العنوان وتصميم الدراسة داخل المشروع أولاً.</p><Link href={`/research/design?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى تصميم الدراسة</Link></section>
+    : !title || !instrumentReady ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة الأدبيات مغلقة</h2><p className="mt-3 text-sm text-amber-900">اعتمد أداة الدراسة داخل المشروع أولاً.</p><Link href={`/research/instrument?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى أداة الدراسة</Link></section>
     : <><section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">نطاق المراجعة الحالي</div><p className="mt-2 break-words text-sm leading-7 text-emerald-950 [overflow-wrap:anywhere]"><strong>العنوان:</strong> {title}</p></section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><button type="button" onClick={() => void search()} disabled={searching} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:opacity-50">{searching ? 'جارٍ البحث والترشيح…' : 'ابحث في الأدبيات المرتبطة بالعنوان'}</button>{error && <p role="alert" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-900">{error}</p>}</section>
       {coverage && <section className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl bg-white p-4 text-center"><div className="text-2xl font-black text-blue-700">{coverage.candidateResults}</div><div className="text-xs text-slate-600">سجل جرى فحصه</div></div><div className="rounded-xl bg-white p-4 text-center"><div className="text-2xl font-black text-emerald-700">{coverage.relevantResults}</div><div className="text-xs text-slate-600">دراسة أقرب إلى نطاقك</div></div></div><p className="mt-3 text-xs leading-6 text-blue-900">{coverage.note}</p>{coverage.relevantResults < 3 && <div className="mt-4 flex flex-wrap gap-3"><Link href={`/research?projectId=${encodeURIComponent(projectId)}`} className="rounded-xl border border-blue-300 bg-white px-4 py-2.5 text-xs font-bold text-blue-800">مراجعة العنوان</Link><button type="button" onClick={() => void search()} disabled={searching} className="rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white disabled:opacity-50">إعادة محاولة البحث</button></div>}</section>}

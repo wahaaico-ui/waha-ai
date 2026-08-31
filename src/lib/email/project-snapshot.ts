@@ -11,6 +11,7 @@ const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   hypotheses: { ar: 'قرار الفرضيات', en: 'Hypotheses decision' },
   methodology: { ar: 'المنهجية', en: 'Methodology' },
   design: { ar: 'تصميم الدراسة', en: 'Study design' },
+  instrument: { ar: 'أداة الدراسة', en: 'Research instrument' },
   literature: { ar: 'الأدلة والأدبيات', en: 'Evidence and literature' },
   analysis: { ar: 'التحليل', en: 'Analysis' },
 };
@@ -30,6 +31,9 @@ const FIELD_LABELS: Record<string, string> = {
   population: 'مجتمع الدراسة',
   sample: 'العينة',
   variables: 'المتغيرات أو المفاهيم',
+  sections: 'محاور الأداة',
+  consentStatement: 'موافقة المشارك',
+  instructions: 'تعليمات الأداة',
   operationalDefinition: 'التعريف الإجرائي',
   strategy: 'استراتيجية العينة',
   inclusionCriteria: 'معايير الاشتمال',

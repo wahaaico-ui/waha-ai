@@ -77,6 +77,10 @@ function outputPreview(stage: WorkflowStage, output: WorkflowOutput | null) {
         ? cleanPreview((firstVariable as Record<string, unknown>).name)
         : null;
     }
+    case 'instrument': return cleanPreview(output.title) || (() => {
+      const firstSection = Array.isArray(output.sections) ? output.sections[0] : null;
+      return firstSection && typeof firstSection === 'object' ? cleanPreview((firstSection as Record<string, unknown>).title) : null;
+    })();
     case 'literature': {
       const firstPaper = Array.isArray(output.papers) ? output.papers[0] : null;
       return firstPaper && typeof firstPaper === 'object'

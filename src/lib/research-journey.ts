@@ -1,6 +1,6 @@
 import type { ResearchConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
 
-export type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'literature' | 'analysis';
+export type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument' | 'literature' | 'analysis';
 
 export type ServerJourneyGate = {
   status: 'open' | 'needs_improvement' | 'locked';
@@ -73,6 +73,7 @@ export const JOURNEY_STAGES: Array<{ id: JourneyStage; title: string; href: stri
   { id: 'hypotheses', title: 'الفرضيات', href: '/research/hypotheses' },
   { id: 'methodology', title: 'المنهجية', href: '/research/methodology' },
   { id: 'design', title: 'تصميم الدراسة', href: '/research/design' },
+  { id: 'instrument', title: 'أداة الدراسة', href: '/research/instrument' },
   { id: 'literature', title: 'الأدبيات', href: '/research/literature' },
   { id: 'analysis', title: 'التحليل', href: '/research/analysis' },
 ];

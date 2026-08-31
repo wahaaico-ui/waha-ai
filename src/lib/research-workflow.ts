@@ -1,6 +1,6 @@
 import { assessAcademicText, assessProblemDraft, firstAcademicTextIssue } from '@/lib/academic-content-quality';
 
-export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'literature', 'analysis'] as const;
+export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument', 'literature', 'analysis'] as const;
 
 export type WorkflowStage = (typeof WORKFLOW_STAGES)[number];
 export type WorkflowOutput = Record<string, unknown>;
@@ -65,6 +65,19 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
         && assessAcademicText(sample.strategy, { minChars: 15, minWords: 3, label: 'استراتيجية العينة' }).valid
         && assessAcademicText(sample.inclusionCriteria, { minChars: 20, minWords: 4, label: 'معايير الاشتمال' }).valid
         && assessAcademicText(sample.sizeRationale, { minChars: 20, minWords: 4, label: 'مبرر حجم العينة' }).valid;
+    }
+    case 'instrument': {
+      const sections = Array.isArray(output.sections) ? output.sections : [];
+      const consent = assessAcademicText(output.consentStatement, { minChars: 30, minWords: 5, label: 'نص الموافقة' }).valid;
+      const instructions = assessAcademicText(output.instructions, { minChars: 20, minWords: 4, label: 'تعليمات الاستبانة' }).valid;
+      return consent && instructions && sections.length >= 2 && sections.every((section) => {
+        if (!section || typeof section !== 'object' || Array.isArray(section)) return false;
+        const value = section as Record<string, unknown>;
+        const items = Array.isArray(value.items) ? value.items : [];
+        return asText(value.variableName).length >= 3 && asText(value.title).length >= 3 && items.length >= 3
+          && items.every((item) => item && typeof item === 'object' && !Array.isArray(item)
+            && assessAcademicText((item as Record<string, unknown>).text, { minChars: 12, minWords: 3, label: 'بند الاستبانة' }).valid);
+      });
     }
     case 'literature': return Array.isArray(output.papers) && output.papers.length >= 3;
     case 'analysis': return asText(output.introduction).length >= 20 && asText(output.conclusion).length >= 20;
@@ -133,6 +146,19 @@ function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<Workf
     if ((approach === 'quantitative' || approach === 'mixed') && !roles.some((role) => role === 'independent' || role === 'predictor')) return 'حدّد متغيراً مستقلاً أو متنبئاً واحداً على الأقل.';
     if ((approach === 'quantitative' || approach === 'mixed') && !roles.some((role) => role === 'dependent' || role === 'outcome')) return 'حدّد متغيراً تابعاً أو ناتجاً واحداً على الأقل.';
   }
+  if (stage === 'instrument') {
+    const variables = Array.isArray(outputs.design?.variables)
+      ? outputs.design.variables.flatMap((item) => item && typeof item === 'object' && !Array.isArray(item) ? [asText((item as Record<string, unknown>).name)] : []).filter(Boolean)
+      : [];
+    const sections = Array.isArray(outputs.instrument?.sections)
+      ? outputs.instrument.sections.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+      : [];
+    const covered = new Set(sections.map((section) => asText(section.variableName).toLocaleLowerCase('ar')));
+    const uncovered = variables.filter((variable) => !covered.has(variable.toLocaleLowerCase('ar')));
+    if (uncovered.length) return `أضف محوراً يقيس كل متغير معتمد. غير المغطى: ${uncovered.join('، ')}.`;
+    const itemTexts = sections.flatMap((section) => Array.isArray(section.items) ? section.items.flatMap((item) => item && typeof item === 'object' && !Array.isArray(item) ? [asText((item as Record<string, unknown>).text).toLocaleLowerCase('ar')] : []) : []).filter(Boolean);
+    if (new Set(itemTexts).size !== itemTexts.length) return 'توجد بنود مكررة في الاستبانة. اجعل كل بند يقيس جانباً واحداً واضحاً.';
+  }
   if (stage === 'literature') {
     const papers = outputs.literature?.papers;
     if (!Array.isArray(papers) || papers.some((paper) => !paper || typeof paper !== 'object' || !asText((paper as Record<string, unknown>).title))) return 'لا يمكن اعتماد الأدلة من دون عنوان واضح لكل دراسة مختارة.';
@@ -145,7 +171,7 @@ export function nextAllowedStage(outputs: Partial<Record<WorkflowStage, Workflow
 }
 
 export function stageLabel(stage: WorkflowStage) {
-  return ({ verify: 'استكشاف المسار', title: 'العنوان', problem: 'مشكلة البحث والفجوة', objectives: 'الأهداف', questions: 'الأسئلة', hypotheses: 'الفرضيات', methodology: 'المنهجية', design: 'تصميم الدراسة', literature: 'الأدلة والأدبيات', analysis: 'التحليل' })[stage];
+  return ({ verify: 'استكشاف المسار', title: 'العنوان', problem: 'مشكلة البحث والفجوة', objectives: 'الأهداف', questions: 'الأسئلة', hypotheses: 'الفرضيات', methodology: 'المنهجية', design: 'تصميم الدراسة', instrument: 'أداة الدراسة', literature: 'الأدلة والأدبيات', analysis: 'التحليل' })[stage];
 }
 
 function requirementFor(stage: WorkflowStage) {
@@ -158,6 +184,7 @@ function requirementFor(stage: WorkflowStage) {
     hypotheses: 'حدّد إن كانت الدراسة تحتاج فرضيات. إن كانت مطلوبة، اعتمد فرضية قابلة للاختبار مقابل كل سؤال؛ وإن لم تكن، وثّق السبب المنهجي.',
     methodology: 'حدد المنهج ومجتمع الدراسة والعينة والأداة.',
     design: 'نظّم المتغيرات أو المفاهيم، وحدد مجتمع الدراسة واستراتيجية العينة ومعاييرها ومبرر حجمها.',
+    instrument: 'أنشئ استبانة تغطي جميع المتغيرات المعتمدة، بثلاثة بنود واضحة على الأقل لكل محور، ونص موافقة وتعليمات للمشارك.',
     literature: 'اختر ثلاث دراسات موثقة على الأقل.',
     analysis: 'أضف تأطيراً وخلاصة مبنيين على الدراسات المختارة.',
   })[stage];

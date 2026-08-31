@@ -4,7 +4,7 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import type { WorkflowStage } from '@/lib/research-workflow';
 import { assessProblemDraft } from '@/lib/academic-content-quality';
 
-const DRAFTABLE_STAGES = new Set<WorkflowStage>(['problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design']);
+const DRAFTABLE_STAGES = new Set<WorkflowStage>(['problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument']);
 
 function parseDocument(content: string | null) {
   if (!content) return null;
@@ -32,6 +32,7 @@ function stageInstructions(stage: WorkflowStage) {
   if (stage === 'questions') return 'أعد JSON فقط بالمفتاح questions وهو مصفوفة أسئلة عربية؛ سؤال واحد مقابل كل هدف وبالترتيب نفسه، وكل سؤال ينتهي بعلامة استفهام.';
   if (stage === 'hypotheses') return 'أعد JSON فقط بالمفاتيح mode وhypotheses وrationale. إذا كانت الأسئلة كمية أو تختبر علاقة/أثراً، اجعل mode="required" واكتب فرضية تقريرية قابلة للاختبار مقابل كل سؤال وبالترتيب. إذا كانت كلها نوعية استكشافية، اجعل mode="not_applicable" وhypotheses=[] واكتب مبرراً منهجياً واضحاً. لا تختلق نتائج.';
   if (stage === 'design') return 'أعد JSON فقط بالمفاتيح variables وpopulation وsample. variables مصفوفة من كائنات {name,role,operationalDefinition}؛ الأدوار المسموحة independent,dependent,predictor,outcome,control,concept. للدراسة الكمية أو المختلطة حدّد متغيراً مستقلاً/متنبئاً وتابعاً/ناتجاً على الأقل، وللنوعية استخدم concept. population كائن {description,location,timeframe}. sample كائن {strategy,inclusionCriteria,sizeRationale}. لا تختلق عدداً للعينة؛ اكتب كيف سيُحدّد وفق التصميم أو تحليل القدرة أو تشبع البيانات.';
+  if (stage === 'instrument') return 'أعد JSON فقط بالمفاتيح title وdescription وconsentStatement وinstructions وrespondentFields وsections. respondentFields مصفوفة اختيارية من {label,kind,required,options}، وkind إما short_text أو single_choice. أنشئ section مستقلاً لكل متغير محفوظ بالاسم نفسه تماماً: {title,variableName,description,items}. لكل محور 3-5 بنود أحادية المعنى، وitems هي {text,kind,required,options}، وkind أحد likert5,single_choice,multiple_choice,short_text,long_text. لا تذكر أن الأداة صادقة أو ثابتة؛ هي مسودة تحتاج تحكيم خبراء وتجربة استطلاعية.';
   return 'أعد JSON فقط بالمفاتيح approach وpopulation وsample وinstrument. اقترح منهجاً متسقاً مع الأسئلة، وحدد مجتمعاً وعينة وأداة بصياغة قابلة للمراجعة. لا تختر حجماً رقمياً للعينة دون بيانات حساب القوة.';
 }
 

@@ -26,16 +26,17 @@ export async function POST(request: Request) {
       .from('documents')
       .select('type, content, created_at')
       .eq('project_id', projectId)
-      .in('type', ['journey:verify', 'journey:title', 'journey:methodology', 'journey:design'])
+      .in('type', ['journey:verify', 'journey:title', 'journey:methodology', 'journey:design', 'journey:instrument'])
       .order('created_at', { ascending: false });
     if (error) throw error;
     const latest = (type: string) => parseDocument((documents || []).find((document) => document.type === type)?.content || null);
     const titleOutput = latest('journey:title');
     const methodologyOutput = latest('journey:methodology');
     const designOutput = latest('journey:design');
+    const instrumentOutput = latest('journey:instrument');
     const verificationOutput = latest('journey:verify');
     const title = typeof titleOutput?.title === 'string' ? titleOutput.title.trim() : '';
-    if (title.length < 10 || !methodologyOutput || !designOutput) return NextResponse.json({ success: false, error: 'اعتمد العنوان والمنهجية وتصميم الدراسة داخل المشروع قبل البحث في الأدبيات.' }, { status: 409 });
+    if (title.length < 10 || !methodologyOutput || !designOutput || !instrumentOutput) return NextResponse.json({ success: false, error: 'اعتمد العنوان والمنهجية وتصميم الدراسة وأداة الدراسة داخل المشروع قبل البحث في الأدبيات.' }, { status: 409 });
 
     const selectedPath = verificationOutput?.selectedResearchPath && typeof verificationOutput.selectedResearchPath === 'object'
       ? verificationOutput.selectedResearchPath as Record<string, unknown> : null;

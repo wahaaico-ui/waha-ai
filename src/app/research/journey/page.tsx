@@ -23,6 +23,7 @@ function outputPreview(stage: JourneyStage, output: Record<string, unknown> | un
       : Array.isArray(output.hypotheses) ? output.hypotheses : [],
     methodology: [output.population, output.sample, output.instrument],
     design: Array.isArray(output.variables) ? output.variables.map((item) => item && typeof item === 'object' ? (item as Record<string, unknown>).name : '') : [],
+    instrument: [output.title, ...(Array.isArray(output.sections) ? output.sections.map((item) => item && typeof item === 'object' ? (item as Record<string, unknown>).title : '') : [])],
     literature: Array.isArray(output.papers) ? output.papers.map((paper) => paper && typeof paper === 'object' ? (paper as Record<string, unknown>).title : '') : [],
     analysis: [output.conclusion, output.thematicSynthesis],
   };
