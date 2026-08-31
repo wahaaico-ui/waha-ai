@@ -1,5 +1,6 @@
 import type {
   GapObject,
+  HypothesisObject,
   JourneyDocumentSnapshot,
   MethodologyObject,
   ObjectiveObject,
@@ -14,11 +15,12 @@ import type {
 const PROBLEM_DOCUMENT_TYPE = 'journey:problem';
 const OBJECTIVES_DOCUMENT_TYPE = 'journey:objectives';
 const QUESTIONS_DOCUMENT_TYPE = 'journey:questions';
+const HYPOTHESES_DOCUMENT_TYPE = 'journey:hypotheses';
 const METHODOLOGY_DOCUMENT_TYPE = 'journey:methodology';
 const MAX_OBJECTIVES = 50;
 const MAX_QUESTIONS = 50;
 
-function objectId(projectId: string, type: 'problem' | 'gap' | 'objective' | 'question' | 'methodology', index?: number) {
+function objectId(projectId: string, type: 'problem' | 'gap' | 'objective' | 'question' | 'hypothesis' | 'methodology', index?: number) {
   return index === undefined
     ? `project:${projectId}:${type}`
     : `project:${projectId}:${type}:${index + 1}`;
@@ -321,6 +323,54 @@ export function createResearchObjectView(
           questionsDocument.id,
           'عدد الأسئلة المحفوظة لا يطابق عدد الأهداف المعتمدة.',
         ));
+      }
+    }
+  }
+
+  const hypothesesDocument = latestDocument(documents, HYPOTHESES_DOCUMENT_TYPE);
+  if (hypothesesDocument) {
+    const content = parseContent(hypothesesDocument);
+    if (!content) {
+      warnings.push(warning('invalid_document_content', hypothesesDocument.id, 'تعذر قراءة محتوى وثيقة الفرضيات المحفوظة.'));
+    } else {
+      const mode = content.mode === 'not_applicable' ? 'not_applicable' : 'required';
+      const hypotheses = mode === 'required' && Array.isArray(content.hypotheses)
+        ? content.hypotheses.slice(0, MAX_QUESTIONS).map((value, sourceIndex) => ({ statement: text(value), sourceIndex })).filter((item) => item.statement)
+        : [];
+      if (mode === 'required' && !hypotheses.length) {
+        warnings.push(warning('invalid_hypotheses', hypothesesDocument.id, 'تم اختيار بناء فرضيات، لكن الوثيقة لا تحتوي فرضيات قابلة للقراءة.'));
+      }
+      for (const value of hypotheses) {
+        const question = questionObjects.find((item) => item.content.orderIndex === value.sourceIndex) ?? null;
+        const hypothesis: HypothesisObject = {
+          id: objectId(projectId, 'hypothesis', value.sourceIndex),
+          type: 'hypothesis',
+          projectId,
+          content: { statement: value.statement, orderIndex: value.sourceIndex, questionId: question?.id ?? null },
+          knowledgeType: 'general_unverified',
+          knowledgeRationale: 'فرضية معتمدة في المشروع ولم يُفحص اتساقها مع السؤال المقابل خارج هذه الطبقة.',
+          origin: 'unknown',
+          status: 'accepted',
+          consistencyStatus: 'not_checked',
+          source: sourceReference(hypothesesDocument, `hypotheses[${value.sourceIndex}]`),
+        };
+        objects.push(hypothesis);
+        if (question) relationships.push({
+          id: relationshipId(hypothesis.id, 'tests', question.id),
+          fromId: hypothesis.id,
+          toId: question.id,
+          relationType: 'tests',
+          status: 'unvalidated',
+          derived: true,
+          derivation: 'same_project_sequence',
+          knowledgeType: 'inference',
+          consistencyStatus: 'not_checked',
+        });
+      }
+      if (mode === 'required' && hypotheses.length && !questionObjects.length) {
+        warnings.push(warning('hypotheses_without_questions', hypothesesDocument.id, 'تمت قراءة الفرضيات، لكن لا توجد أسئلة صالحة لربطها بها.'));
+      } else if (mode === 'required' && hypotheses.length !== questionObjects.length) {
+        warnings.push(warning('hypothesis_question_count_mismatch', hypothesesDocument.id, 'عدد الفرضيات لا يطابق عدد الأسئلة المعتمدة.'));
       }
     }
   }

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useProjectId } from '@/lib/use-project-id';
 
-// The 6 phases of the Waha research journey
+// The active phases of the WAHA research journey.
 export const JOURNEY_PHASES = [
   { id: "verify",     labelAr: "الاستكشاف", labelEn: "Explore",    href: "/verify-idea", enabled: true  },
   { id: "title",      labelAr: "العنوان",   labelEn: "Title",      href: "/research",    enabled: true  },
   { id: "problem",    labelAr: "المشكلة",   labelEn: "Problem",    href: "/research/problem", enabled: true  },
   { id: "objectives", labelAr: "الأهداف",   labelEn: "Objectives", href: "/research/objectives", enabled: true  },
   { id: "questions",  labelAr: "الأسئلة",   labelEn: "Questions",  href: "/research/questions", enabled: true  },
+  { id: "hypotheses", labelAr: "الفرضيات",  labelEn: "Hypotheses", href: "/research/hypotheses", enabled: true  },
   { id: "method",     labelAr: "المنهجية",  labelEn: "Method",     href: "/research/methodology", enabled: true  },
   { id: "literature", labelAr: "الأدبيات",  labelEn: "Literature", href: "/research/literature", enabled: true  },
   { id: "analysis",   labelAr: "التحليل",   labelEn: "Analysis",   href: "/research/analysis", enabled: true  },

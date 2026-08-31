@@ -1,6 +1,6 @@
 import { assessAcademicText, assessProblemDraft, firstAcademicTextIssue } from '@/lib/academic-content-quality';
 
-export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'methodology', 'literature', 'analysis'] as const;
+export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'literature', 'analysis'] as const;
 
 export type WorkflowStage = (typeof WORKFLOW_STAGES)[number];
 export type WorkflowOutput = Record<string, unknown>;
@@ -45,6 +45,10 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
     }).valid;
     case 'objectives': return !firstAcademicTextIssue(output.objectives, { minChars: 25, minWords: 5, label: 'الهدف' }, 2);
     case 'questions': return !firstAcademicTextIssue(output.questions, { minChars: 20, minWords: 5, label: 'السؤال', requireQuestion: true }, 2);
+    case 'hypotheses': {
+      if (output.mode === 'not_applicable') return assessAcademicText(output.rationale, { minChars: 30, minWords: 5, label: 'مبرر عدم استخدام الفرضيات' }).valid;
+      return output.mode === 'required' && !firstAcademicTextIssue(output.hypotheses, { minChars: 20, minWords: 5, label: 'الفرضية' }, 1);
+    }
     case 'methodology': {
       const fields = { population: 'مجتمع الدراسة', sample: 'العينة', instrument: 'أداة جمع البيانات' } as const;
       return Boolean(asText(output.approach)) && Object.entries(fields).every(([key, label]) => assessAcademicText(output[key], { minChars: 20, minWords: 4, label }).valid);
@@ -92,6 +96,14 @@ function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<Workf
     const questions = asList(outputs.questions?.questions, 15);
     if (objectives.length !== questions.length) return 'يجب أن يقابل كل هدف سؤال بحث واحد واضح على الأقل.';
   }
+  if (stage === 'hypotheses') {
+    const questions = asList(outputs.questions?.questions, 15);
+    if (outputs.hypotheses?.mode === 'required') {
+      const hypotheses = asList(outputs.hypotheses?.hypotheses, 15);
+      if (hypotheses.length !== questions.length) return 'يجب أن تقابل كل سؤال فرضية واحدة، أو توثّق لماذا لا تتطلب طبيعة الدراسة فرضيات.';
+      if (hypotheses.some((item) => /[؟?]\s*$/u.test(item))) return 'الفرضية عبارة تقريرية قابلة للاختبار وليست سؤالاً.';
+    }
+  }
   if (stage === 'methodology') {
     const approach = asText(outputs.methodology?.approach).toLowerCase();
     const instrument = asText(outputs.methodology?.instrument);
@@ -110,7 +122,7 @@ export function nextAllowedStage(outputs: Partial<Record<WorkflowStage, Workflow
 }
 
 export function stageLabel(stage: WorkflowStage) {
-  return ({ verify: 'استكشاف المسار', title: 'العنوان', problem: 'مشكلة البحث والفجوة', objectives: 'الأهداف', questions: 'الأسئلة', methodology: 'المنهجية', literature: 'الأدلة والأدبيات', analysis: 'التحليل' })[stage];
+  return ({ verify: 'استكشاف المسار', title: 'العنوان', problem: 'مشكلة البحث والفجوة', objectives: 'الأهداف', questions: 'الأسئلة', hypotheses: 'الفرضيات', methodology: 'المنهجية', literature: 'الأدلة والأدبيات', analysis: 'التحليل' })[stage];
 }
 
 function requirementFor(stage: WorkflowStage) {
@@ -120,6 +132,7 @@ function requirementFor(stage: WorkflowStage) {
     problem: 'راجع مسودة المشكلة والفجوة وسبب اهتمامك. لا تُقبل الأحرف المتكررة أو الجمل غير المفهومة.',
     objectives: 'اعتمد هدفين محددين ومفهومين على الأقل، يوضح كل منهما ما الذي سيفحصه البحث.',
     questions: 'اعتمد سؤالاً بحثياً واضحاً ومفهوماً مقابل كل هدف.',
+    hypotheses: 'حدّد إن كانت الدراسة تحتاج فرضيات. إن كانت مطلوبة، اعتمد فرضية قابلة للاختبار مقابل كل سؤال؛ وإن لم تكن، وثّق السبب المنهجي.',
     methodology: 'حدد المنهج ومجتمع الدراسة والعينة والأداة.',
     literature: 'اختر ثلاث دراسات موثقة على الأقل.',
     analysis: 'أضف تأطيراً وخلاصة مبنيين على الدراسات المختارة.',

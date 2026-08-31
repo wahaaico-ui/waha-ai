@@ -8,7 +8,7 @@ import { useWahaLanguage } from '@/lib/use-language';
 import { useAuthSession } from '@/components/AuthSessionProvider';
 import { ArrowLeft, CheckCircle2, Clock3, Mail } from 'lucide-react';
 
-type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'methodology' | 'literature' | 'analysis';
+type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'literature' | 'analysis';
 
 
 interface HistoryRow {
@@ -119,6 +119,7 @@ const STAGE_COPY: Record<JourneyStage, { ar: string; en: string; href: string }>
   problem: { ar: 'المشكلة والفجوة', en: 'Problem and gap', href: '/research/problem' },
   objectives: { ar: 'الأهداف', en: 'Objectives', href: '/research/objectives' },
   questions: { ar: 'الأسئلة', en: 'Questions', href: '/research/questions' },
+  hypotheses: { ar: 'الفرضيات', en: 'Hypotheses', href: '/research/hypotheses' },
   methodology: { ar: 'المنهجية', en: 'Methodology', href: '/research/methodology' },
   literature: { ar: 'الأدلة والأدبيات', en: 'Evidence and literature', href: '/research/literature' },
   analysis: { ar: 'التحليل', en: 'Analysis', href: '/research/analysis' },

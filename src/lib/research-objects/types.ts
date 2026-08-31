@@ -1,4 +1,4 @@
-export const RESEARCH_OBJECT_TYPES = ['problem', 'gap', 'objective', 'question', 'methodology'] as const;
+export const RESEARCH_OBJECT_TYPES = ['problem', 'gap', 'objective', 'question', 'hypothesis', 'methodology'] as const;
 
 export type ResearchObjectType = (typeof RESEARCH_OBJECT_TYPES)[number];
 
@@ -62,6 +62,12 @@ export type QuestionObject = ResearchObjectBase<'question', {
   objectiveId: string | null;
 }>;
 
+export type HypothesisObject = ResearchObjectBase<'hypothesis', {
+  statement: string;
+  orderIndex: number;
+  questionId: string | null;
+}>;
+
 export type MethodologyObject = ResearchObjectBase<'methodology', {
   approach: string;
   population: string;
@@ -69,13 +75,13 @@ export type MethodologyObject = ResearchObjectBase<'methodology', {
   instrument: string;
 }>;
 
-export type ResearchObject = ProblemObject | GapObject | ObjectiveObject | QuestionObject | MethodologyObject;
+export type ResearchObject = ProblemObject | GapObject | ObjectiveObject | QuestionObject | HypothesisObject | MethodologyObject;
 
 export type ResearchObjectRelationship = {
   id: string;
   fromId: string;
   toId: string;
-  relationType: 'addresses' | 'derived_from' | 'operationalizes' | 'designed_to_answer';
+  relationType: 'addresses' | 'derived_from' | 'operationalizes' | 'tests' | 'designed_to_answer';
   status: 'unvalidated';
   derived: true;
   derivation: 'same_project_sequence' | 'nested_source_field';
@@ -135,6 +141,30 @@ export type QuestionMethodologyValidationResult = ValidationResultBase<'question
   matchedPopulationConcepts: string[];
 };
 
+export type QuestionHypothesisValidationResult = ValidationResultBase<'question_hypothesis_consistency'> & {
+  questionId: string;
+  hypothesisId: string | null;
+  dimensions: { alignment: number; testability: number; statementForm: number };
+  matchedConcepts: string[];
+};
+
+export type QuestionsHypothesesConsistencyReport = {
+  checkType: 'question_hypothesis_consistency';
+  formulaVersion: string;
+  knowledgeType: 'inference';
+  projectId: string;
+  mode: 'required' | 'not_applicable' | 'missing';
+  questionIds: string[];
+  hypothesisIds: string[];
+  overallScore: number;
+  coverageScore: number;
+  status: 'passed' | 'warning' | 'failed';
+  summary: string;
+  results: QuestionHypothesisValidationResult[];
+  issues: string[];
+  checkedAt: string;
+};
+
 export type ProblemObjectivesConsistencyReport = {
   checkType: 'problem_objective_consistency';
   formulaVersion: string;
@@ -190,6 +220,7 @@ export type QuestionsMethodologyConsistencyReport = {
 export type ResearchConsistencyReport =
   | ProblemObjectivesConsistencyReport
   | ObjectivesQuestionsConsistencyReport
+  | QuestionsHypothesesConsistencyReport
   | QuestionsMethodologyConsistencyReport;
 
 export type ResearchObjectViewWarning = {
@@ -202,6 +233,9 @@ export type ResearchObjectViewWarning = {
     | 'invalid_questions'
     | 'questions_without_objectives'
     | 'question_objective_count_mismatch'
+    | 'invalid_hypotheses'
+    | 'hypotheses_without_questions'
+    | 'hypothesis_question_count_mismatch'
     | 'invalid_methodology'
     | 'methodology_without_questions';
   documentId: string | null;
@@ -216,6 +250,7 @@ export type ResearchObjectView = {
     ValidationResultBase<
       'problem_objective_consistency'
       | 'objective_question_consistency'
+      | 'question_hypothesis_consistency'
       | 'question_methodology_consistency'
     >
   >;

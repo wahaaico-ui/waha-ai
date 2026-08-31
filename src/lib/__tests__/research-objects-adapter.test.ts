@@ -184,6 +184,34 @@ describe('createResearchObjectView', () => {
     expect(result.validationResults).toEqual([]);
   });
 
+  test('maps hypotheses and links each one to its corresponding question', () => {
+    const result = createResearchObjectView(projectId, [
+      snapshot({
+        id: 'questions-v1',
+        type: 'journey:questions',
+        content: { questions: ['ما أثر المنصة الرقمية على تحصيل طلبة التمريض؟'] },
+      }),
+      snapshot({
+        id: 'hypotheses-v1',
+        type: 'journey:hypotheses',
+        content: {
+          mode: 'required',
+          hypotheses: ['يوجد أثر للمنصة الرقمية على تحصيل طلبة التمريض.'],
+          rationale: '',
+        },
+      }),
+    ]);
+
+    const hypothesis = result.objects.find((item) => item.type === 'hypothesis');
+    const question = result.objects.find((item) => item.type === 'question');
+    expect(hypothesis?.content.questionId).toBe(question?.id);
+    expect(result.relationships).toContainEqual(expect.objectContaining({
+      fromId: hypothesis?.id,
+      toId: question?.id,
+      relationType: 'tests',
+    }));
+  });
+
   test('ignores records owned by another project and reports malformed selected records', () => {
     const result = createResearchObjectView(projectId, [
       snapshot({

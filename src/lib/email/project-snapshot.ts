@@ -8,6 +8,7 @@ const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   problem: { ar: 'المشكلة والفجوة', en: 'Problem and gap' },
   objectives: { ar: 'الأهداف', en: 'Objectives' },
   questions: { ar: 'الأسئلة', en: 'Questions' },
+  hypotheses: { ar: 'قرار الفرضيات', en: 'Hypotheses decision' },
   methodology: { ar: 'المنهجية', en: 'Methodology' },
   literature: { ar: 'الأدلة والأدبيات', en: 'Evidence and literature' },
   analysis: { ar: 'التحليل', en: 'Analysis' },
@@ -23,6 +24,7 @@ const FIELD_LABELS: Record<string, string> = {
   objectives: 'الأهداف',
   questions: 'الأسئلة',
   hypotheses: 'الفرضيات',
+  mode: 'قرار استخدام الفرضيات',
   approach: 'المنهج',
   population: 'مجتمع الدراسة',
   sample: 'العينة',
@@ -129,4 +131,3 @@ export function buildProjectSnapshotEmail(input: ProjectSnapshotEmailInput) {
     html: `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#f8fafc;color:#10213c;font-family:Arial,sans-serif"><div style="max-width:680px;margin:0 auto;padding:32px 18px"><div style="background:#0b2551;color:#fff;border-radius:20px;padding:24px"><div style="font-size:22px;font-weight:800">WAHA AI</div><p style="margin:10px 0 0;color:#dbeafe">نسختك البحثية المحفوظة</p></div><div style="background:#fff;border:1px solid #dbe3ef;border-radius:20px;margin-top:16px;padding:24px"><h1 style="font-size:22px;margin:0 0 16px">مرحباً ${escapeHtml(name)}</h1><p style="line-height:1.9">هذه نسخة من آخر مخرج محفوظ في رحلتك البحثية.</p><div style="background:#eff6ff;border-radius:14px;padding:16px;line-height:1.9"><strong>المشروع:</strong> ${escapeHtml(projectTitle)}<br /><strong>المرحلة:</strong> ${escapeHtml(stageLabel)}<br /><strong>رقم النسخة:</strong> ${input.version}<br /><strong>تاريخ الحفظ:</strong> ${escapeHtml(savedAt)}</div><div style="margin-top:18px;border:1px solid #e2e8f0;border-radius:14px;padding:18px;line-height:1.9;white-space:normal">${htmlContent}</div><a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;margin-top:20px;background:#2563eb;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700">متابعة المشروع</a><p style="margin-top:22px;color:#64748b;font-size:12px;line-height:1.7">أُرسلت هذه الرسالة بناءً على طلبك من داخل حسابك في WAHA. لا تشاركها إذا كانت تحتوي على مادة بحثية خاصة.</p></div></div></body></html>`,
   };
 }
-

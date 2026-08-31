@@ -5,6 +5,7 @@ import {
   createResearchObjectView,
   evaluateObjectivesQuestionsConsistency,
   evaluateProblemObjectivesConsistency,
+  evaluateQuestionsHypothesesConsistency,
   evaluateQuestionsMethodologyConsistency,
 } from '@/lib/research-objects';
 import type {
@@ -50,7 +51,7 @@ async function readJourney(projectId: string, supabase: SupabaseClient) {
 function evaluateConsistencyCandidate(
   projectId: string,
   documents: StoredDocument[],
-  stage: 'objectives' | 'questions' | 'methodology',
+  stage: 'objectives' | 'questions' | 'hypotheses' | 'methodology',
   serializedContent: string,
   version: number,
 ): ConsistencyEvaluation {
@@ -63,12 +64,18 @@ function evaluateConsistencyCandidate(
     created_at: new Date().toISOString(),
   };
   const objectView = createResearchObjectView(projectId, [...documents, candidateDocument]);
+  const parsedCandidate = parseOutput(serializedContent);
   return {
     report: stage === 'objectives'
       ? evaluateProblemObjectivesConsistency(objectView)
       : stage === 'questions'
         ? evaluateObjectivesQuestionsConsistency(objectView)
-        : evaluateQuestionsMethodologyConsistency(objectView),
+        : stage === 'hypotheses'
+          ? evaluateQuestionsHypothesesConsistency(objectView, {
+            mode: parsedCandidate?.mode === 'not_applicable' ? 'not_applicable' : 'required',
+            rationale: typeof parsedCandidate?.rationale === 'string' ? parsedCandidate.rationale : '',
+          })
+          : evaluateQuestionsMethodologyConsistency(objectView),
     warnings: objectView.warnings,
   };
 }
@@ -128,7 +135,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     }
     const versions = documents.filter((item) => item.type === `journey:${stage}`).map((item) => item.version || 0);
     const version = Math.max(0, ...versions) + 1;
-    const consistency = stage === 'objectives' || stage === 'questions' || stage === 'methodology'
+    const consistency = stage === 'objectives' || stage === 'questions' || stage === 'hypotheses' || stage === 'methodology'
       ? evaluateConsistencyCandidate(projectId, documents, stage, serialized, version)
       : null;
 

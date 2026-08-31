@@ -69,6 +69,7 @@ function outputPreview(stage: WorkflowStage, output: WorkflowOutput | null) {
     case 'problem': return cleanPreview(output.problemStatement) || cleanPreview(output.researchGap);
     case 'objectives': return firstText(output.objectives);
     case 'questions': return firstText(output.questions);
+    case 'hypotheses': return output.mode === 'not_applicable' ? cleanPreview(output.rationale) : firstText(output.hypotheses);
     case 'methodology': return cleanPreview(output.population) || cleanPreview(output.approach);
     case 'literature': {
       const firstPaper = Array.isArray(output.papers) ? output.papers[0] : null;

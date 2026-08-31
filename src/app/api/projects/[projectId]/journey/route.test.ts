@@ -218,8 +218,85 @@ describe('project journey authorization', () => {
     expect(decision.consistency.formulaVersion).toBe('objective-question-consistency/v1');
   });
 
+  test('POST blocks hypotheses that do not test the saved questions', async () => {
+    const documents = journeyDocuments({ includeObjectives: true, includeQuestions: true });
+    const readQuery = createJourneyReadQuery(documents);
+    accessForA.supabase.from.mockReturnValue(readQuery);
+    requireAuthenticatedUser.mockResolvedValue(accessForA);
+    ownsProject.mockResolvedValue(true);
+    const request = new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stage: 'hypotheses',
+        content: {
+          mode: 'required',
+          hypotheses: [
+            'توجد علاقة بين أسعار العقارات وحركة السياحة الساحلية في المدن الأوروبية.',
+            'يوجد أثر للمناخ على صادرات المحاصيل الزراعية في دول أمريكا الجنوبية.',
+          ],
+          rationale: '',
+        },
+      }),
+    });
+
+    const response = await POST(request, context);
+    const body = await response.json();
+
+    expect(response.status).toBe(422);
+    expect(body.consistency.checkType).toBe('question_hypothesis_consistency');
+    expect(body.consistency.status).toBe('failed');
+    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  test('POST saves aligned hypotheses and records their consistency formula', async () => {
+    const documents = journeyDocuments({ includeObjectives: true, includeQuestions: true });
+    const readQuery = createJourneyReadQuery(documents);
+    const stageInsert = jest.fn().mockResolvedValue({ error: null });
+    const decisionInsert = jest.fn().mockResolvedValue({ error: null });
+    const updateQuery = { update: jest.fn(), eq: jest.fn() };
+    updateQuery.update.mockReturnValue(updateQuery);
+    updateQuery.eq.mockReturnValueOnce(updateQuery).mockResolvedValueOnce({ error: null });
+    let documentCall = 0;
+    accessForA.supabase.from.mockImplementation((table: string) => {
+      if (table === 'documents') {
+        documentCall += 1;
+        if (documentCall === 1) return readQuery;
+        if (documentCall === 2) return { insert: stageInsert };
+        return { insert: decisionInsert };
+      }
+      return updateQuery;
+    });
+    requireAuthenticatedUser.mockResolvedValue(accessForA);
+    ownsProject.mockResolvedValue(true);
+    const request = new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stage: 'hypotheses',
+        content: {
+          mode: 'required',
+          hypotheses: [
+            'يوجد أثر للتعلم الإلكتروني على تحصيل طلبة التمريض في الجامعات المحلية.',
+            'توجد علاقة بين التعلم الإلكتروني ودافعية طلبة التمريض في الجامعات المحلية.',
+          ],
+          rationale: '',
+        },
+      }),
+    });
+
+    const response = await POST(request, context);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.consistency.status).toBe('passed');
+    expect(stageInsert).toHaveBeenCalledTimes(1);
+    const decision = JSON.parse(decisionInsert.mock.calls[0][0].content);
+    expect(decision.consistency.formulaVersion).toBe('question-hypothesis-consistency/v1');
+  });
+
   test('POST blocks a methodology that cannot answer the saved questions before inserting', async () => {
-    const documents = journeyDocuments({ includeObjectives: true, includeQuestions: true, qualitativeQuestions: true });
+    const documents = journeyDocuments({ includeObjectives: true, includeQuestions: true, qualitativeQuestions: true, includeHypotheses: true, hypothesesNotApplicable: true });
     const readQuery = createJourneyReadQuery(documents);
     accessForA.supabase.from.mockReturnValue(readQuery);
     requireAuthenticatedUser.mockResolvedValue(accessForA);
@@ -248,7 +325,7 @@ describe('project journey authorization', () => {
   });
 
   test('POST saves a methodology warning and records the question-methodology formula', async () => {
-    const documents = journeyDocuments({ includeObjectives: true, includeQuestions: true });
+    const documents = journeyDocuments({ includeObjectives: true, includeQuestions: true, includeHypotheses: true });
     const readQuery = createJourneyReadQuery(documents);
     const stageInsert = jest.fn().mockResolvedValue({ error: null });
     const decisionInsert = jest.fn().mockResolvedValue({ error: null });
@@ -313,6 +390,8 @@ function journeyDocuments(options: {
   similarObjectives?: boolean;
   includeQuestions?: boolean;
   qualitativeQuestions?: boolean;
+  includeHypotheses?: boolean;
+  hypothesesNotApplicable?: boolean;
 } = {}) {
   const base = {
     project_id: 'project-owned-by-b',
@@ -373,6 +452,23 @@ function journeyDocuments(options: {
           'ما أثر التعلم الإلكتروني على تحصيل طلبة التمريض في الجامعات المحلية؟',
           'ما العلاقة بين التعلم الإلكتروني ودافعية طلبة التمريض في الجامعات المحلية؟',
         ],
+      }),
+    }] : []),
+    ...(options.includeHypotheses ? [{
+      ...base,
+      id: 'hypotheses-1',
+      type: 'journey:hypotheses',
+      content: JSON.stringify(options.hypothesesNotApplicable ? {
+        mode: 'not_applicable',
+        hypotheses: [],
+        rationale: 'الدراسة نوعية استكشافية وتركز على فهم الخبرات والتصورات دون اختبار علاقات كمية مسبقة.',
+      } : {
+        mode: 'required',
+        hypotheses: [
+          'يوجد أثر للتعلم الإلكتروني على تحصيل طلبة التمريض في الجامعات المحلية.',
+          'توجد علاقة بين التعلم الإلكتروني ودافعية طلبة التمريض في الجامعات المحلية.',
+        ],
+        rationale: '',
       }),
     }] : []),
   ];

@@ -13,6 +13,7 @@ import type { QuestionsMethodologyConsistencyReport, ResearchObjectViewWarning }
 import { useProjectId } from '@/lib/use-project-id';
 
 type Methodology = { approach: string; population: string; sample: string; instrument: string };
+type HypothesesDecision = { mode: 'required' | 'not_applicable'; hypotheses: string[]; rationale: string };
 const EMPTY_METHOD: Methodology = { approach: '', population: '', sample: '', instrument: '' };
 
 type ConsistencyResponse = {
@@ -53,6 +54,8 @@ export default function ResearchMethodologyPage() {
   const [loadError, setLoadError] = useState('');
   const [questions, setQuestions] = useState<string[]>([]);
   const [questionsReady, setQuestionsReady] = useState(false);
+  const [hypothesesReady, setHypothesesReady] = useState(false);
+  const [hypothesesDecision, setHypothesesDecision] = useState<HypothesesDecision | null>(null);
   const [methodology, setMethodology] = useState<Methodology>(EMPTY_METHOD);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
@@ -83,6 +86,17 @@ export default function ResearchMethodologyPage() {
         const savedQuestions = journey.outputs.questions?.questions;
         setQuestions(Array.isArray(savedQuestions) ? savedQuestions.filter((item): item is string => typeof item === 'string') : []);
         setQuestionsReady(stageComplete('questions', journey.outputs.questions));
+        const savedHypotheses = journey.outputs.hypotheses;
+        setHypothesesReady(stageComplete('hypotheses', savedHypotheses));
+        if (savedHypotheses) {
+          setHypothesesDecision({
+            mode: savedHypotheses.mode === 'not_applicable' ? 'not_applicable' : 'required',
+            hypotheses: Array.isArray(savedHypotheses.hypotheses)
+              ? savedHypotheses.hypotheses.filter((item): item is string => typeof item === 'string')
+              : [],
+            rationale: typeof savedHypotheses.rationale === 'string' ? savedHypotheses.rationale : '',
+          });
+        }
         const savedMethod = journey.outputs.methodology;
         if (savedMethod && typeof savedMethod === 'object') {
           setMethodology({
@@ -116,7 +130,7 @@ export default function ResearchMethodologyPage() {
   }, [projectId]);
 
   const issue = useMemo(() => compatibilityIssue(methodology), [methodology]);
-  const canSave = questions.length >= 2 && Boolean(methodology.approach) && methodology.population.trim().length >= 10 && methodology.sample.trim().length >= 10 && methodology.instrument.trim().length >= 10 && !issue;
+  const canSave = questions.length >= 2 && hypothesesReady && Boolean(methodology.approach) && methodology.population.trim().length >= 10 && methodology.sample.trim().length >= 10 && methodology.instrument.trim().length >= 10 && !issue;
   const markEdited = () => {
     setStatus('idle');
     setConsistencyStatus((current) => current === 'ready' ? 'stale' : current);
@@ -160,12 +174,13 @@ export default function ResearchMethodologyPage() {
   };
 
   return <div dir="rtl" className="min-h-screen bg-[#F8FAFC] pb-20 text-slate-950"><SiteHeader /><JourneyProgress current="method" lang="ar" /><main className="mx-auto max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
-    <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8"><div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 6 · المنهجية</div><h1 className="mt-4 text-3xl font-black">صمّم طريقة الإجابة عن الأسئلة</h1><p className="mt-3 text-sm leading-7 text-slate-600">نساعدك في اتساق التصميم ومجتمع الدراسة والعينة والأداة. لا تنفّذ الواحة التحليل الإحصائي ولا تدّعي نتائج لم تُجمع.</p></header>
+    <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8"><div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 7 · المنهجية</div><h1 className="mt-4 text-3xl font-black">صمّم طريقة الإجابة عن الأسئلة</h1><p className="mt-3 text-sm leading-7 text-slate-600">نساعدك في اتساق التصميم ومجتمع الدراسة والعينة والأداة مع الأسئلة وقرار الفرضيات. لا تنفّذ الواحة التحليل الإحصائي ولا تدّعي نتائج لم تُجمع.</p></header>
     {loading ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">جارٍ تحميل الأسئلة المعتمدة…</section>
     : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
     : loadError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{loadError}</section>
     : !questionsReady || questions.length < 2 ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة المنهجية مغلقة</h2><p className="mt-3 text-sm leading-7 text-amber-900">أسئلة البحث المحفوظة لم تجتز فحص الوضوح والاتساق مع الأهداف.</p><Link href={`/research/questions?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">مراجعة الأسئلة</Link></section>
-    : <><section className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">الأسئلة المعتمدة من سجل المشروع</div><ol className="mt-3 space-y-2 text-sm leading-7 text-emerald-950">{questions.map((question, index) => <li className="break-words [overflow-wrap:anywhere]" key={`${index}-${question}`}><strong>{index + 1}.</strong> {question}</li>)}</ol></section>
+    : !hypothesesReady ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">اعتمد قرار الفرضيات أولاً</h2><p className="mt-3 text-sm leading-7 text-amber-900">لا نختار المنهج قبل تحديد ما إذا كانت الأسئلة تحتاج فرضيات قابلة للاختبار أو توثيق سبب عدم استخدامها.</p><Link href={`/research/hypotheses?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">مراجعة الفرضيات</Link></section>
+    : <><section className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">الأسئلة وقرار الفرضيات من سجل المشروع</div><ol className="mt-3 space-y-2 text-sm leading-7 text-emerald-950">{questions.map((question, index) => <li className="break-words [overflow-wrap:anywhere]" key={`${index}-${question}`}><strong>{index + 1}.</strong> {question}{hypothesesDecision?.mode === 'required' && hypothesesDecision.hypotheses[index] ? <span className="mt-1 block text-xs text-emerald-800">الفرضية: {hypothesesDecision.hypotheses[index]}</span> : null}</li>)}</ol>{hypothesesDecision?.mode === 'not_applicable' ? <p className="mt-4 rounded-xl border border-emerald-200 bg-white/70 p-3 text-xs leading-6 text-emerald-900"><strong>قرار موثق:</strong> لا تتطلب الدراسة فرضيات — {hypothesesDecision.rationale}</p> : null}</section>
       <ResearchDraftAssistant projectId={projectId} stage="methodology" onDraft={(draft) => {
         setMethodology((current) => ({
           approach: typeof draft.approach === 'string' && APPROACHES.some((item) => item.value === draft.approach) ? draft.approach : current.approach,

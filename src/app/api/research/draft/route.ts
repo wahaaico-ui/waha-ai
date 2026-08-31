@@ -4,7 +4,7 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import type { WorkflowStage } from '@/lib/research-workflow';
 import { assessProblemDraft } from '@/lib/academic-content-quality';
 
-const DRAFTABLE_STAGES = new Set<WorkflowStage>(['problem', 'objectives', 'questions', 'methodology']);
+const DRAFTABLE_STAGES = new Set<WorkflowStage>(['problem', 'objectives', 'questions', 'hypotheses', 'methodology']);
 
 function parseDocument(content: string | null) {
   if (!content) return null;
@@ -30,6 +30,7 @@ function stageInstructions(stage: WorkflowStage) {
   if (stage === 'problem') return 'أعد JSON فقط بالمفتاحين problemStatement وresearchGap. اكتب مشكلة واضحة من 70-110 كلمات تشرح الواقع والنقص المعرفي، وفجوة محتملة من 40-70 كلمة مرتبطة مباشرة بالعنوان وبالأدلة المتاحة. استخدم صياغة متحفظة ولا تدّعِ غياب الدراسات قطعياً. لا تكتب سبباً شخصياً نيابة عن الباحث.';
   if (stage === 'objectives') return 'أعد JSON فقط بالمفتاح objectives وهو مصفوفة من 3 إلى 5 أهداف عربية محددة تبدأ بأفعال قابلة للفحص، وكل هدف مرتبط بالمشكلة والفجوة.';
   if (stage === 'questions') return 'أعد JSON فقط بالمفتاح questions وهو مصفوفة أسئلة عربية؛ سؤال واحد مقابل كل هدف وبالترتيب نفسه، وكل سؤال ينتهي بعلامة استفهام.';
+  if (stage === 'hypotheses') return 'أعد JSON فقط بالمفاتيح mode وhypotheses وrationale. إذا كانت الأسئلة كمية أو تختبر علاقة/أثراً، اجعل mode="required" واكتب فرضية تقريرية قابلة للاختبار مقابل كل سؤال وبالترتيب. إذا كانت كلها نوعية استكشافية، اجعل mode="not_applicable" وhypotheses=[] واكتب مبرراً منهجياً واضحاً. لا تختلق نتائج.';
   return 'أعد JSON فقط بالمفاتيح approach وpopulation وsample وinstrument. اقترح منهجاً متسقاً مع الأسئلة، وحدد مجتمعاً وعينة وأداة بصياغة قابلة للمراجعة. لا تختر حجماً رقمياً للعينة دون بيانات حساب القوة.';
 }
 
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       });
       if (!assessment.valid) return NextResponse.json({ error: assessment.reason || 'المسودة لا تجتاز فحص الجودة.' }, { status: 422 });
     }
-    return NextResponse.json({ success: true, stage, draft, notice: 'أعددنا المشكلة والفجوة من سجل مشروعك. راجعهما، ثم أضف سبب اهتمامك بكلماتك قبل الاعتماد.' });
+    return NextResponse.json({ success: true, stage, draft, notice: stage === 'hypotheses' ? 'اقترحنا قرار الفرضيات من طبيعة أسئلتك. راجعه مع مشرفك قبل الاعتماد.' : 'أعددنا مسودة من سجل مشروعك. راجعها وصححها قبل الاعتماد.' });
   } catch {
     return NextResponse.json({ error: 'تعذر إعداد المسودة الآن. حاول مجدداً بعد قليل.' }, { status: 500 });
   }
