@@ -27,6 +27,7 @@ test('literature API searches only after ownership and saved-stage checks', asyn
   const documents = [
     { type: 'journey:title', content: JSON.stringify({ title: 'Machine learning in academic education' }) },
     { type: 'journey:methodology', content: JSON.stringify({ approach: 'quantitative' }) },
+    { type: 'journey:design', content: JSON.stringify({ variables: [{ name: 'AI use', role: 'independent' }], population: { description: 'Graduate students' }, sample: { strategy: 'Stratified sample' } }) },
     { type: 'journey:verify', content: JSON.stringify({ translatedQuery: 'AI in education', specialty: 'education' }) },
   ];
   const chain = { select: jest.fn(), eq: jest.fn(), in: jest.fn(), order: jest.fn() };

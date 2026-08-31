@@ -8,7 +8,7 @@ import { useWahaLanguage } from '@/lib/use-language';
 import { useAuthSession } from '@/components/AuthSessionProvider';
 import { ArrowLeft, CheckCircle2, Clock3, Mail } from 'lucide-react';
 
-type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'literature' | 'analysis';
+type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'literature' | 'analysis';
 
 
 interface HistoryRow {
@@ -121,6 +121,7 @@ const STAGE_COPY: Record<JourneyStage, { ar: string; en: string; href: string }>
   questions: { ar: 'الأسئلة', en: 'Questions', href: '/research/questions' },
   hypotheses: { ar: 'الفرضيات', en: 'Hypotheses', href: '/research/hypotheses' },
   methodology: { ar: 'المنهجية', en: 'Methodology', href: '/research/methodology' },
+  design: { ar: 'تصميم الدراسة', en: 'Study design', href: '/research/design' },
   literature: { ar: 'الأدلة والأدبيات', en: 'Evidence and literature', href: '/research/literature' },
   analysis: { ar: 'التحليل', en: 'Analysis', href: '/research/analysis' },
 };
@@ -142,6 +143,7 @@ function projectStatus(status: string | null, lang: 'ar' | 'en') {
     objectives: { ar: 'تم اعتماد الأهداف', en: 'Objectives approved' },
     questions: { ar: 'تم اعتماد الأسئلة', en: 'Questions approved' },
     methodology: { ar: 'تم اعتماد المنهجية', en: 'Methodology approved' },
+    design: { ar: 'تم اعتماد تصميم الدراسة', en: 'Study design approved' },
     literature: { ar: 'تم اختيار الأدبيات', en: 'Literature selected' },
     analysis: { ar: 'اكتمل التحليل', en: 'Analysis complete' },
   };

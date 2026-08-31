@@ -212,6 +212,34 @@ describe('createResearchObjectView', () => {
     }));
   });
 
+  test('maps study design into variables, population and sample with explicit links', () => {
+    const result = createResearchObjectView(projectId, [
+      snapshot({
+        id: 'methodology-v1',
+        type: 'journey:methodology',
+        content: { approach: 'quantitative', population: 'طلبة الدراسات العليا في الجامعة.', sample: 'عينة طبقية عشوائية.', instrument: 'استبانة محكمة.' },
+      }),
+      snapshot({
+        id: 'design-v1',
+        type: 'journey:design',
+        content: {
+          variables: [
+            { name: 'استخدام المنصة', role: 'independent', operationalDefinition: 'درجة الاستخدام الفعلي للمنصة خلال الفصل الدراسي.' },
+            { name: 'التحصيل الأكاديمي', role: 'dependent', operationalDefinition: 'الدرجة النهائية المحققة في المقرر الأكاديمي.' },
+          ],
+          population: { description: 'طلبة الدراسات العليا المسجلون في الجامعة.', location: 'الجامعة المحلية', timeframe: 'الفصل الحالي' },
+          sample: { strategy: 'عينة طبقية عشوائية.', inclusionCriteria: 'الطلبة المسجلون والموافقون على المشاركة.', sizeRationale: 'يحدد الحجم بتحليل القدرة الإحصائية.' },
+        },
+      }),
+    ]);
+
+    expect(result.objects.filter((item) => item.type === 'variable')).toHaveLength(2);
+    expect(result.objects).toContainEqual(expect.objectContaining({ type: 'population' }));
+    expect(result.objects).toContainEqual(expect.objectContaining({ type: 'sample' }));
+    expect(result.relationships).toContainEqual(expect.objectContaining({ relationType: 'samples_from' }));
+    expect(result.warnings).not.toContainEqual(expect.objectContaining({ code: 'study_design_without_methodology' }));
+  });
+
   test('ignores records owned by another project and reports malformed selected records', () => {
     const result = createResearchObjectView(projectId, [
       snapshot({

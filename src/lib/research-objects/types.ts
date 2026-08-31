@@ -1,4 +1,4 @@
-export const RESEARCH_OBJECT_TYPES = ['problem', 'gap', 'objective', 'question', 'hypothesis', 'methodology'] as const;
+export const RESEARCH_OBJECT_TYPES = ['problem', 'gap', 'objective', 'question', 'hypothesis', 'methodology', 'variable', 'population', 'sample'] as const;
 
 export type ResearchObjectType = (typeof RESEARCH_OBJECT_TYPES)[number];
 
@@ -75,13 +75,32 @@ export type MethodologyObject = ResearchObjectBase<'methodology', {
   instrument: string;
 }>;
 
-export type ResearchObject = ProblemObject | GapObject | ObjectiveObject | QuestionObject | HypothesisObject | MethodologyObject;
+export type VariableObject = ResearchObjectBase<'variable', {
+  name: string;
+  role: string;
+  operationalDefinition: string;
+}>;
+
+export type PopulationObject = ResearchObjectBase<'population', {
+  description: string;
+  location: string;
+  timeframe: string;
+}>;
+
+export type SampleObject = ResearchObjectBase<'sample', {
+  strategy: string;
+  inclusionCriteria: string;
+  sizeRationale: string;
+  populationId: string;
+}>;
+
+export type ResearchObject = ProblemObject | GapObject | ObjectiveObject | QuestionObject | HypothesisObject | MethodologyObject | VariableObject | PopulationObject | SampleObject;
 
 export type ResearchObjectRelationship = {
   id: string;
   fromId: string;
   toId: string;
-  relationType: 'addresses' | 'derived_from' | 'operationalizes' | 'tests' | 'designed_to_answer';
+  relationType: 'addresses' | 'derived_from' | 'operationalizes' | 'tests' | 'designed_to_answer' | 'samples_from';
   status: 'unvalidated';
   derived: true;
   derivation: 'same_project_sequence' | 'nested_source_field';
@@ -237,7 +256,9 @@ export type ResearchObjectViewWarning = {
     | 'hypotheses_without_questions'
     | 'hypothesis_question_count_mismatch'
     | 'invalid_methodology'
-    | 'methodology_without_questions';
+    | 'methodology_without_questions'
+    | 'invalid_study_design'
+    | 'study_design_without_methodology';
   documentId: string | null;
   message: string;
 };

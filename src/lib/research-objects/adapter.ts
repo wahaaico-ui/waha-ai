@@ -6,6 +6,9 @@ import type {
   ObjectiveObject,
   ProblemObject,
   QuestionObject,
+  PopulationObject,
+  SampleObject,
+  VariableObject,
   ResearchObjectRelationship,
   ResearchObjectView,
   ResearchObjectViewWarning,
@@ -17,10 +20,11 @@ const OBJECTIVES_DOCUMENT_TYPE = 'journey:objectives';
 const QUESTIONS_DOCUMENT_TYPE = 'journey:questions';
 const HYPOTHESES_DOCUMENT_TYPE = 'journey:hypotheses';
 const METHODOLOGY_DOCUMENT_TYPE = 'journey:methodology';
+const STUDY_DESIGN_DOCUMENT_TYPE = 'journey:design';
 const MAX_OBJECTIVES = 50;
 const MAX_QUESTIONS = 50;
 
-function objectId(projectId: string, type: 'problem' | 'gap' | 'objective' | 'question' | 'hypothesis' | 'methodology', index?: number) {
+function objectId(projectId: string, type: 'problem' | 'gap' | 'objective' | 'question' | 'hypothesis' | 'methodology' | 'variable' | 'population' | 'sample', index?: number) {
   return index === undefined
     ? `project:${projectId}:${type}`
     : `project:${projectId}:${type}:${index + 1}`;
@@ -429,6 +433,59 @@ export function createResearchObjectView(
             'تمت قراءة المنهجية، لكن لم تُنشأ علاقات اتساق لعدم وجود أسئلة صالحة.',
           ));
         }
+      }
+    }
+  }
+
+  const designDocument = latestDocument(documents, STUDY_DESIGN_DOCUMENT_TYPE);
+  if (designDocument) {
+    const content = parseContent(designDocument);
+    if (!content) {
+      warnings.push(warning('invalid_document_content', designDocument.id, 'تعذر قراءة محتوى تصميم الدراسة المحفوظ.'));
+    } else {
+      const variables = Array.isArray(content.variables)
+        ? content.variables.slice(0, 30).flatMap((item, index) => {
+          if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+          const value = item as Record<string, unknown>;
+          const name = text(value.name);
+          const operationalDefinition = text(value.operationalDefinition);
+          if (!name || !operationalDefinition) return [];
+          return [{ name, role: text(value.role), operationalDefinition, index }];
+        }) : [];
+      const populationValue = content.population && typeof content.population === 'object' && !Array.isArray(content.population) ? content.population as Record<string, unknown> : {};
+      const sampleValue = content.sample && typeof content.sample === 'object' && !Array.isArray(content.sample) ? content.sample as Record<string, unknown> : {};
+      const populationDescription = text(populationValue.description);
+      const sampleStrategy = text(sampleValue.strategy);
+      if (!variables.length || !populationDescription || !sampleStrategy) {
+        warnings.push(warning('invalid_study_design', designDocument.id, 'تصميم الدراسة لا يحتوي متغيرات ومجتمعاً وعينة بصورة مكتملة.'));
+      } else {
+        for (const value of variables) {
+          const variable: VariableObject = {
+            id: objectId(projectId, 'variable', value.index), type: 'variable', projectId,
+            content: { name: value.name, role: value.role, operationalDefinition: value.operationalDefinition },
+            knowledgeType: 'general_unverified', knowledgeRationale: 'متغير أو مفهوم اعتمده الباحث ضمن تصميم الدراسة.',
+            origin: 'unknown', status: 'accepted', consistencyStatus: 'not_checked',
+            source: sourceReference(designDocument, `variables[${value.index}]`),
+          };
+          objects.push(variable);
+          for (const hypothesis of objects.filter((item): item is HypothesisObject => item.type === 'hypothesis')) relationships.push({
+            id: relationshipId(variable.id, 'operationalizes', hypothesis.id), fromId: variable.id, toId: hypothesis.id,
+            relationType: 'operationalizes', status: 'unvalidated', derived: true, derivation: 'same_project_sequence', knowledgeType: 'inference', consistencyStatus: 'not_checked',
+          });
+        }
+        const population: PopulationObject = {
+          id: objectId(projectId, 'population'), type: 'population', projectId,
+          content: { description: populationDescription, location: text(populationValue.location), timeframe: text(populationValue.timeframe) },
+          knowledgeType: 'general_unverified', knowledgeRationale: 'مجتمع دراسة اعتمده الباحث ضمن التصميم.', origin: 'unknown', status: 'accepted', consistencyStatus: 'not_checked', source: sourceReference(designDocument, 'population'),
+        };
+        const sample: SampleObject = {
+          id: objectId(projectId, 'sample'), type: 'sample', projectId,
+          content: { strategy: sampleStrategy, inclusionCriteria: text(sampleValue.inclusionCriteria), sizeRationale: text(sampleValue.sizeRationale), populationId: population.id },
+          knowledgeType: 'general_unverified', knowledgeRationale: 'عينة مقترحة اعتمدها الباحث ولم تُنفذ بعد.', origin: 'unknown', status: 'accepted', consistencyStatus: 'not_checked', source: sourceReference(designDocument, 'sample'),
+        };
+        objects.push(population, sample);
+        relationships.push({ id: relationshipId(sample.id, 'samples_from', population.id), fromId: sample.id, toId: population.id, relationType: 'samples_from', status: 'unvalidated', derived: true, derivation: 'nested_source_field', knowledgeType: 'inference', consistencyStatus: 'not_checked' });
+        if (!methodologyDocument) warnings.push(warning('study_design_without_methodology', designDocument.id, 'تمت قراءة تصميم الدراسة من دون منهجية محفوظة صالحة.'));
       }
     }
   }

@@ -9,6 +9,23 @@ const verified = {
 };
 const title = { title: 'أثر الذكاء الاصطناعي التوليدي على تعلم طلبة الدراسات العليا' };
 const problem = { problemStatement: 'لا يزال أثر استخدام الذكاء الاصطناعي التوليدي على تعلم طلبة الدراسات العليا غير واضح في السياق المحلي.', researchGap: 'توجد ندرة في الدراسات التي تربط الاستخدام الفعلي للذكاء الاصطناعي بتحسن مهارات التعلم لدى طلبة الدراسات العليا.', researcherNote: 'اخترت المشكلة لأنها تمس تجربة الباحثين اليومية وتحتاج فهماً مرتبطاً ببيئتهم.' };
+const design = {
+  variables: [
+    { name: 'استخدام الذكاء الاصطناعي', role: 'independent', operationalDefinition: 'درجة الاستخدام الفعلي لأدوات الذكاء الاصطناعي خلال الفصل الدراسي.' },
+    { name: 'جودة التعلم', role: 'dependent', operationalDefinition: 'الدرجة الكلية لمؤشرات التحصيل والمشاركة الأكاديمية لدى الطلبة.' },
+  ],
+  population: { description: 'جميع طلبة الدراسات العليا المسجلين في الجامعة خلال الفصل الحالي.' },
+  sample: { strategy: 'عينة طبقية عشوائية من الكليات المختلفة.', inclusionCriteria: 'طلبة دراسات عليا مسجلون واستخدموا أدوات الذكاء الاصطناعي أكاديمياً.', sizeRationale: 'يحدد الحجم لاحقاً بتحليل القدرة الإحصائية وفق المتغيرات والنموذج المختار.' },
+};
+const preDesignOutputs = {
+  verify: verified,
+  title,
+  problem,
+  objectives: { objectives: ['قياس أثر الاستخدام الفعلي للذكاء الاصطناعي على تعلم الباحثين', 'تحديد العوامل التي تؤثر في تبني الذكاء الاصطناعي'] },
+  questions: { questions: ['ما أثر الاستخدام الفعلي للذكاء الاصطناعي على تعلم الباحثين؟', 'ما العوامل التي تؤثر في تبني الذكاء الاصطناعي؟'] },
+  hypotheses: { mode: 'required', hypotheses: ['يوجد أثر للاستخدام الفعلي للذكاء الاصطناعي على تعلم الباحثين', 'توجد علاقة بين العوامل المؤثرة وتبني الذكاء الاصطناعي لدى الباحثين'] },
+  methodology: { approach: 'quantitative', population: 'جميع طلبة الدراسات العليا المسجلين في الجامعة', sample: 'عينة طبقية ممثلة من طلبة الكليات المختلفة', instrument: 'استبانة أكاديمية محكمة تقيس المتغيرات المحددة' },
+};
 
 describe('research workflow quality gates', () => {
   test('does not open a stage before all preceding stages are complete', () => {
@@ -57,7 +74,13 @@ describe('research workflow quality gates', () => {
 
   test('requires evidence before literature is considered complete', () => {
     expect(stageComplete('literature', { papers: [{ id: '1' }, { id: '2' }] })).toBe(false);
-    expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['قياس أثر التقنية على تحصيل طلبة الدراسات العليا', 'تحديد العوامل المؤثرة في تبني التقنية لدى الباحثين'] }, questions: { questions: ['ما أثر التقنية على تحصيل طلبة الدراسات العليا؟', 'ما العوامل المؤثرة في تبني التقنية لدى الباحثين؟'] }, hypotheses: { mode: 'required', hypotheses: ['يوجد أثر للتقنية على تحصيل طلبة الدراسات العليا', 'توجد علاقة بين التقنية والعوامل المؤثرة في تبنيها لدى الباحثين'] }, methodology: { approach: 'quantitative', population: 'جميع طلبة الدراسات العليا المسجلين في الجامعة', sample: 'عينة طبقية ممثلة من طلبة الكليات المختلفة', instrument: 'استبانة أكاديمية محكمة تقيس المتغيرات المحددة' }, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
+    expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['قياس أثر التقنية على تحصيل طلبة الدراسات العليا', 'تحديد العوامل المؤثرة في تبني التقنية لدى الباحثين'] }, questions: { questions: ['ما أثر التقنية على تحصيل طلبة الدراسات العليا؟', 'ما العوامل المؤثرة في تبني التقنية لدى الباحثين؟'] }, hypotheses: { mode: 'required', hypotheses: ['يوجد أثر للتقنية على تحصيل طلبة الدراسات العليا', 'توجد علاقة بين التقنية والعوامل المؤثرة في تبنيها لدى الباحثين'] }, methodology: { approach: 'quantitative', population: 'جميع طلبة الدراسات العليا المسجلين في الجامعة', sample: 'عينة طبقية ممثلة من طلبة الكليات المختلفة', instrument: 'استبانة أكاديمية محكمة تقيس المتغيرات المحددة' }, design, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
+  });
+
+  test('keeps literature locked until a quantitative design defines predictor and outcome variables', () => {
+    expect(evaluateGate('design', { ...preDesignOutputs, design: { ...design, variables: [design.variables[0]] } }).status).toBe('needs_improvement');
+    expect(evaluateGate('design', { ...preDesignOutputs, design }).status).toBe('open');
+    expect(stageComplete('design', design)).toBe(true);
   });
 
   test('locks methodology until the hypotheses decision is documented', () => {

@@ -71,6 +71,12 @@ function outputPreview(stage: WorkflowStage, output: WorkflowOutput | null) {
     case 'questions': return firstText(output.questions);
     case 'hypotheses': return output.mode === 'not_applicable' ? cleanPreview(output.rationale) : firstText(output.hypotheses);
     case 'methodology': return cleanPreview(output.population) || cleanPreview(output.approach);
+    case 'design': {
+      const firstVariable = Array.isArray(output.variables) ? output.variables[0] : null;
+      return firstVariable && typeof firstVariable === 'object'
+        ? cleanPreview((firstVariable as Record<string, unknown>).name)
+        : null;
+    }
     case 'literature': {
       const firstPaper = Array.isArray(output.papers) ? output.papers[0] : null;
       return firstPaper && typeof firstPaper === 'object'

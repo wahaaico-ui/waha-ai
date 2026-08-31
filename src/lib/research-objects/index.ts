@@ -10,6 +10,7 @@ export type {
   JourneyDocumentSnapshot,
   KnowledgeType,
   MethodologyObject,
+  PopulationObject,
   ObjectiveObject,
   ObjectiveQuestionValidationResult,
   ObjectivesQuestionsConsistencyReport,
@@ -30,5 +31,7 @@ export type {
   ResearchObjectViewWarning,
   ResearchConsistencyReport,
   SourceDocumentReference,
+  SampleObject,
+  VariableObject,
   ValidationResultBase,
 } from './types';
