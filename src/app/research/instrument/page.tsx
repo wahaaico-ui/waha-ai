@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Download, Plus, Trash2 } from 'lucide-react';
+import { Download, ExternalLink, FilePlus2, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
 import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
@@ -17,6 +17,33 @@ const KINDS: Array<{ value: QuestionnaireItemKind; label: string }> = [
   { value: 'likert5', label: 'مقياس ليكرت خماسي' }, { value: 'single_choice', label: 'اختيار واحد' },
   { value: 'multiple_choice', label: 'اختيارات متعددة' }, { value: 'short_text', label: 'إجابة قصيرة' }, { value: 'long_text', label: 'إجابة مطولة' },
 ];
+
+type GoogleFormFeedback = {
+  kind: 'success' | 'error' | 'config' | 'not-ready' | 'forbidden';
+  editUrl?: string;
+  responderUri?: string;
+};
+
+function googleFormsFeedbackFromLocation(): GoogleFormFeedback | null {
+  const params = new URLSearchParams(window.location.search);
+  const result = params.get('googleForm');
+  if (!result) return null;
+  if (result === 'created') {
+    const formId = params.get('formId') || '';
+    const responderValue = params.get('responderUri') || '';
+    const editUrl = /^[A-Za-z0-9_-]{10,}$/u.test(formId) ? `https://docs.google.com/forms/d/${encodeURIComponent(formId)}/edit` : undefined;
+    let responderUri: string | undefined;
+    try {
+      const parsed = new URL(responderValue);
+      if (parsed.protocol === 'https:' && parsed.hostname === 'docs.google.com') responderUri = parsed.toString();
+    } catch { responderUri = undefined; }
+    return { kind: 'success', editUrl, responderUri };
+  }
+  if (result === 'config') return { kind: 'config' };
+  if (result === 'not-ready') return { kind: 'not-ready' };
+  if (result === 'forbidden') return { kind: 'forbidden' };
+  return { kind: 'error' };
+}
 
 function text(value: unknown) { return typeof value === 'string' ? value.trim() : ''; }
 function validKind(value: unknown): value is QuestionnaireItemKind { return KINDS.some((item) => item.value === value); }
@@ -50,17 +77,25 @@ export default function InstrumentPage() {
   const [instrument, setInstrument] = useState<Questionnaire>(EMPTY);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveError, setSaveError] = useState('');
+  const [googleFormFeedback, setGoogleFormFeedback] = useState<GoogleFormFeedback | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
+    const feedbackTimer = window.setTimeout(() => {
+      setGoogleFormFeedback(googleFormsFeedbackFromLocation());
+    }, 0);
     loadJourney(projectId).then((journey) => {
       const design = journey.outputs.design;
       setDesignReady(stageComplete('design', design));
       const names = Array.isArray(design?.variables) ? design.variables.flatMap((entry) => entry && typeof entry === 'object' && !Array.isArray(entry) ? [text((entry as Record<string, unknown>).name)] : []).filter(Boolean) : [];
       setVariables(names);
       setQuestions(Array.isArray(journey.outputs.questions?.questions) ? journey.outputs.questions.questions.map(text).filter(Boolean) : []);
-      if (journey.outputs.instrument) setInstrument(normalizeDraft(journey.outputs.instrument, names));
+      if (journey.outputs.instrument) {
+        setInstrument(normalizeDraft(journey.outputs.instrument, names));
+        setStatus('saved');
+      }
     }).catch((reason) => setLoadError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.')).finally(() => setLoading(false));
+    return () => window.clearTimeout(feedbackTimer);
   }, [projectId]);
 
   const issue = useMemo(() => {
@@ -103,7 +138,15 @@ export default function InstrumentPage() {
         {instrument.sections.map((section, sectionIndex) => <fieldset key={`${section.variableName}-${sectionIndex}`} className="space-y-3 rounded-2xl border border-blue-100 bg-blue-50/40 p-4"><legend className="px-2 text-sm font-black">{section.title || `المحور ${sectionIndex + 1}`}</legend><div className="grid gap-3 sm:grid-cols-2"><input aria-label="عنوان المحور" value={section.title} onChange={(event) => updateSection(sectionIndex, { ...section, title: event.target.value })} className="rounded-xl border border-slate-300 bg-white p-3 text-sm" /><select aria-label="المتغير المقاس" value={section.variableName} onChange={(event) => updateSection(sectionIndex, { ...section, variableName: event.target.value })} className="rounded-xl border border-slate-300 bg-white p-3 text-sm">{variables.map((variable) => <option key={variable}>{variable}</option>)}</select></div>
           {section.items.map((item, itemIndex) => <div key={itemIndex} className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 md:grid-cols-[1fr_180px_auto]"><textarea aria-label={`البند ${itemIndex + 1}`} value={item.text} onChange={(event) => updateSection(sectionIndex, { ...section, items: section.items.map((entry, index) => index === itemIndex ? { ...entry, text: event.target.value } : entry) })} className="min-h-16 rounded-lg border border-slate-300 p-2 text-sm" /><select aria-label="نوع البند" value={item.kind} onChange={(event) => { const kind = event.target.value as QuestionnaireItemKind; updateSection(sectionIndex, { ...section, items: section.items.map((entry, index) => index === itemIndex ? { ...entry, kind, options: kind === 'likert5' ? LIKERT : entry.options } : entry) }); }} className="rounded-lg border border-slate-300 p-2 text-xs">{KINDS.map((kind) => <option key={kind.value} value={kind.value}>{kind.label}</option>)}</select><button type="button" aria-label="حذف البند" onClick={() => updateSection(sectionIndex, { ...section, items: section.items.filter((_, index) => index !== itemIndex) })} className="rounded-lg p-2 text-rose-600"><Trash2 className="h-4 w-4" /></button>{(item.kind === 'single_choice' || item.kind === 'multiple_choice') && <input aria-label="خيارات البند" value={item.options.join('، ')} onChange={(event) => updateSection(sectionIndex, { ...section, items: section.items.map((entry, index) => index === itemIndex ? { ...entry, options: event.target.value.split('،').map((option) => option.trim()) } : entry) })} className="rounded-lg border border-slate-300 p-2 text-xs md:col-span-2" placeholder="الخيار الأول، الخيار الثاني" />}</div>)}
           <button type="button" onClick={() => updateSection(sectionIndex, { ...section, items: [...section.items, { text: '', kind: 'likert5', required: true, options: LIKERT }] })} className="inline-flex items-center gap-2 rounded-xl border border-blue-200 bg-white px-3 py-2 text-xs font-bold text-blue-700"><Plus className="h-4 w-4" />إضافة بند</button></fieldset>)}
-        {issue && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{issue}</p>}{status === 'error' && <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{saveError}</p>}<button type="button" disabled={Boolean(issue) || status === 'saving'} onClick={() => void save()} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:opacity-40">{status === 'saving' ? 'جارٍ الحفظ والفحص…' : 'اعتماد الاستبانة وفتح الأدبيات'}</button>{status === 'saved' && <div className="grid gap-3 sm:grid-cols-2"><button type="button" onClick={downloadGoogleScript} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-800"><Download className="h-4 w-4" />تنزيل ملف إنشاء Google Form</button><Link href={`/research/literature?projectId=${encodeURIComponent(projectId)}`} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold text-emerald-800">انتقل إلى الأدبيات ←</Link></div>}
+        {issue && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{issue}</p>}
+        {status === 'error' && <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{saveError}</p>}
+        {googleFormFeedback?.kind === 'success' && <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-950"><p className="font-black">تم إنشاء الاستبانة داخل حساب Google الذي اخترته.</p><div className="mt-3 flex flex-wrap gap-3">{googleFormFeedback.editUrl && <a href={googleFormFeedback.editUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2 font-bold text-white">فتح وتعديل النموذج <ExternalLink className="h-4 w-4" /></a>}{googleFormFeedback.responderUri && <a href={googleFormFeedback.responderUri} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-white px-4 py-2 font-bold">فتح رابط المشاركين <ExternalLink className="h-4 w-4" /></a>}</div></div>}
+        {googleFormFeedback?.kind === 'config' && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">الربط المباشر مع Google Forms غير مفعّل بعد في إعدادات المنصة. يمكنك استخدام ملف الإنشاء الاحتياطي أدناه.</p>}
+        {googleFormFeedback?.kind === 'not-ready' && <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">احفظ الاستبانة واجتز فحص الجودة قبل إنشاء نموذج Google.</p>}
+        {googleFormFeedback?.kind === 'forbidden' && <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">المشروع غير موجود أو لا تملك صلاحية الوصول إليه.</p>}
+        {googleFormFeedback?.kind === 'error' && <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">لم يكتمل إنشاء النموذج. لم يُحفظ أي رمز وصول؛ أعد المحاولة واختر حساب Google الصحيح.</p>}
+        <button type="button" disabled={Boolean(issue) || status === 'saving'} onClick={() => void save()} className="w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:opacity-40">{status === 'saving' ? 'جارٍ الحفظ والفحص…' : 'اعتماد الاستبانة وفتح الأدبيات'}</button>
+        {status === 'saved' && <div className="space-y-3"><div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4 text-xs leading-6 text-slate-700"><strong className="text-slate-950">الإنشاء المباشر:</strong> تختار حساب Google وتمنح إذن إنشاء نموذج واحد. النموذج يصبح ملك حسابك، ولا تحتفظ WAHA برمز Google بعد العملية.</div><div className="grid gap-3 sm:grid-cols-3"><a href={`/api/integrations/google-forms/connect?projectId=${encodeURIComponent(projectId)}`} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 p-4 text-center text-sm font-bold text-white"><FilePlus2 className="h-4 w-4" />إنشاء Google Form في حسابي</a><button type="button" onClick={downloadGoogleScript} className="inline-flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm font-bold text-blue-800"><Download className="h-4 w-4" />تنزيل ملف احتياطي</button><Link href={`/research/literature?projectId=${encodeURIComponent(projectId)}`} className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold text-emerald-800">انتقل إلى الأدبيات ←</Link></div></div>}
       </section></>}
   </main></div>;
 }
