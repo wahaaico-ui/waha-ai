@@ -6,11 +6,12 @@ import type { JourneyStage } from '@/lib/research-journey';
 import ResearchEvidenceSidebar from '@/components/ResearchEvidenceSidebar';
 import ResearchLanguageAssistant from '@/components/ResearchLanguageAssistant';
 
-export default function ResearchDraftAssistant({ projectId, stage, onDraft, showTools = true }: {
+export default function ResearchDraftAssistant({ projectId, stage, onDraft, showTools = true, draftOptions }: {
   projectId: string;
   stage: Extract<JourneyStage, 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument'>;
   onDraft: (draft: Record<string, unknown>) => void;
   showTools?: boolean;
+  draftOptions?: Record<string, string>;
 }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'ready'>('idle');
   const [message, setMessage] = useState('');
@@ -18,7 +19,7 @@ export default function ResearchDraftAssistant({ projectId, stage, onDraft, show
   const generate = async () => {
     setStatus('loading'); setMessage('');
     try {
-      const response = await fetch('/api/research/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, stage }) });
+      const response = await fetch('/api/research/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ projectId, stage, draftOptions }) });
       const data = await response.json() as { draft?: Record<string, unknown>; notice?: string; error?: string };
       if (!response.ok || !data.draft) throw new Error(data.error || 'تعذر إعداد المسودة.');
       onDraft(data.draft);

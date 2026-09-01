@@ -22,12 +22,14 @@ export type QuestionnaireSection = {
 };
 
 export type Questionnaire = {
+  instrumentType?: 'questionnaire' | 'interview' | 'observation' | 'document_analysis' | 'test_scale';
   title: string;
   description: string;
   consentStatement: string;
   instructions: string;
   respondentFields: QuestionnaireField[];
   sections: QuestionnaireSection[];
+  collectionGuidance?: string[];
 };
 
 const value = (input: string) => JSON.stringify(input.trim());

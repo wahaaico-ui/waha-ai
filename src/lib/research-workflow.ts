@@ -1,4 +1,5 @@
 import { assessAcademicText, assessProblemDraft, firstAcademicTextIssue } from '@/lib/academic-content-quality';
+import { isStudyInstrumentType } from '@/lib/research-instrument';
 
 export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument', 'literature', 'analysis'] as const;
 
@@ -67,16 +68,19 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
         && assessAcademicText(sample.sizeRationale, { minChars: 20, minWords: 4, label: 'مبرر حجم العينة' }).valid;
     }
     case 'instrument': {
+      const instrumentType = isStudyInstrumentType(output.instrumentType) ? output.instrumentType : 'questionnaire';
       const sections = Array.isArray(output.sections) ? output.sections : [];
       const consent = assessAcademicText(output.consentStatement, { minChars: 30, minWords: 5, label: 'نص الموافقة' }).valid;
-      const instructions = assessAcademicText(output.instructions, { minChars: 20, minWords: 4, label: 'تعليمات الاستبانة' }).valid;
-      return consent && instructions && sections.length >= 2 && sections.every((section) => {
+      const instructions = assessAcademicText(output.instructions, { minChars: 20, minWords: 4, label: 'تعليمات الأداة' }).valid;
+      const minimumSections = instrumentType === 'questionnaire' || instrumentType === 'test_scale' ? 2 : 1;
+      const minimumItems = instrumentType === 'questionnaire' ? 3 : 2;
+      return consent && instructions && sections.length >= minimumSections && sections.every((section) => {
         if (!section || typeof section !== 'object' || Array.isArray(section)) return false;
         const value = section as Record<string, unknown>;
         const items = Array.isArray(value.items) ? value.items : [];
-        return asText(value.variableName).length >= 3 && asText(value.title).length >= 3 && items.length >= 3
+        return asText(value.variableName).length >= 3 && asText(value.title).length >= 3 && items.length >= minimumItems
           && items.every((item) => item && typeof item === 'object' && !Array.isArray(item)
-            && assessAcademicText((item as Record<string, unknown>).text, { minChars: 12, minWords: 3, label: 'بند الاستبانة' }).valid);
+            && assessAcademicText((item as Record<string, unknown>).text, { minChars: 12, minWords: 3, label: 'بند الأداة' }).valid);
       });
     }
     case 'literature': return Array.isArray(output.papers) && output.papers.length >= 3;
@@ -147,6 +151,7 @@ function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<Workf
     if ((approach === 'quantitative' || approach === 'mixed') && !roles.some((role) => role === 'dependent' || role === 'outcome')) return 'حدّد متغيراً تابعاً أو ناتجاً واحداً على الأقل.';
   }
   if (stage === 'instrument') {
+    const instrumentType = isStudyInstrumentType(outputs.instrument?.instrumentType) ? outputs.instrument.instrumentType : 'questionnaire';
     const variables = Array.isArray(outputs.design?.variables)
       ? outputs.design.variables.flatMap((item) => item && typeof item === 'object' && !Array.isArray(item) ? [asText((item as Record<string, unknown>).name)] : []).filter(Boolean)
       : [];
@@ -157,7 +162,7 @@ function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<Workf
     const uncovered = variables.filter((variable) => !covered.has(variable.toLocaleLowerCase('ar')));
     if (uncovered.length) return `أضف محوراً يقيس كل متغير معتمد. غير المغطى: ${uncovered.join('، ')}.`;
     const itemTexts = sections.flatMap((section) => Array.isArray(section.items) ? section.items.flatMap((item) => item && typeof item === 'object' && !Array.isArray(item) ? [asText((item as Record<string, unknown>).text).toLocaleLowerCase('ar')] : []) : []).filter(Boolean);
-    if (new Set(itemTexts).size !== itemTexts.length) return 'توجد بنود مكررة في الاستبانة. اجعل كل بند يقيس جانباً واحداً واضحاً.';
+    if (new Set(itemTexts).size !== itemTexts.length) return `توجد بنود مكررة في ${instrumentType === 'questionnaire' ? 'الاستبانة' : 'الأداة'}. اجعل كل بند يؤدي غرضاً واحداً واضحاً.`;
   }
   if (stage === 'literature') {
     const papers = outputs.literature?.papers;
@@ -184,7 +189,7 @@ function requirementFor(stage: WorkflowStage) {
     hypotheses: 'حدّد إن كانت الدراسة تحتاج فرضيات. إن كانت مطلوبة، اعتمد فرضية قابلة للاختبار مقابل كل سؤال؛ وإن لم تكن، وثّق السبب المنهجي.',
     methodology: 'حدد المنهج ومجتمع الدراسة والعينة والأداة.',
     design: 'نظّم المتغيرات أو المفاهيم، وحدد مجتمع الدراسة واستراتيجية العينة ومعاييرها ومبرر حجمها.',
-    instrument: 'أنشئ استبانة تغطي جميع المتغيرات المعتمدة، بثلاثة بنود واضحة على الأقل لكل محور، ونص موافقة وتعليمات للمشارك.',
+    instrument: 'اعتمد نوع أداة متسقاً مع منهجك، وأنشئ مسودة تغطي المتغيرات أو المفاهيم المعتمدة مع نص موافقة وتعليمات واضحة.',
     literature: 'اختر ثلاث دراسات موثقة على الأقل.',
     analysis: 'أضف تأطيراً وخلاصة مبنيين على الدراسات المختارة.',
   })[stage];

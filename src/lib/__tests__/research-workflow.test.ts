@@ -124,6 +124,25 @@ describe('research workflow quality gates', () => {
     expect(evaluateGate('instrument', { ...preDesignOutputs, design, instrument }).status).toBe('open');
   });
 
+  test('accepts a structured interview guide without questionnaire-only requirements', () => {
+    const interview = {
+      instrumentType: 'interview',
+      title: 'دليل مقابلة شبه منظمة مع طلبة الدراسات العليا',
+      consentStatement: 'أوافق طوعياً على المشاركة بعد توضيح هدف المقابلة وسرية البيانات وحق الانسحاب.',
+      instructions: 'اطرح الأسئلة بالترتيب واستخدم المتابعات المحايدة دون توجيه المشارك إلى إجابة.',
+      sections: design.variables.map((variable) => ({
+        title: `محور ${variable.name}`,
+        variableName: variable.name,
+        items: [
+          { text: `كيف تصف خبرتك المرتبطة بمحور ${variable.name}؟` },
+          { text: `ما العوامل التي أثرت في تجربتك مع ${variable.name}؟` },
+        ],
+      })),
+    };
+    expect(stageComplete('instrument', interview)).toBe(true);
+    expect(evaluateGate('instrument', { ...preDesignOutputs, design, instrument: interview }).status).toBe('open');
+  });
+
   test('locks methodology until the hypotheses decision is documented', () => {
     const outputs = {
       verify: verified, title, problem,
