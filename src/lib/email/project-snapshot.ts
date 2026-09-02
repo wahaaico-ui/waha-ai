@@ -13,7 +13,8 @@ const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   design: { ar: 'تصميم الدراسة', en: 'Study design' },
   instrument: { ar: 'أداة الدراسة', en: 'Research instrument' },
   literature: { ar: 'الأدلة والأدبيات', en: 'Evidence and literature' },
-  analysis: { ar: 'التحليل', en: 'Analysis' },
+  analysis: { ar: 'تحليل الأدبيات', en: 'Literature synthesis' },
+  analysis_input: { ar: 'مخرجات التحليل الخارجي', en: 'External analysis outputs' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -41,6 +42,17 @@ const FIELD_LABELS: Record<string, string> = {
   papers: 'الأدلة المختارة',
   introduction: 'المقدمة',
   conclusion: 'الخلاصة',
+  analysisKind: 'نوع التحليل الخارجي',
+  analyzedBy: 'من نفّذ التحليل',
+  softwareOrMethod: 'أداة أو طريقة التحليل',
+  sampleAnalyzed: 'ملخص البيانات المحللة',
+  procedureSummary: 'إجراءات التحليل',
+  findings: 'المخرجات المرتبطة بالأسئلة',
+  questionText: 'سؤال البحث',
+  hypothesisText: 'الفرضية المقابلة',
+  findingSummary: 'خلاصة المخرج',
+  evidenceSummary: 'الدليل التحليلي الملخص',
+  limitations: 'حدود التحليل',
 };
 
 export type ProjectSnapshotEmailInput = {

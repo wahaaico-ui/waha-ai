@@ -106,6 +106,15 @@ describe('research workflow quality gates', () => {
     expect(nextAllowedStage({ verify: verified, title, problem, objectives: { objectives: ['قياس أثر التقنية على تحصيل طلبة الدراسات العليا', 'تحديد العوامل المؤثرة في تبني التقنية لدى الباحثين'] }, questions: { questions: ['ما أثر التقنية على تحصيل طلبة الدراسات العليا؟', 'ما العوامل المؤثرة في تبني التقنية لدى الباحثين؟'] }, hypotheses: { mode: 'required', hypotheses: ['يوجد أثر للتقنية على تحصيل طلبة الدراسات العليا', 'توجد علاقة بين التقنية والعوامل المؤثرة في تبنيها لدى الباحثين'] }, methodology: { approach: 'quantitative', population: 'جميع طلبة الدراسات العليا المسجلين في الجامعة', sample: 'عينة طبقية ممثلة من طلبة الكليات المختلفة', instrument: 'استبانة أكاديمية محكمة تقيس المتغيرات المحددة' }, design, instrument, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] } })).toBe('analysis');
   });
 
+  test('separates literature synthesis from researcher-provided external analysis outputs', () => {
+    const literatureAnalysis = {
+      introduction: 'توضح الدراسات المختارة سياق المشكلة البحثية وعلاقاتها الأساسية ضمن البيئة الأكاديمية المستهدفة.',
+      conclusion: 'تشير الأدلة المختارة إلى حاجة واضحة لاختبار العلاقات المقترحة ميدانياً ضمن مجتمع الدراسة المحدد.',
+    };
+    expect(stageComplete('analysis', literatureAnalysis)).toBe(true);
+    expect(stageComplete('analysis_input', { ...literatureAnalysis })).toBe(false);
+  });
+
   test('keeps literature locked until a quantitative design defines predictor and outcome variables', () => {
     expect(evaluateGate('design', { ...preDesignOutputs, design: { ...design, variables: [design.variables[0]] } }).status).toBe('needs_improvement');
     expect(evaluateGate('design', { ...preDesignOutputs, design }).status).toBe('open');

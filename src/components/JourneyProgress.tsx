@@ -15,7 +15,8 @@ export const JOURNEY_PHASES = [
   { id: "design",     labelAr: "التصميم",   labelEn: "Design",     href: "/research/design", enabled: true  },
   { id: "instrument", labelAr: "الأداة",     labelEn: "Instrument", href: "/research/instrument", enabled: true  },
   { id: "literature", labelAr: "الأدبيات",  labelEn: "Literature", href: "/research/literature", enabled: true  },
-  { id: "analysis",   labelAr: "التحليل",   labelEn: "Analysis",   href: "/research/analysis", enabled: true  },
+  { id: "analysis",   labelAr: "تحليل الأدبيات", labelEn: "Literature synthesis", href: "/research/analysis", enabled: true  },
+  { id: "analysis_input", labelAr: "مخرجات التحليل", labelEn: "Analysis outputs", href: "/research/analysis-input", enabled: true  },
 ];
 
 export type PhaseId = typeof JOURNEY_PHASES[number]["id"];

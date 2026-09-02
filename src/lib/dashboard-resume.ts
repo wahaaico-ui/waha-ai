@@ -88,6 +88,11 @@ function outputPreview(stage: WorkflowStage, output: WorkflowOutput | null) {
         : null;
     }
     case 'analysis': return cleanPreview(output.introduction) || cleanPreview(output.conclusion);
+    case 'analysis_input': {
+      const findings = Array.isArray(output.findings) ? output.findings : [];
+      const firstFinding = findings.find((item) => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown> | undefined;
+      return cleanPreview(firstFinding?.findingSummary) || cleanPreview(output.procedureSummary);
+    }
   }
 }
 

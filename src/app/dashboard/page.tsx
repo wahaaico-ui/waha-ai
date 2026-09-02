@@ -8,7 +8,7 @@ import { useWahaLanguage } from '@/lib/use-language';
 import { useAuthSession } from '@/components/AuthSessionProvider';
 import { ArrowLeft, CheckCircle2, Clock3, Mail } from 'lucide-react';
 
-type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument' | 'literature' | 'analysis';
+type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument' | 'literature' | 'analysis' | 'analysis_input';
 
 
 interface HistoryRow {
@@ -124,7 +124,8 @@ const STAGE_COPY: Record<JourneyStage, { ar: string; en: string; href: string }>
   design: { ar: 'تصميم الدراسة', en: 'Study design', href: '/research/design' },
   instrument: { ar: 'أداة الدراسة', en: 'Instrument', href: '/research/instrument' },
   literature: { ar: 'الأدلة والأدبيات', en: 'Evidence and literature', href: '/research/literature' },
-  analysis: { ar: 'التحليل', en: 'Analysis', href: '/research/analysis' },
+  analysis: { ar: 'تحليل الأدبيات', en: 'Literature synthesis', href: '/research/analysis' },
+  analysis_input: { ar: 'مخرجات التحليل الخارجي', en: 'External analysis outputs', href: '/research/analysis-input' },
 };
 
 function resumeHref(project: ProjectRow) {
@@ -146,7 +147,8 @@ function projectStatus(status: string | null, lang: 'ar' | 'en') {
     methodology: { ar: 'تم اعتماد المنهجية', en: 'Methodology approved' },
     design: { ar: 'تم اعتماد تصميم الدراسة', en: 'Study design approved' },
     literature: { ar: 'تم اختيار الأدبيات', en: 'Literature selected' },
-    analysis: { ar: 'اكتمل التحليل', en: 'Analysis complete' },
+    analysis: { ar: 'اكتمل تحليل الأدبيات', en: 'Literature synthesis complete' },
+    analysis_input: { ar: 'تم اعتماد مخرجات التحليل', en: 'Analysis outputs approved' },
   };
   if (status?.endsWith('_needs_improvement')) return lang === 'ar' ? 'تحتاج مراجعة' : 'Needs review';
   return labels[stage]?.[lang] || (lang === 'ar' ? 'قيد العمل' : 'In progress');
