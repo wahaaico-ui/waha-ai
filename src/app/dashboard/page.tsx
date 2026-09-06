@@ -8,7 +8,7 @@ import { useWahaLanguage } from '@/lib/use-language';
 import { useAuthSession } from '@/components/AuthSessionProvider';
 import { ArrowLeft, CheckCircle2, Clock3, Mail } from 'lucide-react';
 
-type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument' | 'literature' | 'analysis' | 'analysis_input' | 'results';
+type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument' | 'literature' | 'analysis' | 'analysis_input' | 'results' | 'discussion';
 
 
 interface HistoryRow {
@@ -127,6 +127,7 @@ const STAGE_COPY: Record<JourneyStage, { ar: string; en: string; href: string }>
   analysis: { ar: 'تحليل الأدبيات', en: 'Literature synthesis', href: '/research/analysis' },
   analysis_input: { ar: 'مخرجات التحليل الخارجي', en: 'External analysis outputs', href: '/research/analysis-input' },
   results: { ar: 'صياغة النتائج', en: 'Research results', href: '/research/results' },
+  discussion: { ar: 'مناقشة النتائج', en: 'Results discussion', href: '/research/discussion' },
 };
 
 function resumeHref(project: ProjectRow) {
@@ -151,6 +152,7 @@ function projectStatus(status: string | null, lang: 'ar' | 'en') {
     analysis: { ar: 'اكتمل تحليل الأدبيات', en: 'Literature synthesis complete' },
     analysis_input: { ar: 'تم اعتماد مخرجات التحليل', en: 'Analysis outputs approved' },
     results: { ar: 'تم اعتماد النتائج', en: 'Results approved' },
+    discussion: { ar: 'تم اعتماد المناقشة', en: 'Discussion approved' },
   };
   if (status?.endsWith('_needs_improvement')) return lang === 'ar' ? 'تحتاج مراجعة' : 'Needs review';
   return labels[stage]?.[lang] || (lang === 'ar' ? 'قيد العمل' : 'In progress');

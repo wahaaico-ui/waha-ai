@@ -16,6 +16,7 @@ const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   analysis: { ar: 'تحليل الأدبيات', en: 'Literature synthesis' },
   analysis_input: { ar: 'مخرجات التحليل الخارجي', en: 'External analysis outputs' },
   results: { ar: 'النتائج', en: 'Results' },
+  discussion: { ar: 'مناقشة النتائج', en: 'Results discussion' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -59,6 +60,12 @@ const FIELD_LABELS: Record<string, string> = {
   sourceEvidenceSummary: 'الدليل التحليلي المعتمد',
   resultStatement: 'صياغة النتيجة',
   overallSummary: 'الخلاصة العامة للنتائج',
+  discussions: 'مناقشة النتائج المرتبطة بالأسئلة',
+  interpretation: 'تفسير النتيجة',
+  literatureComparison: 'المقارنة بالأدبيات',
+  supportingPaperIds: 'معرّفات الأدلة المستخدمة',
+  overallSynthesis: 'الخلاصة التفسيرية للمناقشة',
+  limitationsInterpretation: 'أثر الحدود في التفسير',
 };
 
 export type ProjectSnapshotEmailInput = {

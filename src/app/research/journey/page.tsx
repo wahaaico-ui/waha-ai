@@ -28,6 +28,7 @@ function outputPreview(stage: JourneyStage, output: Record<string, unknown> | un
     analysis: [output.conclusion, output.thematicSynthesis],
     analysis_input: Array.isArray(output.findings) ? output.findings.map((finding) => finding && typeof finding === 'object' ? (finding as Record<string, unknown>).findingSummary : '') : [],
     results: Array.isArray(output.results) ? output.results.map((result) => result && typeof result === 'object' ? (result as Record<string, unknown>).resultStatement : '') : [],
+    discussion: Array.isArray(output.discussions) ? output.discussions.map((discussion) => discussion && typeof discussion === 'object' ? (discussion as Record<string, unknown>).interpretation : '') : [],
   };
   return candidates[stage].filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 2).join(' — ');
 }

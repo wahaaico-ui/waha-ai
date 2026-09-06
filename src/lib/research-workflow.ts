@@ -1,9 +1,10 @@
 import { assessAcademicText, assessProblemDraft, firstAcademicTextIssue } from '@/lib/academic-content-quality';
 import { externalAnalysisConsistencyIssue, externalAnalysisStructureIssue } from '@/lib/research-analysis-input';
 import { researchResultsConsistencyIssue, researchResultsStructureIssue } from '@/lib/research-results';
+import { researchDiscussionConsistencyIssue, researchDiscussionStructureIssue } from '@/lib/research-discussion';
 import { isStudyInstrumentType } from '@/lib/research-instrument';
 
-export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument', 'literature', 'analysis', 'analysis_input', 'results'] as const;
+export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument', 'literature', 'analysis', 'analysis_input', 'results', 'discussion'] as const;
 
 export type WorkflowStage = (typeof WORKFLOW_STAGES)[number];
 export type WorkflowOutput = Record<string, unknown>;
@@ -89,6 +90,7 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
     case 'analysis': return asText(output.introduction).length >= 20 && asText(output.conclusion).length >= 20;
     case 'analysis_input': return !externalAnalysisStructureIssue(output);
     case 'results': return !researchResultsStructureIssue(output);
+    case 'discussion': return !researchDiscussionStructureIssue(output);
   }
 }
 
@@ -176,6 +178,7 @@ function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<Workf
     return externalAnalysisConsistencyIssue(outputs.analysis_input, outputs.questions, outputs.hypotheses, outputs.methodology);
   }
   if (stage === 'results') return researchResultsConsistencyIssue(outputs.results, outputs.analysis_input);
+  if (stage === 'discussion') return researchDiscussionConsistencyIssue(outputs.discussion, outputs.results, outputs.analysis);
   return null;
 }
 
@@ -184,7 +187,7 @@ export function nextAllowedStage(outputs: Partial<Record<WorkflowStage, Workflow
 }
 
 export function stageLabel(stage: WorkflowStage) {
-  return ({ verify: 'استكشاف المسار', title: 'العنوان', problem: 'مشكلة البحث والفجوة', objectives: 'الأهداف', questions: 'الأسئلة', hypotheses: 'الفرضيات', methodology: 'المنهجية', design: 'تصميم الدراسة', instrument: 'أداة الدراسة', literature: 'الأدلة والأدبيات', analysis: 'تحليل الأدبيات', analysis_input: 'مخرجات التحليل الخارجي', results: 'النتائج' })[stage];
+  return ({ verify: 'استكشاف المسار', title: 'العنوان', problem: 'مشكلة البحث والفجوة', objectives: 'الأهداف', questions: 'الأسئلة', hypotheses: 'الفرضيات', methodology: 'المنهجية', design: 'تصميم الدراسة', instrument: 'أداة الدراسة', literature: 'الأدلة والأدبيات', analysis: 'تحليل الأدبيات', analysis_input: 'مخرجات التحليل الخارجي', results: 'النتائج', discussion: 'مناقشة النتائج' })[stage];
 }
 
 function requirementFor(stage: WorkflowStage) {
@@ -202,5 +205,6 @@ function requirementFor(stage: WorkflowStage) {
     analysis: 'أضف تأطيراً وخلاصة مبنيين على الدراسات المختارة.',
     analysis_input: 'أدخل ملخصاً مجهول الهوية لمخرجات التحليل المنفذ خارج WAHA، واربط مخرجاً واحداً بكل سؤال وفرضية معتمدة.',
     results: 'راجع صياغة نتيجة واحدة لكل سؤال اعتماداً على مخرجات التحليل المحفوظة، من دون اختراع قيم أو إدخال تفسير ومناقشة.',
+    discussion: 'فسّر كل نتيجة معتمدة وقارنها بدليل واحد على الأقل من التخليق الأدبي، من دون إضافة نتائج أو توصيات جديدة.',
   })[stage];
 }

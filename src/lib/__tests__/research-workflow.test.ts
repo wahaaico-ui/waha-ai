@@ -131,6 +131,9 @@ describe('research workflow quality gates', () => {
       reportingOnlyConfirmed: true,
     };
     expect(stageComplete('results', results)).toBe(true);
+    expect(nextAllowedStage({ ...preDesignOutputs, design, instrument, literature: { papers: [{ id: '1' }, { id: '2' }, { id: '3' }] }, analysis: { introduction: 'مقدمة تحليل أدبي موثقة تشرح السياق النظري للدراسة الحالية.', conclusion: 'خلاصة تحليل أدبي موثقة تربط بين الأدلة السابقة وسياق البحث الحالي.' }, analysis_input: {
+      analysisKind: 'quantitative', analyzedBy: 'researcher', softwareOrMethod: 'برنامج إحصائي مناسب للدراسة الحالية', sampleAnalyzed: 'عينة الدراسة المعتمدة وفق التصميم والمنهج', procedureSummary: 'تم تنفيذ التحليل المناسب وربط كل مخرج بسؤال البحث المقابل.', findings: [{ questionIndex: 0, questionText: 'ما أثر التقنية على تعلم الباحثين؟', hypothesisIndex: null, hypothesisText: null, findingSummary: 'ظهر تحسن واضح في جودة التعلم لدى أفراد العينة بعد استخدام التقنية.', evidenceSummary: 'بلغ المتوسط العام 4.10 من خمس درجات وفق المخرج التحليلي المعتمد.' }], limitations: 'تقتصر النتائج على العينة والسياق اللذين شمِلَهما التحليل الخارجي.', noRawDataConfirmed: true, noPersonalDataConfirmed: true,
+    }, results })).toBe('discussion');
   });
 
   test('keeps literature locked until a quantitative design defines predictor and outcome variables', () => {
