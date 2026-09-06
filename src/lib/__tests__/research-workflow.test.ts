@@ -147,6 +147,17 @@ describe('research workflow quality gates', () => {
     expect(stageComplete('discussion', discussion)).toBe(true);
   });
 
+  test('recognizes grounded conclusions before recommendations', () => {
+    const conclusions = {
+      conclusions: [{ questionIndex: 0, questionText: 'ما أثر التقنية على تعلم الباحثين؟', resultStatement: 'ظهر تحسن واضح في جودة التعلم ضمن العينة الحالية.', discussionInterpretation: 'تعني النتيجة وجود تحسن مرتبط باستخدام التقنية ضمن العينة الحالية، دون إثبات علاقة سببية تتجاوز التصميم المعتمد.', conclusionStatement: 'يمكن الاستنتاج أن استخدام التقنية ارتبط بتحسن جودة التعلم لدى أفراد العينة في حدود السياق والمنهج المعتمدين.' }],
+      overallConclusion: 'تخلص الدراسة إلى ارتباط استخدام التقنية بتحسن جودة التعلم في حدود العينة والسياق المحددين، دون تعميم سببي يتجاوز التصميم المعتمد.',
+      scopeStatement: 'تقتصر الاستنتاجات على عينة الدراسة والسياق والمنهج المستخدم في التحليل الحالي.',
+      noNewEvidenceConfirmed: true,
+      noRecommendationsConfirmed: true,
+    };
+    expect(stageComplete('conclusions', conclusions)).toBe(true);
+  });
+
   test('keeps literature locked until a quantitative design defines predictor and outcome variables', () => {
     expect(evaluateGate('design', { ...preDesignOutputs, design: { ...design, variables: [design.variables[0]] } }).status).toBe('needs_improvement');
     expect(evaluateGate('design', { ...preDesignOutputs, design }).status).toBe('open');

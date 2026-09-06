@@ -18,6 +18,7 @@ const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   results: { ar: 'النتائج', en: 'Results' },
   discussion: { ar: 'مناقشة النتائج', en: 'Results discussion' },
   conclusions: { ar: 'الاستنتاجات', en: 'Conclusions' },
+  recommendations: { ar: 'التوصيات', en: 'Recommendations' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -72,6 +73,13 @@ const FIELD_LABELS: Record<string, string> = {
   conclusionStatement: 'صياغة الاستنتاج',
   overallConclusion: 'الاستنتاج العام للدراسة',
   scopeStatement: 'حدود انطباق الاستنتاجات',
+  recommendations: 'التوصيات المرتبطة بالاستنتاجات',
+  recommendationType: 'نوع التوصية',
+  targetAudience: 'الجهة المستهدفة',
+  implementationHorizon: 'أفق التنفيذ',
+  recommendationText: 'نص التوصية',
+  overallPriorities: 'ترتيب الأولويات',
+  feasibilityNote: 'قابلية التنفيذ وحدوده',
 };
 
 export type ProjectSnapshotEmailInput = {
