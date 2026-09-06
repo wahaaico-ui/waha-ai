@@ -226,7 +226,7 @@ export default function ExternalAnalysisInputPage() {
           {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{validationIssue}</p> : null}
           {error ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-7 text-rose-800">{error}</p> : null}
           <button type="button" onClick={() => void save()} disabled={Boolean(validationIssue) || status === 'saving'} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? 'جارٍ التحقق والحفظ…' : 'اعتماد مخرجات التحليل'}</button>
-          {status === 'saved' && !validationIssue ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-900"><strong>تم الحفظ والتحقق.</strong> أصبحت الأسئلة والفرضيات مرتبطة بمخرجات التحليل. الخطوة المنطقية التالية هي صياغة النتائج، ولن يبدأ النظام بها قبل اعتمادك.</div> : null}
+          {status === 'saved' && !validationIssue ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-900"><strong>تم الحفظ والتحقق.</strong> أصبحت الأسئلة والفرضيات مرتبطة بمخرجات التحليل.<div><Link href={`/research/results?projectId=${encodeURIComponent(projectId)}`} className="mt-3 inline-flex rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white">انتقل إلى صياغة النتائج ←</Link></div></div> : null}
         </section>
       </> : null}
     </main>

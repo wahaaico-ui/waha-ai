@@ -115,6 +115,24 @@ describe('research workflow quality gates', () => {
     expect(stageComplete('analysis_input', { ...literatureAnalysis })).toBe(false);
   });
 
+  test('opens results only after valid external analysis outputs are approved', () => {
+    const results = {
+      results: [{
+        questionIndex: 0,
+        questionText: 'ما أثر التقنية على تعلم الباحثين؟',
+        hypothesisIndex: null,
+        hypothesisText: null,
+        sourceFindingSummary: 'ظهر تحسن واضح في جودة التعلم لدى أفراد العينة بعد استخدام التقنية.',
+        sourceEvidenceSummary: 'بلغ المتوسط العام 4.10 من خمس درجات وفق المخرج التحليلي المعتمد.',
+        resultStatement: 'ظهر تحسن واضح في جودة التعلم لدى أفراد العينة، وبلغ المتوسط العام 4.10 من خمس درجات وفق المخرج التحليلي المعتمد.',
+      }],
+      overallSummary: 'أظهرت مخرجات التحليل المعتمدة تحسناً واضحاً في جودة التعلم لدى أفراد العينة ضمن السياق المحدد للدراسة.',
+      limitations: 'تقتصر هذه النتائج على العينة والسياق اللذين شمِلَهما التحليل الخارجي.',
+      reportingOnlyConfirmed: true,
+    };
+    expect(stageComplete('results', results)).toBe(true);
+  });
+
   test('keeps literature locked until a quantitative design defines predictor and outcome variables', () => {
     expect(evaluateGate('design', { ...preDesignOutputs, design: { ...design, variables: [design.variables[0]] } }).status).toBe('needs_improvement');
     expect(evaluateGate('design', { ...preDesignOutputs, design }).status).toBe('open');

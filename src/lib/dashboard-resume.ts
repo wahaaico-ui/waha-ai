@@ -93,6 +93,11 @@ function outputPreview(stage: WorkflowStage, output: WorkflowOutput | null) {
       const firstFinding = findings.find((item) => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown> | undefined;
       return cleanPreview(firstFinding?.findingSummary) || cleanPreview(output.procedureSummary);
     }
+    case 'results': {
+      const results = Array.isArray(output.results) ? output.results : [];
+      const firstResult = results.find((item) => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown> | undefined;
+      return cleanPreview(firstResult?.resultStatement) || cleanPreview(output.overallSummary);
+    }
   }
 }
 

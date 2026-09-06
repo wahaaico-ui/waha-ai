@@ -27,6 +27,7 @@ function outputPreview(stage: JourneyStage, output: Record<string, unknown> | un
     literature: Array.isArray(output.papers) ? output.papers.map((paper) => paper && typeof paper === 'object' ? (paper as Record<string, unknown>).title : '') : [],
     analysis: [output.conclusion, output.thematicSynthesis],
     analysis_input: Array.isArray(output.findings) ? output.findings.map((finding) => finding && typeof finding === 'object' ? (finding as Record<string, unknown>).findingSummary : '') : [],
+    results: Array.isArray(output.results) ? output.results.map((result) => result && typeof result === 'object' ? (result as Record<string, unknown>).resultStatement : '') : [],
   };
   return candidates[stage].filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 2).join(' — ');
 }
