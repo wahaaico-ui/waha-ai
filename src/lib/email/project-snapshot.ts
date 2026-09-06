@@ -17,6 +17,7 @@ const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   analysis_input: { ar: 'مخرجات التحليل الخارجي', en: 'External analysis outputs' },
   results: { ar: 'النتائج', en: 'Results' },
   discussion: { ar: 'مناقشة النتائج', en: 'Results discussion' },
+  conclusions: { ar: 'الاستنتاجات', en: 'Conclusions' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -66,6 +67,11 @@ const FIELD_LABELS: Record<string, string> = {
   supportingPaperIds: 'معرّفات الأدلة المستخدمة',
   overallSynthesis: 'الخلاصة التفسيرية للمناقشة',
   limitationsInterpretation: 'أثر الحدود في التفسير',
+  conclusions: 'الاستنتاجات المرتبطة بالأسئلة',
+  discussionInterpretation: 'التفسير المعتمد من المناقشة',
+  conclusionStatement: 'صياغة الاستنتاج',
+  overallConclusion: 'الاستنتاج العام للدراسة',
+  scopeStatement: 'حدود انطباق الاستنتاجات',
 };
 
 export type ProjectSnapshotEmailInput = {

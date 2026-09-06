@@ -103,6 +103,11 @@ function outputPreview(stage: WorkflowStage, output: WorkflowOutput | null) {
       const firstDiscussion = discussions.find((item) => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown> | undefined;
       return cleanPreview(firstDiscussion?.interpretation) || cleanPreview(output.overallSynthesis);
     }
+    case 'conclusions': {
+      const conclusions = Array.isArray(output.conclusions) ? output.conclusions : [];
+      const firstConclusion = conclusions.find((item) => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown> | undefined;
+      return cleanPreview(firstConclusion?.conclusionStatement) || cleanPreview(output.overallConclusion);
+    }
   }
 }
 

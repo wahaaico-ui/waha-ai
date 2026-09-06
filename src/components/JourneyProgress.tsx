@@ -19,6 +19,7 @@ export const JOURNEY_PHASES = [
   { id: "analysis_input", labelAr: "مخرجات التحليل", labelEn: "Analysis outputs", href: "/research/analysis-input", enabled: true  },
   { id: "results", labelAr: "النتائج", labelEn: "Results", href: "/research/results", enabled: true  },
   { id: "discussion", labelAr: "المناقشة", labelEn: "Discussion", href: "/research/discussion", enabled: true  },
+  { id: "conclusions", labelAr: "الاستنتاجات", labelEn: "Conclusions", href: "/research/conclusions", enabled: true  },
 ];
 
 export type PhaseId = typeof JOURNEY_PHASES[number]["id"];

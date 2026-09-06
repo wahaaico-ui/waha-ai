@@ -136,6 +136,17 @@ describe('research workflow quality gates', () => {
     }, results })).toBe('discussion');
   });
 
+  test('opens conclusions only after a grounded discussion is approved', () => {
+    const discussion = {
+      discussions: [{ questionIndex: 0, questionText: 'ما أثر التقنية على تعلم الباحثين؟', resultStatement: 'ظهر تحسن واضح في جودة التعلم، وبلغ المتوسط العام 4.10 من خمس درجات ضمن العينة.', interpretation: 'تعني النتيجة وجود تحسن مرتبط باستخدام التقنية ضمن العينة الحالية، دون إثبات علاقة سببية تتجاوز التصميم المعتمد.', literatureComparison: 'يتفق اتجاه النتيجة بحذر مع الأدلة السابقة المختارة، مع مراعاة اختلاف المجتمع والسياق والمنهج بين الدراسات.', supportingPaperIds: ['1'] }],
+      overallSynthesis: 'تشير المناقشة إلى أن النتيجة تجيب عن السؤال ضمن حدود العينة الحالية وتتسق بحذر مع اتجاه الأدلة السابقة المختارة في المشروع.',
+      limitationsInterpretation: 'يقتصر تفسير النتيجة على العينة والسياق والمنهج المستخدم في الدراسة الحالية.',
+      evidenceGroundingConfirmed: true,
+      noNewResultsConfirmed: true,
+    };
+    expect(stageComplete('discussion', discussion)).toBe(true);
+  });
+
   test('keeps literature locked until a quantitative design defines predictor and outcome variables', () => {
     expect(evaluateGate('design', { ...preDesignOutputs, design: { ...design, variables: [design.variables[0]] } }).status).toBe('needs_improvement');
     expect(evaluateGate('design', { ...preDesignOutputs, design }).status).toBe('open');
