@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       : typeof metadata.name === 'string' && metadata.name.trim()
         ? metadata.name.trim()
         : access.user.email.split('@')[0];
-    const appUrl = process.env.WAHA_APP_URL?.trim() || 'https://waha-ai.vercel.app';
+    const appUrl = process.env.WAHA_APP_URL?.trim() || 'https://waha.systems';
     const message = buildProjectSnapshotEmail({
       researcherName,
       projectTitle: projectResult.data.title,

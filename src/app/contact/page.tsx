@@ -6,7 +6,7 @@ import SiteFooter from '@/components/SiteFooter';
 import SiteHeader from '@/components/SiteHeader';
 import { useWahaLanguage } from '@/lib/use-language';
 
-const SUPPORT_EMAIL = 'waha.ai.co@gmail.com';
+const SUPPORT_EMAIL = 'support@waha.systems';
 
 const CONTENT = {
   ar: {

@@ -152,9 +152,9 @@ function readableLines(value: unknown, depth = 0): string[] {
 function safeUrl(input: string) {
   try {
     const url = new URL(input);
-    return url.protocol === 'https:' ? url.toString() : 'https://waha-ai.vercel.app/dashboard';
+    return url.protocol === 'https:' ? url.toString() : 'https://waha.systems/dashboard';
   } catch {
-    return 'https://waha-ai.vercel.app/dashboard';
+    return 'https://waha.systems/dashboard';
   }
 }
 
