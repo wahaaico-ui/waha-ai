@@ -113,6 +113,7 @@ function outputPreview(stage: WorkflowStage, output: WorkflowOutput | null) {
       const firstRecommendation = recommendations.find((item) => item && typeof item === 'object' && !Array.isArray(item)) as Record<string, unknown> | undefined;
       return cleanPreview(firstRecommendation?.recommendationText) || cleanPreview(output.overallPriorities);
     }
+    case 'publication': return cleanPreview(output.targetName) || cleanPreview(output.approvedTitle);
   }
 }
 

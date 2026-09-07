@@ -146,7 +146,7 @@ export default function ResearchRecommendationsPage() {
           {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{validationIssue}</p> : null}
           {error ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-7 text-rose-800">{error}</p> : null}
           <button type="button" onClick={() => void save()} disabled={Boolean(validationIssue) || status === 'saving'} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? 'جارٍ التحقق والحفظ…' : 'اعتماد التوصيات'}</button>
-          {status === 'saved' && !validationIssue ? <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold leading-7 text-emerald-900">تم حفظ التوصيات والتحقق من ارتباطها بالاستنتاجات. المرحلة التالية هي التجهيز للنشر.</p> : null}
+          {status === 'saved' && !validationIssue ? <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold leading-7 text-emerald-900">تم حفظ التوصيات والتحقق من ارتباطها بالاستنتاجات. <Link href={`/research/publication?projectId=${encodeURIComponent(projectId)}`} className="underline">انتقل إلى جاهزية النشر</Link></p> : null}
         </section>
       </> : null}
     </main>

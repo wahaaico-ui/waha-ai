@@ -8,7 +8,7 @@ import { useWahaLanguage } from '@/lib/use-language';
 import { useAuthSession } from '@/components/AuthSessionProvider';
 import { ArrowLeft, CheckCircle2, Clock3, Mail } from 'lucide-react';
 
-type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument' | 'literature' | 'analysis' | 'analysis_input' | 'results' | 'discussion' | 'conclusions' | 'recommendations';
+type JourneyStage = 'verify' | 'title' | 'problem' | 'objectives' | 'questions' | 'hypotheses' | 'methodology' | 'design' | 'instrument' | 'literature' | 'analysis' | 'analysis_input' | 'results' | 'discussion' | 'conclusions' | 'recommendations' | 'publication';
 
 
 interface HistoryRow {
@@ -53,7 +53,7 @@ const COPY = {
     emailSuccess: 'تم إرسال آخر نسخة المحفوظة إلى بريد حسابك.',
     emailUnavailable: 'خدمة البريد تحتاج تفعيلها من إعدادات المنصة.',
     emailError: 'تعذر إرسال النسخة الآن. حاول مجدداً.',
-    journeyComplete: 'اكتملت الرحلة الأساسية — راجع تقرير السيمنار',
+    journeyComplete: 'اكتملت الرحلة البحثية — افتح التقرير النهائي',
     projectSubtitle: 'افتح مشروعاً محفوظاً لتتابع من آخر مرحلة معتمدة، أو ابدأ مساراً جديداً.',
     newProject: 'مشروع جديد',
     projectsTitle: 'المشاريع المحفوظة',
@@ -83,7 +83,7 @@ const COPY = {
     emailSuccess: 'Your latest saved version was sent to your account email.',
     emailUnavailable: 'Email delivery must be enabled in platform settings.',
     emailError: 'Unable to send the version now. Please try again.',
-    journeyComplete: 'Core journey complete — review the seminar report',
+    journeyComplete: 'Research journey complete — open the final report',
     projectSubtitle: 'Open a saved project to continue from its last approved stage, or start a new path.',
     newProject: 'New project',
     projectsTitle: 'Saved projects',
@@ -130,6 +130,7 @@ const STAGE_COPY: Record<JourneyStage, { ar: string; en: string; href: string }>
   discussion: { ar: 'مناقشة النتائج', en: 'Results discussion', href: '/research/discussion' },
   conclusions: { ar: 'الاستنتاجات', en: 'Conclusions', href: '/research/conclusions' },
   recommendations: { ar: 'التوصيات', en: 'Recommendations', href: '/research/recommendations' },
+  publication: { ar: 'جاهزية النشر', en: 'Publication readiness', href: '/research/publication' },
 };
 
 function resumeHref(project: ProjectRow) {
@@ -157,6 +158,7 @@ function projectStatus(status: string | null, lang: 'ar' | 'en') {
     discussion: { ar: 'تم اعتماد المناقشة', en: 'Discussion approved' },
     conclusions: { ar: 'تم اعتماد الاستنتاجات', en: 'Conclusions approved' },
     recommendations: { ar: 'تم اعتماد التوصيات', en: 'Recommendations approved' },
+    publication: { ar: 'اكتملت جاهزية النشر', en: 'Publication readiness complete' },
   };
   if (status?.endsWith('_needs_improvement')) return lang === 'ar' ? 'تحتاج مراجعة' : 'Needs review';
   return labels[stage]?.[lang] || (lang === 'ar' ? 'قيد العمل' : 'In progress');

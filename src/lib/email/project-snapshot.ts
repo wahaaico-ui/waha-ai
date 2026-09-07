@@ -19,6 +19,7 @@ const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   discussion: { ar: 'مناقشة النتائج', en: 'Results discussion' },
   conclusions: { ar: 'الاستنتاجات', en: 'Conclusions' },
   recommendations: { ar: 'التوصيات', en: 'Recommendations' },
+  publication: { ar: 'جاهزية النشر', en: 'Publication readiness' },
 };
 
 const FIELD_LABELS: Record<string, string> = {
@@ -80,6 +81,19 @@ const FIELD_LABELS: Record<string, string> = {
   recommendationText: 'نص التوصية',
   overallPriorities: 'ترتيب الأولويات',
   feasibilityNote: 'قابلية التنفيذ وحدوده',
+  approvedTitle: 'العنوان المعتمد للنشر',
+  targetType: 'نوع المخرج المستهدف',
+  targetName: 'جهة النشر المستهدفة',
+  manuscriptLanguage: 'لغة المخطوط',
+  citationStyle: 'نمط التوثيق',
+  structuredAbstract: 'الملخص المنظم',
+  keywords: 'الكلمات المفتاحية',
+  ethicsStatus: 'حالة الأخلاقيات',
+  ethicsStatement: 'بيان الأخلاقيات',
+  conflictOfInterestStatement: 'بيان تضارب المصالح',
+  fundingStatement: 'بيان التمويل',
+  dataAvailabilityStatement: 'بيان إتاحة البيانات',
+  aiUseDisclosure: 'الإفصاح عن استخدام الذكاء الاصطناعي',
 };
 
 export type ProjectSnapshotEmailInput = {

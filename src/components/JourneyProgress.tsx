@@ -21,6 +21,7 @@ export const JOURNEY_PHASES = [
   { id: "discussion", labelAr: "المناقشة", labelEn: "Discussion", href: "/research/discussion", enabled: true  },
   { id: "conclusions", labelAr: "الاستنتاجات", labelEn: "Conclusions", href: "/research/conclusions", enabled: true  },
   { id: "recommendations", labelAr: "التوصيات", labelEn: "Recommendations", href: "/research/recommendations", enabled: true  },
+  { id: "publication", labelAr: "النشر", labelEn: "Publication", href: "/research/publication", enabled: true  },
 ];
 
 export type PhaseId = typeof JOURNEY_PHASES[number]["id"];

@@ -15,6 +15,7 @@ type DesignVariable = { name?: string; role?: string; operationalDefinition?: st
 
 const strings = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0) : [];
 const text = (value: unknown) => typeof value === 'string' ? value : '';
+const records = (value: unknown) => Array.isArray(value) ? value.filter((item): item is Record<string, unknown> => Boolean(item && typeof item === 'object' && !Array.isArray(item))) : [];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return <section className="break-inside-avoid rounded-2xl border border-slate-200 bg-white p-5 shadow-sm print:rounded-none print:border-slate-300 print:shadow-none sm:p-7"><h2 className="border-b border-blue-100 pb-3 text-lg font-black text-blue-950">{title}</h2><div className="mt-4 text-sm leading-8 text-slate-700">{children}</div></section>;
@@ -46,6 +47,12 @@ export default function ResearchSeminarPage() {
   const sample = design?.sample && typeof design.sample === 'object' && !Array.isArray(design.sample) ? design.sample as Record<string, unknown> : {};
   const papers = Array.isArray(journey?.outputs.literature?.papers) ? journey.outputs.literature.papers.filter((paper): paper is Paper => Boolean(paper && typeof paper === 'object' && typeof paper.id === 'string' && typeof paper.title === 'string')) : [];
   const analysis = journey?.outputs.analysis as ResearchAnalysis | undefined;
+  const results = records(journey?.outputs.results?.results);
+  const discussions = records(journey?.outputs.discussion?.discussions);
+  const conclusions = records(journey?.outputs.conclusions?.conclusions);
+  const recommendations = records(journey?.outputs.recommendations?.recommendations);
+  const publication = journey?.outputs.publication;
+  const structuredAbstract = publication?.structuredAbstract && typeof publication.structuredAbstract === 'object' && !Array.isArray(publication.structuredAbstract) ? publication.structuredAbstract as Record<string, unknown> : {};
   const generatedAt = new Date().toLocaleString('ar');
 
   return <div dir="rtl" className="min-h-screen bg-[#F8FAFC] pb-20 text-slate-950 print:bg-white print:pb-0"><div className="print:hidden"><SiteHeader /></div><main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 print:max-w-none print:px-0 print:py-0">
@@ -71,7 +78,13 @@ export default function ResearchSeminarPage() {
 
       <Section title="7. الفجوات المستنتجة والقيود"><div className="grid gap-5 sm:grid-cols-2"><div><h3 className="font-black text-amber-900">[استنتاجات تحتاج تحققاً]</h3><ul className="mt-2 space-y-2">{analysis?.researchGapsIdentified?.map((gap) => <li key={gap}>• {gap}</li>)}</ul></div><div><h3 className="font-black text-slate-800">حدود التقرير</h3><ul className="mt-2 space-y-2">{analysis?.limitations?.map((limitation) => <li key={limitation}>• {limitation}</li>)}</ul></div></div></Section>
 
-      <Section title="8. خلاصة الجاهزية"><p>{analysis?.conclusion}</p><div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><strong>الجاهزية:</strong> اكتملت بوابات بناء المقترح الأساسية. يبقى اعتماد المشرف/اللجنة، مراجعة النصوص الكاملة، الموافقات الأخلاقية عند الحاجة، وتنفيذ جمع البيانات والتحليل من الباحث والجهة الأكاديمية.</div></Section>
+      <Section title="8. النتائج المعتمدة"><p>{text(journey.outputs.results?.overallSummary)}</p><ol className="mt-4 space-y-3">{results.map((result, index) => <li key={`${index}-${text(result.questionText)}`} className="rounded-xl border border-slate-200 bg-slate-50 p-4"><strong>السؤال {index + 1}:</strong> {text(result.resultStatement)}</li>)}</ol><p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900"><strong>حدود النتائج:</strong> {text(journey.outputs.results?.limitations)}</p></Section>
+
+      <Section title="9. المناقشة والاستنتاجات"><div className="space-y-4">{discussions.map((discussion, index) => <article key={`${index}-${text(discussion.questionText)}`} className="rounded-xl border border-blue-100 bg-blue-50 p-4"><h3 className="font-black">مناقشة السؤال {index + 1}</h3><p className="mt-2"><strong>التفسير:</strong> {text(discussion.interpretation)}</p><p className="mt-2"><strong>المقارنة بالأدبيات:</strong> {text(discussion.literatureComparison)}</p></article>)}</div><div className="mt-5 space-y-3">{conclusions.map((conclusion, index) => <p key={`${index}-${text(conclusion.questionText)}`} className="rounded-xl border border-emerald-100 bg-emerald-50 p-4"><strong>استنتاج {index + 1}:</strong> {text(conclusion.conclusionStatement)}</p>)}</div><p className="mt-4 font-bold">{text(journey.outputs.conclusions?.overallConclusion)}</p></Section>
+
+      <Section title="10. التوصيات"><div className="space-y-3">{recommendations.map((recommendation, index) => <article key={`${index}-${text(recommendation.targetAudience)}`} className="rounded-xl border border-violet-100 bg-violet-50 p-4"><h3 className="font-black">التوصية {index + 1} · {text(recommendation.targetAudience)}</h3><p className="mt-2">{text(recommendation.recommendationText)}</p></article>)}</div><p className="mt-4"><strong>ترتيب الأولويات:</strong> {text(journey.outputs.recommendations?.overallPriorities)}</p></Section>
+
+      <Section title="11. حزمة الجاهزية للنشر"><div className="grid gap-3 sm:grid-cols-2"><p className="rounded-xl bg-slate-50 p-4"><strong>الجهة المستهدفة:</strong><br />{text(publication?.targetName)}</p><p className="rounded-xl bg-slate-50 p-4"><strong>نمط التوثيق:</strong><br />{text(publication?.citationStyle)}</p></div><div className="mt-5 space-y-4"><p><strong>الخلفية:</strong> {text(structuredAbstract.background)}</p><p><strong>الهدف:</strong> {text(structuredAbstract.objective)}</p><p><strong>المنهج:</strong> {text(structuredAbstract.methods)}</p><p><strong>النتائج:</strong> {text(structuredAbstract.results)}</p><p><strong>الاستنتاج:</strong> {text(structuredAbstract.conclusion)}</p><p><strong>الكلمات المفتاحية:</strong> {strings(publication?.keywords).join('، ')}</p></div><div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900"><strong>حالة الرحلة:</strong> اكتملت بوابات WAHA السبع عشرة وحُفظت إقرارات الجاهزية. لا تعني هذه الحالة ضمان قبول المخطوط؛ تبقى مراجعة المشرف والجهة الناشرة والتحكيم العلمي مستقلة.</div></Section>
 
       <footer className="border-t border-slate-300 py-5 text-center text-xs leading-6 text-slate-500">أُنشئ هذا التقرير من المخرجات المحفوظة في مشروع WAHA. لا يثبت الجدة المطلقة، ولا يستبدل قراءة المصادر الأصلية أو التحكيم الأكاديمي.</footer></>}
   </main></div>;
