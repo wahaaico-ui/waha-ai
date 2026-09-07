@@ -55,7 +55,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'فشل توليد العناوين عبر نموذج Gemini' }, { status: 500 });
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الاتصال' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: err instanceof Error && err.message ? err.message : 'خطأ في الاتصال' }, { status: 500 });
   }
 }

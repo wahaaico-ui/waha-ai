@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userIdea, userCountry, academicDegree, userField } = body;
+    const { userIdea, userCountry, userField } = body;
 
     // بند الرفض الصارم: إذا كان النص قصيراً أو غير مكتمل (أقل من 15 حرفاً)
     if (!userIdea || userIdea.trim().length < 15) {
@@ -55,7 +55,7 @@ export async function POST(request) {
     };
 
     return NextResponse.json(engineResponse);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { success: false, error: 'حدث خطأ داخلي في معالجة دستور WAHA.' },
       { status: 500 }

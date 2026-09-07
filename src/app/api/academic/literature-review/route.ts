@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
+interface LiteraturePaperInput {
+  title?: unknown;
+  authors?: unknown;
+  year?: unknown;
+  abstract?: unknown;
+}
+
+function printable(value: unknown): string {
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string').join('، ');
+  return 'غير متوفر';
+}
+
 export async function POST(req: Request) {
   try {
     const access = await requireAuthenticatedUser();
@@ -16,13 +29,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'الرجاء توفير أبحاث لتوليد مراجعة الأدبيات' }, { status: 400 });
     }
 
-    const papersText = papers.map((p: any, idx: number) => `
+    const papersText = papers.map((paper: unknown, idx: number) => {
+      const p = paper && typeof paper === 'object' ? paper as LiteraturePaperInput : {};
+      return `
       البحث ${idx + 1}:
-      العنوان: ${p.title}
-      المؤلفون: ${p.authors}
-      السنة: ${p.year}
-      المستخلص: ${p.abstract}
-    `).join('\n---\n');
+      العنوان: ${printable(p.title)}
+      المؤلفون: ${printable(p.authors)}
+      السنة: ${printable(p.year)}
+      المستخلص: ${printable(p.abstract)}
+    `;
+    }).join('\n---\n');
 
     const prompt = `أنت أكاديمي وباحث رفيع المستوى في مناهج البحث العلمي. بناءً على الأبحاث التالية، قم بكتابة "فصل مراجعة أدبيات" (Literature Review) علمي، مترابط، ومتكامل باللغة العربية الفصحى.
     تجنب السرد المنفصل لكل بحث على حِدة، واعتمد أسلوب التخليق (Synthesis) القائم على دمج المحاور، المقارنة بين المنهجيات، وتسليط الضوء على الاتجاهات المشتركة والقصور.
@@ -54,7 +70,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'فشل توليد مراجعة الأدبيات عبر نموذج Gemini' }, { status: 500 });
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الاتصال' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: err instanceof Error && err.message ? err.message : 'خطأ في الاتصال' }, { status: 500 });
   }
 }

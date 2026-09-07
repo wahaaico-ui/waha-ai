@@ -15,6 +15,7 @@ export class EvidenceCollector {
   ];
 
   public collect(intent: ParsedAcademicIntent): EvidencePackage {
+    void intent;
     // Filter references based on keyword match or return subset deterministically
     const matchedReferences = this.mockReferencesDatabase;
     const currentYear = new Date().getFullYear();
@@ -51,4 +52,3 @@ export class EvidenceCollector {
     };
   }
 }
-

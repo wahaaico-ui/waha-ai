@@ -6,6 +6,20 @@ export interface AcademicEvidence {
   source: string;
 }
 
+interface OpenAlexApiWork {
+  title?: string;
+  doi?: string;
+  ids?: { openalex?: string };
+  publication_year?: number;
+  cited_by_count?: number;
+  primary_location?: { source?: { display_name?: string } };
+}
+
+interface OpenAlexApiResponse {
+  results?: OpenAlexApiWork[];
+  meta?: { count?: number };
+}
+
 export async function analyzeResearchIdeaReal(query: string): Promise<{
   success: boolean;
   totalPapersFound: number;
@@ -14,9 +28,10 @@ export async function analyzeResearchIdeaReal(query: string): Promise<{
   gapAnalysis: string;
 }> {
   const encodedQuery = encodeURIComponent(query);
-  const res = await fetch(`https://api.openalex.org/works?search=${encodedQuery}&per_page=10`, {
+  const contactEmail = process.env.OPENALEX_EMAIL || 'waha.ai.co@gmail.com';
+  const res = await fetch(`https://api.openalex.org/works?search=${encodedQuery}&per_page=10&mailto=${encodeURIComponent(contactEmail)}`, {
     headers: {
-      'User-Agent': 'WAHA-Academic-Engine/1.0 (mailto:admin@waha-ai.local)'
+      'User-Agent': `WAHA-Academic-Engine/1.0 (mailto:${contactEmail})`
     }
   });
 
@@ -24,14 +39,14 @@ export async function analyzeResearchIdeaReal(query: string): Promise<{
     throw new Error('فشل الاتصال بقواعد البيانات العالمية (OpenAlex).');
   }
 
-  const data = await res.json();
+  const data = await res.json() as OpenAlexApiResponse;
   const results = data.results || [];
 
   if (results.length === 0) {
     throw new Error('لم يتم العثور على أي أدلة أو أوراق علمية موثقة لهذا المدخل. مرفوض لعدم وجود دليل.');
   }
 
-  const papers: AcademicEvidence[] = results.map((item: any) => ({
+  const papers: AcademicEvidence[] = results.map((item) => ({
     title: item.title || 'عنوان غير متوفر',
     doi: item.doi || item.ids?.openalex || 'مستند بدون DOI صريح',
     year: item.publication_year || 0,

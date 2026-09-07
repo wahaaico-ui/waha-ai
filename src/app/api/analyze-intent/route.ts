@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       message: 'تم اجتياز المرحلتين 2 و 3 بنجاح. النص أكاديمي. بانتظار الانتقال للمرحلة 4.'
     }, { status: 200 });
 
-  } catch (error) {
+  } catch {
     return NextResponse.json({
       success: false,
       error: 'حدث خطأ في النظام.'

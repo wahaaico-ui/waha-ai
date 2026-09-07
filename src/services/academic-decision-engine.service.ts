@@ -1,5 +1,6 @@
 export class AcademicDecisionEngine {
   public static analyze(idea: string) {
+    void idea;
     return {
       score: 90,
       approved: true,

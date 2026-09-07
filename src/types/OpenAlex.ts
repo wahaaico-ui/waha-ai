@@ -6,31 +6,35 @@ export interface OpenAlexWork {
   authorships?: Array<{
     author?: {
       display_name?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     };
     countries?: string[];
     institutions?: Array<{
       display_name?: string;
       id?: string;
-      [key: string]: any;
+      [key: string]: unknown;
     }>;
-    [key: string]: any;
+    [key: string]: unknown;
   }>;
   cited_by_count?: number;
   doi?: string;
-  primary_location?: any;
-  [key: string]: any;
+  primary_location?: {
+    source?: { display_name?: string; [key: string]: unknown };
+    publisher?: string;
+    [key: string]: unknown;
+  } | null;
+  [key: string]: unknown;
 }
 
 export interface OpenAlexResponse {
   results?: OpenAlexWork[];
-  meta?: any;
-  [key: string]: any;
+  meta?: { count?: number; [key: string]: unknown };
+  [key: string]: unknown;
 }
 
 export interface OpenAlexErrorBody {
   message?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -56,14 +60,14 @@ export interface ResearchEvidence {
 
 export interface OpenAlexSearchResult {
   results?: OpenAlexWork[];
-  meta?: any;
-  [key: string]: any;
+  meta?: { count?: number; [key: string]: unknown };
+  [key: string]: unknown;
 }
 
 export interface OpenAlexFailure {
   code: string;
   message: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface KeywordExtractionResult {
@@ -71,7 +75,7 @@ export interface KeywordExtractionResult {
   keywords: string[];
   searchQuery: string;
   terms?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface QueryCandidate {
@@ -79,7 +83,7 @@ export interface QueryCandidate {
   query: string;
   reason: string;
   terms: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface SearchAttempt {
@@ -90,11 +94,11 @@ export interface SearchAttempt {
   totalAvailable?: number | null;
   used?: boolean;
   error?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface SearchStrategy {
   strategy?: string;
   queries?: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }

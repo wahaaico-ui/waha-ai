@@ -1,40 +1,51 @@
-export interface ResearchEvidence {
-  [key: string]: any;
-}
+import type { ResearchEvidence } from '@/types/OpenAlex';
+import type { ResearchAnalysis, TopValue } from '@/types/ResearchAnalysis';
 
-export interface ResearchAnalysis {
-  totalPapers: number;
-  numberOfCountries: number;
-  journal: { value: string; hint: string };
-  country: { value: string; hint: string };
-  [key: string]: any;
+function mostFrequent(counts: Map<string, number>): TopValue {
+  let value: string | null = null;
+  let count = 0;
+
+  for (const [candidate, candidateCount] of counts) {
+    if (candidateCount > count) {
+      value = candidate;
+      count = candidateCount;
+    }
+  }
+
+  return { value, count };
 }
 
 export class ResearchAnalyzer {
   static analyze(papers: ResearchEvidence[]): ResearchAnalysis {
-    const totalPapers = papers ? papers.length : 0;
+    const safePapers = Array.isArray(papers) ? papers : [];
+    const years = safePapers
+      .map((paper) => paper.publicationYear)
+      .filter((year): year is number => typeof year === 'number' && Number.isFinite(year));
+    const journalCounts = new Map<string, number>();
+    const countryCounts = new Map<string, number>();
 
-    const countries = new Set(papers?.map(p => p.country || p.geo || p.location).filter(Boolean));
-    const numberOfCountries = countries.size > 0 ? countries.size : 1;
+    for (const paper of safePapers) {
+      if (paper.journal) {
+        journalCounts.set(paper.journal, (journalCounts.get(paper.journal) ?? 0) + 1);
+      }
+      for (const country of new Set(paper.countries)) {
+        if (country) countryCounts.set(country, (countryCounts.get(country) ?? 0) + 1);
+      }
+    }
 
-    const journalCounts: { [key: string]: number } = {};
-    const countryCounts: { [key: string]: number } = {};
-
-    papers?.forEach(p => {
-      const journal = p.journal || p.source || "N/A";
-      const country = p.country || "N/A";
-      journalCounts[journal] = (journalCounts[journal] || 0) + 1;
-      countryCounts[country] = (countryCounts[country] || 0) + 1;
-    });
-
-    const topJournal = Object.entries(journalCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
-    const topCountry = Object.entries(countryCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || "N/A";
+    const totalCitations = safePapers.reduce((sum, paper) => sum + Math.max(0, paper.citationCount), 0);
 
     return {
-      totalPapers,
-      numberOfCountries,
-      journal: { value: topJournal, hint: "المجلة الأكثر تكراراً" },
-      country: { value: topCountry, hint: "الدولة الأكثر تكراراً" }
+      totalPapers: safePapers.length,
+      latestPublicationYear: years.length > 0 ? Math.max(...years) : null,
+      oldestPublicationYear: years.length > 0 ? Math.min(...years) : null,
+      averageCitationCount: safePapers.length > 0
+        ? Math.round((totalCitations / safePapers.length) * 10) / 10
+        : null,
+      numberOfJournals: journalCounts.size,
+      numberOfCountries: countryCounts.size,
+      topJournal: mostFrequent(journalCounts),
+      topCountry: mostFrequent(countryCounts),
     };
   }
 }

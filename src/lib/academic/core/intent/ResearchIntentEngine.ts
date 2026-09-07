@@ -20,7 +20,7 @@ export class ResearchIntentEngine {
 
     const discipline = cleanText.includes('تعليم') || cleanText.includes('تحصيل') ? 'التربية والتعليم' : null;
 
-    let missingParts: string[] = [];
+    const missingParts: string[] = [];
     if (intent === 'HAS_TITLE' || intent === 'REJECTED_TITLE') {
       if (!independentVariable) missingParts.push('المتغير المستقل غير واضح');
       if (!dependentVariable) missingParts.push('المتغير التابع غير واضح');
@@ -102,4 +102,3 @@ export class ResearchIntentEngine {
     };
   }
 }
-

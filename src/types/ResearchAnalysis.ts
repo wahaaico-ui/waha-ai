@@ -1,9 +1,17 @@
 export interface TopValue {
-  value: any;
+  value: string | null;
   count: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ResearchAnalysis {
-  [key: string]: any;
+  totalPapers: number;
+  latestPublicationYear: number | null;
+  oldestPublicationYear: number | null;
+  averageCitationCount: number | null;
+  numberOfJournals: number;
+  numberOfCountries: number;
+  topJournal: TopValue;
+  topCountry: TopValue;
+  [key: string]: unknown;
 }

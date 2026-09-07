@@ -1,13 +1,13 @@
 export interface YearCount {
   year: number | string;
   count: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface RankedCount {
   name: string;
   count: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface MostCitedPaper {
@@ -19,7 +19,7 @@ export interface MostCitedPaper {
   openalexId: string;
   openalexUrl: string;
   authors: string[];
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface ResearchStatistics {
@@ -46,8 +46,8 @@ export interface ResearchStatistics {
     papersWithPublicationYear: number;
     papersWithJournal: number;
     papersWithConcepts: number;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 
-  [key: string]: any;
+  [key: string]: unknown;
 }

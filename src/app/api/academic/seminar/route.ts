@@ -5,7 +5,7 @@ export async function POST(req: Request) {
   try {
     const access = await requireAuthenticatedUser();
     if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { title, discipline, problem, variables, methodology } = await req.json();
+    const { title, discipline, problem, variables } = await req.json();
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'فشل توليد السيمينار عبر نموذج Gemini' }, { status: 500 });
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الاتصال' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: err instanceof Error && err.message ? err.message : 'خطأ في الاتصال' }, { status: 500 });
   }
 }

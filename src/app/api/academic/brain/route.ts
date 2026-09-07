@@ -1,13 +1,57 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
+interface OpenAlexAuthorship {
+  author?: { display_name?: string; name?: string };
+}
+
+interface OpenAlexWork {
+  id?: string;
+  title?: string;
+  doi?: string;
+  publication_year?: number;
+  cited_by_count?: number;
+  authorships?: OpenAlexAuthorship[];
+  primary_location?: {
+    source?: { display_name?: string };
+    publisher?: string;
+  };
+  abstract_inverted_index?: Record<string, number[]>;
+  open_access?: { is_oa?: boolean; oa_url?: string };
+}
+
+interface EvidencePaper {
+  title: string | null;
+  authors: string[] | null;
+  year: number | null;
+  doi: string | null;
+  journal: string | null;
+  publisher: string | null;
+  abstract: string | null;
+  citationCount: number;
+  isOpenAccess: boolean;
+  pdfUrl: string | null;
+  source: 'OpenAlex';
+  url: string | null;
+  evidenceScore?: number;
+}
+
+interface ConfidenceMetrics {
+  score: number;
+  label?: string;
+  totalMatchedStudies?: number;
+  recentStudiesCount?: number;
+  doiAvailableRatio?: string;
+  ratingLabel?: string;
+}
+
 export async function POST(req: Request) {
   try {
     const access = await requireAuthenticatedUser();
     if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { inputQuery, researcherContext } = await req.json();
+    const { inputQuery } = await req.json();
 
-    if (!inputQuery || inputQuery.trim().length < 3) {
+    if (typeof inputQuery !== 'string' || inputQuery.trim().length < 3) {
       return NextResponse.json({
         success: false,
         userMessage: 'عذراً، النص المدخل قصير جداً ولا يمكن قراءته أكاديمياً. يرجى كتابة فكرة أو عنوان أو موضوع بحثي واضح.'
@@ -21,13 +65,13 @@ export async function POST(req: Request) {
     const intentAnalysis = detectUserIntentAndFormat(normalized);
 
     // 3. التفكيك الأكاديمي المرن
-    const academicParse = flexibleAcademicParsing(normalized, intentAnalysis.internalCategory);
+    const academicParse = flexibleAcademicParsing(normalized);
 
     // 4. محرك جدوى البحث (Research Feasibility Engine)
-    const feasibility = evaluateResearchFeasibility(normalized, researcherContext);
+    const feasibility = evaluateResearchFeasibility();
 
     // 5. محرك القرار الخماسي (5-Level Decision Engine)
-    const decision = determineFiveLevelDecision(intentAnalysis.internalCategory, academicParse, feasibility);
+    const decision = determineFiveLevelDecision(intentAnalysis.internalCategory);
 
     if (!decision.readyForEvidenceSearch) {
       return NextResponse.json({
@@ -44,7 +88,7 @@ export async function POST(req: Request) {
     }
 
     // 6. تنفيذ المهمة الثالثة: محرك الأدلة متعدد المصادر (Multi-Source Evidence Engine)
-    const evidenceExecution = await executeEvidenceEngine(normalized, academicParse);
+    const evidenceExecution = await executeEvidenceEngine(normalized);
 
     return NextResponse.json({
       success: true,
@@ -61,8 +105,9 @@ export async function POST(req: Request) {
       }
     });
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في معالجة المحرك الأكاديمي' }, { status: 500 });
+  } catch (err: unknown) {
+    const message = err instanceof Error && err.message ? err.message : 'خطأ في معالجة المحرك الأكاديمي';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
@@ -87,7 +132,7 @@ function detectUserIntentAndFormat(query: string) {
   return { internalCategory: 'TITLE_OR_STATEMENT', userMessage: 'تم رصد صياغة بحثية. جاري فحص قواعد البيانات العالمية لدعمها.' };
 }
 
-function flexibleAcademicParsing(query: string, category: string) {
+function flexibleAcademicParsing(query: string) {
   const hasCountry = /(فلسطين|السعودية|الأردن|مصر|الإمارات|الكويت|قطر|عمان|البحرين|العراق|المغرب|تونس|الجزائر)/i.test(query);
   const hasSample = /(طلبة|معلمو|مديرو|أعضاء هيئة التدريس|ممرضو|أطباء|موظفون)/i.test(query);
   const hasVariables = /(أثر|علاقة|دور|فاعلية|تأثير)/i.test(query);
@@ -104,11 +149,11 @@ function flexibleAcademicParsing(query: string, category: string) {
   };
 }
 
-function evaluateResearchFeasibility(query: string, context?: any) {
+function evaluateResearchFeasibility() {
   return { isFeasible: true, feasibilityScore: 94, reason: 'الدراسة واقعية وقابلة للتنفيذ.' };
 }
 
-function determineFiveLevelDecision(category: string, parse: any, feasibility: any) {
+function determineFiveLevelDecision(category: string) {
   if (category === 'TOPIC_GENERAL') {
     return { level: 'REQUIRES_MAJOR_RESTRUCTURING', arabicTitle: 'تحتاج بناء فكرة تفصيلية', readyForEvidenceSearch: false };
   }
@@ -119,9 +164,9 @@ function determineFiveLevelDecision(category: string, parse: any, feasibility: a
 // هندسة المهمة الثالثة: Multi-Source Evidence Engine (طبقة تلو الأخرى)
 // -------------------------------------------------------------
 
-async function executeEvidenceEngine(query: string, parse: any) {
+async function executeEvidenceEngine(query: string) {
   // 1. Search Query Builder (بناء الاستعلام الأكاديمي الهيكلي)
-  const structuredQuery = buildAcademicQuery(query, parse);
+  const structuredQuery = buildAcademicQuery(query);
 
   // 2. Multi-API Execution (جلب البيانات من OpenAlex ومصادر مساندة بالتوازي)
   const rawPapers = await fetchFromOpenAlex(structuredQuery);
@@ -136,7 +181,7 @@ async function executeEvidenceEngine(query: string, parse: any) {
   const rankedPapers = rankEvidence(uniquePapers);
 
   // 6. Confidence Engine (الحساب الرياضي للثقة بناءً على 7 أبعاد)
-  const confidenceMetrics = calculateMathematicalConfidence(rankedPapers, structuredQuery);
+  const confidenceMetrics = calculateMathematicalConfidence(rankedPapers);
 
   // 7. Explainability Report (التبرير السببي الموثوق)
   const explainability = generateExplainabilityReport(confidenceMetrics, rankedPapers.length);
@@ -149,29 +194,32 @@ async function executeEvidenceEngine(query: string, parse: any) {
 }
 
 // 1. طبقة باني الاستعلام
-function buildAcademicQuery(query: string, parse: any): string {
+function buildAcademicQuery(query: string): string {
   // تحويل النص الخام إلى استعلام دقيق
   return query.replace(/[^\w\sа-яà-öø-ÿ\u0600-\u06FF]/gi, ' ').trim();
 }
 
 // 2. طبقة جلب الأوراق من OpenAlex
-async function fetchFromOpenAlex(searchQuery: string): Promise<any[]> {
+async function fetchFromOpenAlex(searchQuery: string): Promise<OpenAlexWork[]> {
   try {
     const url = `https://api.openalex.org/works?search=${encodeURIComponent(searchQuery)}&per-page=15`;
     const res = await fetch(url);
     if (!res.ok) return [];
-    const data = await res.json();
-    return data.results || [];
-  } catch (e) {
+    const data: unknown = await res.json();
+    if (!data || typeof data !== 'object' || !('results' in data) || !Array.isArray(data.results)) return [];
+    return data.results as OpenAlexWork[];
+  } catch {
     return [];
   }
 }
 
 // 3. طبقة موحد البيانات (Result Normalizer)
-function normalizePaperSchema(item: any) {
+function normalizePaperSchema(item: OpenAlexWork): EvidencePaper {
   return {
     title: item.title || null,
-    authors: item.authorships?.map((a: any) => a.author.name) || null,
+    authors: item.authorships
+      ?.map((authorship) => authorship.author?.display_name ?? authorship.author?.name)
+      .filter((name): name is string => Boolean(name)) || null,
     year: item.publication_year || null,
     doi: item.doi ? item.doi.replace('https://doi.org/', '') : null,
     journal: item.primary_location?.source?.display_name || null,
@@ -186,10 +234,10 @@ function normalizePaperSchema(item: any) {
 }
 
 // 4. طبقة إزالة التكرار (Duplicate Removal)
-function removeDuplicates(papers: any[]): any[] {
-  const seenDois = new Set();
-  const seenTitles = new Set();
-  const unique: any[] = [];
+function removeDuplicates(papers: EvidencePaper[]): EvidencePaper[] {
+  const seenDois = new Set<string>();
+  const seenTitles = new Set<string>();
+  const unique: EvidencePaper[] = [];
 
   for (const paper of papers) {
     const cleanTitle = paper.title ? paper.title.toLowerCase().trim() : '';
@@ -207,8 +255,8 @@ function removeDuplicates(papers: any[]): any[] {
 }
 
 // 5. طبقة ترتيب الأدلة (Evidence Ranking)
-function rankEvidence(papers: any[]): any[] {
-  const currentYear = 2026;
+function rankEvidence(papers: EvidencePaper[]): EvidencePaper[] {
+  const currentYear = new Date().getUTCFullYear();
 
   return papers.map(paper => {
     // حساب درجات المعايير (0 إلى 1)
@@ -226,11 +274,11 @@ function rankEvidence(papers: any[]): any[] {
 }
 
 // 6. محرك الثقة الحسابي (Confidence Engine)
-function calculateMathematicalConfidence(papers: any[], query: string) {
+function calculateMathematicalConfidence(papers: EvidencePaper[]): ConfidenceMetrics {
   const totalCount = papers.length;
   if (totalCount === 0) return { score: 10, label: 'ثقة معدومة لعدم توفر نتائج' };
 
-  const currentYear = 2026;
+  const currentYear = new Date().getUTCFullYear();
   let recentCount = 0;
   let doiCount = 0;
   let oaCount = 0;
@@ -258,7 +306,7 @@ function calculateMathematicalConfidence(papers: any[], query: string) {
 }
 
 // 7. تقرير الشفافية والتبرير (Explainability Report)
-function generateExplainabilityReport(metrics: any, count: number) {
+function generateExplainabilityReport(metrics: ConfidenceMetrics, count: number) {
   return {
     whyTrusted: [
       `تم اعتماد ${count} ورقة علمية فريدة بعد فحص التطابق وإزالة التكرار بدقة.`,

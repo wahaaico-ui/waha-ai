@@ -1,6 +1,19 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
+interface PaperSummaryInput {
+  title?: unknown;
+  year?: unknown;
+  authors?: unknown;
+  citedByCount?: unknown;
+}
+
+function printable(value: unknown, fallback: string): string {
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string').join('، ') || fallback;
+  return fallback;
+}
+
 export async function POST(req: Request) {
   try {
     const access = await requireAuthenticatedUser();
@@ -16,13 +29,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'لا توجد أبحاث كافية للتحليل الذكي' }, { status: 400 });
     }
 
-    const papersSummary = papers.map((p: any, i: number) => `
+    const papersSummary = papers.map((paper: unknown, i: number) => {
+      const p = paper && typeof paper === 'object' ? paper as PaperSummaryInput : {};
+      return `
       البحث ${i + 1}:
-      العنوان: ${p.title}
-      السنة: ${p.year || 'غير متوفر'}
-      المؤلفون: ${p.authors}
-      الاستشهادات: ${p.citedByCount || 0}
-    `).join('\n---\n');
+      العنوان: ${printable(p.title, 'غير متوفر')}
+      السنة: ${printable(p.year, 'غير متوفر')}
+      المؤلفون: ${printable(p.authors, 'غير متوفر')}
+      الاستشهادات: ${printable(p.citedByCount, '0')}
+    `;
+    }).join('\n---\n');
 
     const prompt = `أنت خبير علمي في تحليل ومؤشرات الذكاء الأكاديمي (Research Intelligence Expert).
     قم بتحليل عينة الأبحاث التالية المتعلقة بموضوع "${topic || 'الموضوع البحثي'}" واستخرج تقريراً تحليلياً استراتيجياً يتضمن:
@@ -68,7 +84,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'فشل توليد تحليل ذكاء الأبحاث عبر نموذج Gemini' }, { status: 500 });
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الاتصال' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: err instanceof Error && err.message ? err.message : 'خطأ في الاتصال' }, { status: 500 });
   }
 }

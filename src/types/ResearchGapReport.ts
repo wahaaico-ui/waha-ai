@@ -3,8 +3,7 @@ export interface CoverageValue {
   count: number;
 }
 
-import type { IntelligenceRankedValue, ResearchIntelligence } from './ResearchIntelligence';
-import type { UnifiedResearchPaper } from './ResearchAggregation';
+import type { IntelligenceRankedValue } from './ResearchIntelligence';
 
 export type ResearchDensity =
   | 'Very High'

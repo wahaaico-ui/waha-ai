@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
+interface IncomingChatMessage {
+  role?: unknown;
+  content?: unknown;
+}
+
 export async function POST(req: Request) {
   try {
     const access = await requireAuthenticatedUser();
@@ -21,10 +26,19 @@ export async function POST(req: Request) {
     قم بإجابة الباحث بدقة علمية، واحترافية، وباللغة العربية الفصحى، مع تقديم استشارات دقيقة تدعم مساره البحثي.`;
 
     // تحويل رسائل المحادثة لتوافق هيكل Gemini API
-    const contents = messages.map((m: any) => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.content }]
-    }));
+    const contents = messages
+      .map((message: unknown) => {
+        const candidate = message && typeof message === 'object' ? message as IncomingChatMessage : {};
+        return {
+          role: candidate.role === 'user' ? 'user' : 'model',
+          parts: [{ text: typeof candidate.content === 'string' ? candidate.content.trim() : '' }]
+        };
+      })
+      .filter((message) => message.parts[0].text.length > 0);
+
+    if (contents.length === 0) {
+      return NextResponse.json({ success: false, error: 'محتوى رسائل المحادثة غير صالح' }, { status: 400 });
+    }
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -46,7 +60,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'فشل الرد عبر نموذج Gemini' }, { status: 500 });
     }
 
-  } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message || 'خطأ في الخادم' }, { status: 500 });
+  } catch (err: unknown) {
+    return NextResponse.json({ success: false, error: err instanceof Error && err.message ? err.message : 'خطأ في الخادم' }, { status: 500 });
   }
 }
