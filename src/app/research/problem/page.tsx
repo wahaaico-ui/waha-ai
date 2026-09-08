@@ -10,7 +10,11 @@ import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { assessAcademicText, assessProblemDraft } from '@/lib/academic-content-quality';
 import { useProjectId } from '@/lib/use-project-id';
 
-type VerifyOutput = { topic?: string; gaps?: string[] };
+type VerifyOutput = {
+  topic?: string;
+  gaps?: string[];
+  researcherInput?: { scenario?: 'uncertain' | 'idea' | 'rejected_title' | 'compare_titles' | 'references_only' };
+};
 type TitleOutput = { title?: string };
 type ProblemOutput = { problemStatement?: string; researchGap?: string; researcherNote?: string };
 
@@ -51,6 +55,11 @@ export default function ResearchProblemPage() {
   const problemAssessment = assessProblemDraft({ title, problemStatement: statement, researchGap: gap, researcherNote });
   const qualityIssue = problemAssessment.reason || '';
   const canSave = !qualityIssue;
+  const titleStepLabel = verify?.researcherInput?.scenario === 'compare_titles'
+    ? 'مقارنة عناوينك واعتماد أحدها'
+    : verify?.researcherInput?.scenario === 'rejected_title'
+      ? 'معالجة سبب الرفض واعتماد عنوان محسّن'
+      : 'صياغة عنوان محدد واعتماده';
 
   const saveProblem = async () => {
     if (!projectId || !canSave) return;
@@ -73,9 +82,9 @@ export default function ResearchProblemPage() {
         <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8"><div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 3 · المشكلة والفجوة</div><h1 className="mt-4 text-3xl font-black">حوّل العنوان إلى مشكلة بحث قابلة للدراسة</h1><p className="mt-3 text-sm leading-7 text-slate-600">الواحة تقترح المشكلة والفجوة من مشروعك. مهمتك أن تراجع الاقتراح، ثم تكتب سبب اهتمامك بالموضوع بكلماتك.</p></header>
 
         {loading ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">جارٍ تحميل العنوان ومؤشرات الفجوة…</section>
-        : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><p className="mt-3 text-sm text-amber-900">سجّل الدخول وأكمل مقارنة العناوين داخل مشروعك أولاً.</p><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
+        : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><p className="mt-3 text-sm text-amber-900">سجّل الدخول، ثم استكشف فكرتك واعتمد عنواناً داخل مشروعك أولاً.</p><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
         : loadError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{loadError}</section>
-        : !title ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة المشكلة مغلقة</h2><p className="mt-3 text-sm leading-7 text-amber-900">قارن العناوين واعتمد أحدها أولاً؛ لا يمكن تحديد مشكلة دقيقة قبل تثبيت نطاق البحث.</p><Link href={`/research?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى مقارنة العناوين</Link></section>
+        : !title ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">بوابة المشكلة مغلقة</h2><p className="mt-3 text-sm leading-7 text-amber-900">أكمل {titleStepLabel} أولاً؛ لا يمكن بناء مشكلة دقيقة قبل تثبيت نطاق البحث.</p><Link href={`/research?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى مرحلة العنوان</Link></section>
         : <>
           <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">بوابة العنوان مفتوحة من سجل المشروع</div><p className="mt-2 text-sm leading-7 text-emerald-950"><strong>العنوان المعتمد:</strong> {title}</p></section>
 

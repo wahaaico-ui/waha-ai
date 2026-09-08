@@ -662,7 +662,7 @@ export default function VerifyIdeaPage() {
 
             {/* YEAR DISTRIBUTION */}
             {report.yearDistribution.length > 0 && (
-              <div id="top-papers" className="scroll-mt-24 bg-white rounded-2xl border border-slate-200 p-6">
+              <div className="bg-white rounded-2xl border border-slate-200 p-6">
                 <h3 className="font-bold text-slate-800 mb-4">التوزيع الزمني للدراسات</h3>
                 <div className="space-y-2">
                   {report.yearDistribution.map((y) => (
@@ -696,7 +696,7 @@ export default function VerifyIdeaPage() {
 
             {/* TOP PAPERS */}
             {report.topPapers.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <div id="top-papers" className="scroll-mt-24 bg-white rounded-2xl border border-slate-200 p-6">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="font-bold text-slate-800">أهم الدراسات المرجعية في النتائج الحالية</h3><EvidenceBadge kind="verified" /></div>
                 <div className="space-y-3">
                   {report.topPapers.map((p, i) => (
