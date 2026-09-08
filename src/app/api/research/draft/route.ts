@@ -4,7 +4,7 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import type { WorkflowStage } from '@/lib/research-workflow';
 import { assessProblemDraft } from '@/lib/academic-content-quality';
 import { instrumentLabel, isStudyInstrumentType, type StudyInstrumentType } from '@/lib/research-instrument';
-import { buildProblemDraftFallback } from '@/lib/research-draft-fallback';
+import { buildObjectivesDraftFallback, buildProblemDraftFallback } from '@/lib/research-draft-fallback';
 
 const DRAFTABLE_STAGES = new Set<WorkflowStage>(['problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument']);
 
@@ -78,9 +78,13 @@ export async function POST(request: Request) {
       const generated = await generateStructured({ prompt, projectId, userId: access.user.id, supabase: access.supabase, feature: `research-draft-${stage}` });
       draft = parseJsonObject(generated.output);
     } catch (reason) {
-      const fallback = stage === 'problem' ? buildProblemDraftFallback(context) : null;
+      const fallback = stage === 'problem'
+        ? buildProblemDraftFallback(context)
+        : stage === 'objectives'
+          ? buildObjectivesDraftFallback(context)
+          : null;
       if (!fallback) throw reason;
-      console.warn('[research-draft] providers unavailable; using grounded local problem draft.');
+      console.warn('[research-draft] providers unavailable; using grounded local draft.', { stage });
       draft = fallback;
       usedLocalFallback = true;
     }

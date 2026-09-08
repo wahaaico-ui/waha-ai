@@ -31,6 +31,7 @@ test('falls back to Groq when Gemini rejects the configured key', async () => {
   expect(result.output).toContain('problemStatement');
   expect(global.fetch).toHaveBeenCalledTimes(2);
   expect((global.fetch as jest.Mock).mock.calls[1][0]).toBe('https://api.groq.com/openai/v1/chat/completions');
+  expect(JSON.parse((global.fetch as jest.Mock).mock.calls[1][1].body).model).toBe('qwen/qwen3.6-27b');
 });
 
 test('uses Gemini without calling the fallback when it succeeds', async () => {

@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 const AI_TIMEOUT_MS = 30_000;
 const GEMINI_MODEL = 'gemini-flash-latest';
 const OPENAI_MODEL = 'gpt-4.1-mini';
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_MODELS = ['qwen/qwen3.6-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'] as const;
 
 class AIProviderError extends Error {
   constructor(public readonly provider: 'gemini' | 'openai' | 'groq', public readonly status: number | null) {
@@ -61,30 +61,37 @@ async function generateWithGemini(apiKey: string, prompt: string) {
 }
 
 async function generateWithGroq(apiKey: string, prompt: string) {
-  let response: Response;
-  try {
-    response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        messages: [
-          { role: 'system', content: 'أنت مساعد بحث علمي أكاديمي دقيق. أعد JSON صالحاً فقط.' },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-      }),
-      signal: AbortSignal.timeout(AI_TIMEOUT_MS),
-    });
-  } catch {
-    throw new AIProviderError('groq', null);
+  let lastStatus: number | null = null;
+  for (const model of GROQ_MODELS) {
+    let response: Response;
+    try {
+      response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: 'system', content: 'أنت مساعد بحث علمي أكاديمي دقيق. أعد JSON صالحاً فقط.' },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+        }),
+        signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      });
+    } catch {
+      throw new AIProviderError('groq', null);
+    }
+    lastStatus = response.status;
+    if (!response.ok) {
+      if (response.status === 404 || response.status === 403) continue;
+      throw new AIProviderError('groq', response.status);
+    }
+    const data = await response.json();
+    const output = data.choices?.[0]?.message?.content;
+    if (typeof output === 'string' && output.trim()) return { output, model };
   }
-  if (!response.ok) throw new AIProviderError('groq', response.status);
-  const data = await response.json();
-  const output = data.choices?.[0]?.message?.content;
-  if (typeof output !== 'string' || !output.trim()) throw new AIProviderError('groq', response.status);
-  return { output, model: GROQ_MODEL };
+  throw new AIProviderError('groq', lastStatus);
 }
 
 interface GenerateOptions {

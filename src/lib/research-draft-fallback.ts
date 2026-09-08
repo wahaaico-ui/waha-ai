@@ -24,3 +24,19 @@ export function buildProblemDraftFallback(context: Record<string, unknown>) {
 
   return { problemStatement, researchGap };
 }
+
+export function buildObjectivesDraftFallback(context: Record<string, unknown>) {
+  const title = cleanText(record(context.title)?.title, 500);
+  const problem = record(context.problem);
+  const problemStatement = cleanText(problem?.problemStatement, 1_200);
+  const researchGap = cleanText(problem?.researchGap, 800);
+  if (!title || !problemStatement || !researchGap) return null;
+
+  return {
+    objectives: [
+      `تحديد الأبعاد الأساسية لموضوع «${title}» ضمن المجتمع والسياق اللذين سيحددهما الباحث في تصميم الدراسة.`,
+      `تحليل طبيعة الأثر أو العلاقة المرتبطة بموضوع «${title}» بالاستناد إلى مؤشرات قابلة للفحص ومنهج مناسب.`,
+      `تقييم مدى إسهام الأدلة الميدانية في معالجة الفجوة المحتملة المرتبطة بموضوع «${title}» دون افتراض النتائج مسبقاً.`,
+    ],
+  };
+}
