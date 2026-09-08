@@ -4,6 +4,7 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import type { WorkflowStage } from '@/lib/research-workflow';
 import { assessProblemDraft } from '@/lib/academic-content-quality';
 import { instrumentLabel, isStudyInstrumentType, type StudyInstrumentType } from '@/lib/research-instrument';
+import { buildProblemDraftFallback } from '@/lib/research-draft-fallback';
 
 const DRAFTABLE_STAGES = new Set<WorkflowStage>(['problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument']);
 
@@ -71,8 +72,18 @@ export async function POST(request: Request) {
       : undefined;
     const instrumentType = isStudyInstrumentType(requestedInstrumentType) ? requestedInstrumentType : 'questionnaire';
     const prompt = `أنت مساعد منهجي أكاديمي عربي داخل منصة WAHA. ابنِ مسودة قابلة للمراجعة اعتماداً حصراً على سجل المشروع التالي. لا تختلق مراجع أو نتائج أو أرقاماً أو حقائق غير موجودة. إذا كانت البيانات غير كافية، استخدم صياغة مقترحة متحفظة واذكر حدودها داخل النص. ${stageInstructions(stage as WorkflowStage, instrumentType)}\n\nسجل المشروع:\n${JSON.stringify(context).slice(0, 18_000)}`;
-    const generated = await generateStructured({ prompt, projectId, userId: access.user.id, supabase: access.supabase, feature: `research-draft-${stage}` });
-    const draft = parseJsonObject(generated.output);
+    let draft: Record<string, unknown>;
+    let usedLocalFallback = false;
+    try {
+      const generated = await generateStructured({ prompt, projectId, userId: access.user.id, supabase: access.supabase, feature: `research-draft-${stage}` });
+      draft = parseJsonObject(generated.output);
+    } catch (reason) {
+      const fallback = stage === 'problem' ? buildProblemDraftFallback(context) : null;
+      if (!fallback) throw reason;
+      console.warn('[research-draft] providers unavailable; using grounded local problem draft.');
+      draft = fallback;
+      usedLocalFallback = true;
+    }
     if (stage === 'problem') {
       const title = context.title && typeof context.title === 'object' && !Array.isArray(context.title)
         ? (context.title as Record<string, unknown>).title
@@ -86,8 +97,9 @@ export async function POST(request: Request) {
       });
       if (!assessment.valid) return NextResponse.json({ error: assessment.reason || 'المسودة لا تجتاز فحص الجودة.' }, { status: 422 });
     }
-    return NextResponse.json({ success: true, stage, draft, notice: stage === 'hypotheses' ? 'اقترحنا قرار الفرضيات من طبيعة أسئلتك. راجعه مع مشرفك قبل الاعتماد.' : stage === 'instrument' ? `أعددنا مسودة ${instrumentLabel(instrumentType)} من سجل مشروعك. راجعها وصححها قبل الاعتماد.` : 'أعددنا مسودة من سجل مشروعك. راجعها وصححها قبل الاعتماد.' });
-  } catch {
+    return NextResponse.json({ success: true, stage, draft, notice: usedLocalFallback ? 'أعددنا مسودة محلية آمنة من عنوانك ومؤشرات مشروعك بعد تعذر مزوّد الذكاء الاصطناعي. راجعها وصححها قبل الاعتماد.' : stage === 'hypotheses' ? 'اقترحنا قرار الفرضيات من طبيعة أسئلتك. راجعه مع مشرفك قبل الاعتماد.' : stage === 'instrument' ? `أعددنا مسودة ${instrumentLabel(instrumentType)} من سجل مشروعك. راجعها وصححها قبل الاعتماد.` : 'أعددنا مسودة من سجل مشروعك. راجعها وصححها قبل الاعتماد.' });
+  } catch (reason) {
+    console.error('[research-draft] request failed', reason instanceof Error ? reason.message : 'unknown error');
     return NextResponse.json({ error: 'تعذر إعداد المسودة الآن. حاول مجدداً بعد قليل.' }, { status: 500 });
   }
 }
