@@ -154,6 +154,21 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  if (user) {
+    const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const needsMfa = assurance?.currentLevel === 'aal1' && assurance.nextLevel === 'aal2';
+    if (needsMfa) {
+      if (request.nextUrl.pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'MFA verification required.' }, { status: 403 });
+      }
+      const url = request.nextUrl.clone();
+      url.pathname = '/auth/mfa';
+      url.search = '';
+      url.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`);
+      return NextResponse.redirect(url);
+    }
+  }
+
   return response;
 }
 

@@ -47,7 +47,9 @@ function LoginForm() {
       setError(loginError.message === 'Invalid login credentials' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : loginError.message);
       setLoading(false);
     } else {
-      router.push(redirectTo);
+      const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const needsMfa = assurance?.currentLevel === 'aal1' && assurance.nextLevel === 'aal2';
+      router.push(needsMfa ? `/auth/mfa?next=${encodeURIComponent(redirectTo)}` : redirectTo);
       router.refresh();
     }
   };

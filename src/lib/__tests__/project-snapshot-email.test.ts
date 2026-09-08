@@ -36,8 +36,7 @@ describe('project snapshot email', () => {
     });
 
     expect(email.html).not.toContain('javascript:');
-    expect(email.text).toContain('https://waha-ai.vercel.app/dashboard');
+    expect(email.text).toContain('https://waha.systems/dashboard');
     expect(email.text.length).toBeLessThan(22_000);
   });
 });
-

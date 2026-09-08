@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Shield, ArrowRight, Save, Plug } from 'lucide-react';
+import { User, Mail, Shield, ArrowRight, Save, Plug, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -70,6 +70,11 @@ export default function ProfilePage() {
       <div className="max-w-2xl mx-auto">
         <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-cyan-400 mb-8 transition">
           <ArrowRight className="w-4 h-4" /> العودة إلى مشاريعي
+        </Link>
+
+        <Link href="/settings/security" className="mb-6 flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-emerald-300 transition hover:bg-emerald-500/10">
+          <span className="flex items-center gap-3"><KeyRound className="h-5 w-5" /><span><strong className="block">أمان الحساب والتحقق الثنائي</strong><small className="text-gray-400">إضافة تطبيق مصادقة لحماية تسجيل الدخول</small></span></span>
+          <span>←</span>
         </Link>
 
         <h1 className="text-3xl font-bold mb-2">إدارة الحساب والملف الأكاديمي</h1>

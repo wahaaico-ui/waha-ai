@@ -4,6 +4,7 @@ const ALLOWED_EXACT_PATHS = new Set([
   '/email-confirmed',
   '/pricing',
   '/reset-password',
+  '/settings/security',
   '/verify-idea',
 ]);
 const ALLOWED_PREFIXES = ['/projects/workspace', '/research'];

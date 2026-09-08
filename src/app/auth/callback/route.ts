@@ -37,7 +37,11 @@ export async function GET(request: Request) {
       flowId ? { flowId } : undefined,
     );
     if (!error) {
-      return secureRedirect(new URL(next, origin));
+      const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      const destination = assurance?.currentLevel === 'aal1' && assurance.nextLevel === 'aal2'
+        ? `/auth/mfa?next=${encodeURIComponent(next)}`
+        : next;
+      return secureRedirect(new URL(destination, origin));
     }
 
     console.error('[auth/callback] code exchange failed', {

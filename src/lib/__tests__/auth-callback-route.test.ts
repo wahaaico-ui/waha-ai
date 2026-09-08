@@ -1,8 +1,9 @@
 const exchangeCodeForSession = jest.fn();
+const getAuthenticatorAssuranceLevel = jest.fn();
 
 jest.mock('@supabase/ssr', () => ({
   createServerClient: jest.fn(() => ({
-    auth: { exchangeCodeForSession },
+    auth: { exchangeCodeForSession, mfa: { getAuthenticatorAssuranceLevel } },
   })),
 }));
 
@@ -20,6 +21,11 @@ describe('auth callback route', () => {
 
   beforeEach(() => {
     exchangeCodeForSession.mockReset();
+    getAuthenticatorAssuranceLevel.mockReset();
+    getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: 'aal1', nextLevel: 'aal1' },
+      error: null,
+    });
     consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
   });
 
@@ -69,5 +75,21 @@ describe('auth callback route', () => {
     ));
 
     expect(response.headers.get('location')).toBe('https://waha-ai.vercel.app/dashboard');
+  });
+
+  test('requires a second factor when the account has MFA enrolled', async () => {
+    exchangeCodeForSession.mockResolvedValue({ error: null });
+    getAuthenticatorAssuranceLevel.mockResolvedValue({
+      data: { currentLevel: 'aal1', nextLevel: 'aal2' },
+      error: null,
+    });
+
+    const response = await GET(new Request(
+      'https://waha.systems/auth/callback?code=oauth-code&next=/dashboard',
+    ));
+
+    expect(response.headers.get('location')).toBe(
+      'https://waha.systems/auth/mfa?next=%2Fdashboard',
+    );
   });
 });
