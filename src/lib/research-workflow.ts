@@ -78,7 +78,7 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
       const sections = Array.isArray(output.sections) ? output.sections : [];
       const consent = assessAcademicText(output.consentStatement, { minChars: 30, minWords: 5, label: 'نص الموافقة' }).valid;
       const instructions = assessAcademicText(output.instructions, { minChars: 20, minWords: 4, label: 'تعليمات الأداة' }).valid;
-      const minimumSections = instrumentType === 'questionnaire' || instrumentType === 'test_scale' ? 2 : 1;
+      const minimumSections = 1;
       const minimumItems = instrumentType === 'questionnaire' ? 3 : 2;
       return consent && instructions && sections.length >= minimumSections && sections.every((section) => {
         if (!section || typeof section !== 'object' || Array.isArray(section)) return false;

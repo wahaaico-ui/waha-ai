@@ -1,5 +1,5 @@
 import { assessProblemDraft } from '@/lib/academic-content-quality';
-import { buildObjectivesDraftFallback, buildProblemDraftFallback } from '@/lib/research-draft-fallback';
+import { buildInstrumentDraftFallback, buildObjectivesDraftFallback, buildProblemDraftFallback } from '@/lib/research-draft-fallback';
 import { stageComplete } from '@/lib/research-workflow';
 
 test('builds a valid grounded problem draft from the saved title and gap', () => {
@@ -16,6 +16,44 @@ test('builds a valid grounded problem draft from the saved title and gap', () =>
     researcherNote: '',
     requireResearcherNote: false,
   })).toEqual({ valid: true, reason: null });
+});
+
+describe('buildInstrumentDraftFallback', () => {
+  const context = {
+    title: { title: 'أثر التعلم المدمج في دافعية طلبة الدراسات العليا' },
+    questions: { questions: ['ما مستوى دافعية طلبة الدراسات العليا؟', 'كيف يصف الطلبة خبرة التعلم المدمج؟'] },
+    design: { variables: [{ name: 'دافعية الطلبة' }, { name: 'التعلم المدمج' }] },
+  };
+
+  it.each([
+    ['questionnaire', 3, 'likert5'],
+    ['interview', 2, 'long_text'],
+    ['observation', 2, 'single_choice'],
+    ['document_analysis', 2, 'single_choice'],
+    ['test_scale', 2, 'long_text'],
+  ] as const)('builds a complete %s draft without an AI provider', (type, itemCount, firstKind) => {
+    const draft = buildInstrumentDraftFallback(context, type);
+    expect(draft?.instrumentType).toBe(type);
+    expect(draft?.sections).toHaveLength(2);
+    expect(draft?.sections[0].variableName).toBe('دافعية الطلبة');
+    expect(draft?.sections[0].items).toHaveLength(itemCount);
+    expect(draft?.sections[0].items[0].kind).toBe(firstKind);
+    expect(draft?.consentStatement.length).toBeGreaterThan(30);
+    expect(stageComplete('instrument', draft || undefined)).toBe(true);
+  });
+
+  it('refuses to invent an instrument before design variables exist', () => {
+    expect(buildInstrumentDraftFallback({ title: context.title }, 'questionnaire')).toBeNull();
+  });
+
+  it('supports a valid single-concept qualitative design', () => {
+    const draft = buildInstrumentDraftFallback({
+      ...context,
+      design: { variables: [{ name: 'خبرة النزوح' }] },
+    }, 'interview');
+    expect(draft?.sections).toHaveLength(1);
+    expect(stageComplete('instrument', draft || undefined)).toBe(true);
+  });
 });
 
 test('does not fabricate a draft when the project has no adopted title', () => {

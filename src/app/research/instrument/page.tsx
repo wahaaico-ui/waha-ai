@@ -120,7 +120,7 @@ export default function InstrumentPage() {
     if (instrument.title.trim().length < 10) return 'اكتب عنواناً واضحاً للأداة.';
     if (instrument.consentStatement.trim().length < 30) return 'أضف نص موافقة يشرح المشاركة والخصوصية بوضوح.';
     if (instrument.instructions.trim().length < 20) return 'أضف تعليمات واضحة للمجيب.';
-    const minimumSections = instrumentType === 'questionnaire' || instrumentType === 'test_scale' ? 2 : 1;
+    const minimumSections = 1;
     const minimumItems = instrumentType === 'questionnaire' ? 3 : 2;
     if (instrument.sections.length < minimumSections) return `تحتاج ${instrumentLabel(instrumentType)} إلى ${minimumSections === 1 ? 'محور واحد على الأقل' : 'محورين على الأقل'}.`;
     const covered = new Set(instrument.sections.map((section) => section.variableName.trim().toLocaleLowerCase('ar')));
@@ -128,6 +128,9 @@ export default function InstrumentPage() {
     if (missing.length) return `لم تُغطَّ المتغيرات التالية: ${missing.join('، ')}.`;
     if (instrument.sections.some((section) => section.title.trim().length < 3 || section.items.length < minimumItems)) return `لكل محور عنوان و${minimumItems} ${minimumItems === 2 ? 'بندين' : 'بنود'} على الأقل.`;
     const items = instrument.sections.flatMap((section) => section.items);
+    if (instrumentType === 'interview' && items.some((item) => item.kind !== 'long_text')) return 'أسئلة المقابلة يجب أن تكون مفتوحة بإجابة مطولة.';
+    if (instrumentType === 'observation' && !items.some((item) => item.kind === 'single_choice')) return 'بطاقة الملاحظة تحتاج مؤشراً واحداً على الأقل بخيارات رصد واضحة.';
+    if (instrumentType === 'test_scale' && items.some((item) => item.kind !== 'long_text')) return 'خطة المقياس المقنّن توثّق الاختيار والترخيص والخصائص ولا تنشئ بنود قياس جديدة.';
     if (items.some((item) => item.text.trim().length < 12 || item.text.trim().split(/\s+/u).length < 3)) return 'كل بند يجب أن يكون جملة واضحة من ثلاث كلمات على الأقل.';
     const normalized = items.map((item) => item.text.trim().toLocaleLowerCase('ar'));
     if (new Set(normalized).size !== normalized.length) return 'احذف البنود المكررة.';
