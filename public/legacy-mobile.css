@@ -1,0 +1,33 @@
+/* Plain-CSS safety layer for older Android/Xiaomi browsers. Keep syntax deliberately conservative. */
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: #f8fafc; color: #111827; font-family: Arial, Tahoma, sans-serif; }
+img, svg { max-width: 100%; }
+
+#waha-site-header { position: sticky; top: 0; z-index: 50; width: 100%; border-bottom: 1px solid #e2e8f0; background: #fff; }
+#waha-header-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1280px; min-height: 64px; margin: 0 auto; padding: 0 16px; }
+#waha-header-bar > a { display: inline-flex; align-items: center; max-width: 144px; color: #111827; text-decoration: none; }
+#waha-header-bar > a svg { width: 32px; height: 32px; }
+#waha-desktop-nav, #waha-desktop-actions { display: none; }
+#waha-menu-button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: #334155; }
+#waha-menu-button svg { width: 24px; height: 24px; }
+#waha-mobile-menu { display: block; padding: 16px; border-top: 1px solid #f1f5f9; background: #fff; }
+#waha-mobile-menu a, #waha-mobile-menu button { min-height: 42px; }
+
+#waha-home-main { width: 100%; max-width: 1280px; margin: 0 auto; padding-right: 16px; padding-left: 16px; }
+#waha-home-hero { position: relative; overflow: hidden; padding-top: 48px; padding-bottom: 48px; }
+#waha-home-hero > div:last-child { display: grid; gap: 40px; align-items: center; }
+#waha-home-hero h1 { margin: 24px 0 0; font-size: 38px; line-height: 1.2; overflow-wrap: break-word; }
+#waha-home-hero p { line-height: 1.8; }
+#waha-home-hero a { text-decoration: none; }
+
+@media (min-width: 1024px) {
+  #waha-desktop-actions { display: flex; align-items: center; gap: 12px; }
+  #waha-menu-button, #waha-mobile-menu { display: none; }
+  #waha-home-hero > div:last-child { grid-template-columns: minmax(0, 1fr) minmax(460px, .92fr); }
+  #waha-home-hero h1 { font-size: 64px; }
+}
+
+@media (min-width: 1280px) {
+  #waha-desktop-nav { display: flex; align-items: center; }
+}

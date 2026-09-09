@@ -20,7 +20,7 @@ const copy = {
 export default function Hero({ lang }: { lang: Language }) {
   const t = copy[lang];
   const Arrow = lang === 'ar' ? ArrowLeft : ArrowRight;
-  return <section className="relative isolate overflow-hidden py-14 sm:py-20 lg:py-24">
+  return <section id="waha-home-hero" className="relative isolate overflow-hidden py-14 sm:py-20 lg:py-24">
     <div className="pointer-events-none absolute inset-0 -z-20 bg-[radial-gradient(circle_at_75%_8%,rgba(30,94,255,.12),transparent_32%),radial-gradient(circle_at_15%_70%,rgba(56,189,248,.08),transparent_30%)]" />
     <BookOpen className="waha-float pointer-events-none absolute -start-8 top-16 -z-10 h-32 w-32 text-blue-600/[0.035] sm:h-44 sm:w-44" strokeWidth={1} />
     <BookOpen className="waha-float pointer-events-none absolute -end-6 bottom-10 -z-10 h-36 w-36 text-blue-600/[0.04] [animation-delay:-3s] sm:h-52 sm:w-52" strokeWidth={1} />

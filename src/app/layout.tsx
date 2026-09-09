@@ -37,6 +37,11 @@ export default async function RootLayout({
 
   return (
     <html lang="ar" dir="rtl" data-scroll-behavior="smooth" className={`${inter.variable} ${plexArabic.variable}`}>
+      <head>
+        {/* Intentionally unprocessed: compatibility fallback for legacy Android browsers. */}
+        {/* eslint-disable-next-line @next/next/no-css-tags */}
+        <link rel="stylesheet" href="/legacy-mobile.css" />
+      </head>
       <body className="bg-bg text-ink antialiased min-h-screen font-arabic">
         <AuthSessionProvider initialUser={initialUser}>{children}</AuthSessionProvider>
       </body>
