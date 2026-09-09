@@ -22,6 +22,8 @@ export default function Logo({ variant = 'full', className, inverted = false }: 
     return (
       <svg
         viewBox="0 0 64 64"
+        width="64"
+        height="64"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         role="img"
@@ -34,7 +36,7 @@ export default function Logo({ variant = 'full', className, inverted = false }: 
 
   return (
     <span className={`inline-flex shrink-0 items-center gap-2 ${className ?? ''}`} dir="ltr" role="img" aria-label="WAHA AI">
-      <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" className="h-full w-auto shrink-0" aria-hidden="true">
+      <svg viewBox="0 0 64 64" width="32" height="32" xmlns="http://www.w3.org/2000/svg" className="h-full w-auto shrink-0" aria-hidden="true">
         <BrandGlyph />
       </svg>
       <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap leading-none">

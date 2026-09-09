@@ -1,0 +1,68 @@
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+}
+
+.brand {
+  display: inline-flex;
+  flex: 0 0 auto;
+  max-width: 144px;
+  text-decoration: none;
+}
+
+.brand svg {
+  max-width: 32px;
+  max-height: 32px;
+}
+
+.primaryNav,
+.desktopActions {
+  display: none;
+}
+
+.menuButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+}
+
+.menuButton svg {
+  width: 24px;
+  height: 24px;
+}
+
+.mobileMenu {
+  display: block;
+}
+
+@media (min-width: 1024px) {
+  .desktopActions {
+    display: flex;
+  }
+
+  .menuButton,
+  .mobileMenu {
+    display: none;
+  }
+}
+
+@media (min-width: 1280px) {
+  .primaryNav {
+    display: flex;
+  }
+}
