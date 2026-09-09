@@ -1,56 +1,50 @@
--- Keep the browser-facing Data API least-privileged. RLS remains the row-level
--- boundary; these grants limit which operations can reach that boundary.
+-- Keep the browser-facing Data API least-privileged. Some installations do
+-- not contain every optional table, so each operation is existence-guarded.
+do $security$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'projects', 'documents', 'sources', 'ai_generations_log', 'users_usage',
+    'research_journeys', 'research_stage_outputs', 'research_decisions',
+    'subscriptions', 'user_integrations', 'project_references',
+    'api_rate_limits', 'idea_verifications'
+  ]
+  loop
+    if to_regclass(format('public.%I', table_name)) is not null then
+      execute format('alter table public.%I enable row level security', table_name);
+      execute format('revoke all on table public.%I from anon, authenticated', table_name);
+    end if;
+  end loop;
 
-alter table public.projects enable row level security;
-alter table public.documents enable row level security;
-alter table public.sources enable row level security;
-alter table public.ai_generations_log enable row level security;
-alter table public.users_usage enable row level security;
-alter table public.research_journeys enable row level security;
-alter table public.research_stage_outputs enable row level security;
-alter table public.research_decisions enable row level security;
-alter table public.subscriptions enable row level security;
-alter table public.user_integrations enable row level security;
-alter table public.project_references enable row level security;
-alter table public.api_rate_limits enable row level security;
-alter table public.idea_verifications enable row level security;
+  foreach table_name in array array[
+    'projects', 'documents', 'sources', 'ai_generations_log',
+    'research_journeys', 'research_stage_outputs', 'research_decisions',
+    'project_references'
+  ]
+  loop
+    if to_regclass(format('public.%I', table_name)) is not null then
+      execute format(
+        'grant select, insert, update, delete on table public.%I to authenticated',
+        table_name
+      );
+    end if;
+  end loop;
 
-revoke all on table
-  public.projects,
-  public.documents,
-  public.sources,
-  public.ai_generations_log,
-  public.users_usage,
-  public.research_journeys,
-  public.research_stage_outputs,
-  public.research_decisions,
-  public.subscriptions,
-  public.user_integrations,
-  public.project_references,
-  public.api_rate_limits,
-  public.idea_verifications
-from anon, authenticated;
+  foreach table_name in array array[
+    'users_usage', 'subscriptions', 'idea_verifications'
+  ]
+  loop
+    if to_regclass(format('public.%I', table_name)) is not null then
+      execute format('grant select on table public.%I to authenticated', table_name);
+    end if;
+  end loop;
 
-grant select, insert, update, delete on table
-  public.projects,
-  public.documents,
-  public.sources,
-  public.ai_generations_log,
-  public.research_journeys,
-  public.research_stage_outputs,
-  public.research_decisions,
-  public.project_references
-to authenticated;
-
-grant select on table
-  public.users_usage,
-  public.subscriptions,
-  public.idea_verifications
-to authenticated;
-
--- Verification creation and usage accounting are server-mediated. Integration
--- secrets and rate-limit state are never exposed to browser roles.
-drop policy if exists "Users can insert own verifications" on public.idea_verifications;
+  if to_regclass('public.idea_verifications') is not null then
+    execute 'drop policy if exists "Users can insert own verifications" on public.idea_verifications';
+  end if;
+end
+$security$;
 
 -- New public objects are private to browser roles until a migration grants the
 -- exact operations needed and adds matching RLS policies.
