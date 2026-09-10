@@ -95,8 +95,9 @@ function LoginForm() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">البريد الإلكتروني</label>
+              <label htmlFor="login-email" className="block text-xs text-gray-400 mb-1">البريد الإلكتروني</label>
               <input
+                id="login-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -108,12 +109,13 @@ function LoginForm() {
 
             <div>
               <div className="flex justify-between items-center mb-1">
-                <label className="block text-xs text-gray-400">كلمة المرور</label>
+                <label htmlFor="login-password" className="block text-xs text-gray-400">كلمة المرور</label>
                 <Link href="/forgot-password" className="text-xs text-emerald-400 hover:text-emerald-300 hover:underline">
                   نسيت كلمة المرور؟
                 </Link>
               </div>
               <input
+                id="login-password"
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

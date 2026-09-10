@@ -302,10 +302,11 @@ export default function VerifyIdeaPage() {
               })}
             </div>
           </fieldset>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">
+          <label htmlFor="research-topic" className="block text-sm font-semibold text-slate-700 mb-2">
             {scenario === 'uncertain' ? 'ما المجال أو المشكلة التي تهمك؟' : scenario === 'compare_titles' ? 'ما الموضوع المشترك بين العناوين؟' : scenario === 'references_only' ? 'ما الموضوع أو العنوان الذي تريد مراجع له؟' : 'ما الذي تفكر في بحثه؟'}
           </label>
           <textarea
+            id="research-topic"
             value={topic}
             onChange={(e) => { setTopic(e.target.value); setError(''); }}
             placeholder={scenario === 'references_only' ? 'اكتب الموضوع أو العنوان كما هو للبحث عن الأدلة المرتبطة به' : 'مثال: عنواني رُفض، وأفكر في أثر الذكاء الاصطناعي على تعلم اللغة العربية لدى طلبة الجامعات'}
@@ -332,7 +333,7 @@ export default function VerifyIdeaPage() {
             </div>
           )}
           {error && (
-            <div className="mt-3 px-4 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">
+            <div role="alert" className="mt-3 px-4 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">
               {error}
             </div>
           )}
