@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
 import { Check, Clock3, ShieldCheck } from 'lucide-react';
 import SiteHeader from '@/components/SiteHeader';
 import { useWahaLanguage } from '@/lib/use-language';
@@ -30,6 +31,7 @@ const COPY = {
 export default function PricingPage() {
   const { language: lang } = useWahaLanguage();
   const t = COPY[lang];
+  const [pendingPlan, setPendingPlan] = useState<string | null>(null);
 
   return <div className="min-h-screen bg-[#f8fafc] pb-20 text-slate-900" dir={lang === 'ar' ? 'rtl' : 'ltr'}>
     <SiteHeader />
@@ -48,7 +50,11 @@ export default function PricingPage() {
             <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500">{plan.description}</p>
             <div className="mt-5 border-b border-slate-100 pb-5"><span className="text-3xl font-black text-[#10213c]">{plan.price}</span><span className="text-sm text-slate-500">{plan.period}</span></div>
             <ul className="my-6 flex-1 space-y-3">{plan.features.map((feature) => <li key={feature} className="flex items-start gap-2 text-sm leading-6 text-slate-600"><Check className="mt-1 h-4 w-4 shrink-0 text-blue-600" /><span>{feature}</span></li>)}</ul>
-            {plan.available && plan.href ? <Link href={plan.href} className="rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-blue-700">{plan.cta}</Link> : <span aria-disabled="true" className="inline-flex min-h-12 cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-4 py-3 text-center text-xs font-bold text-slate-500"><Clock3 className="h-4 w-4" />{plan.cta}</span>}
+            {!plan.available && <p className="mb-3 text-xs leading-6 text-slate-500">{lang === 'ar' ? 'مزايا الخطة المخطط لها عند الإطلاق؛ الاشتراك غير متاح حالياً.' : 'Planned features for launch; subscriptions are not available yet.'}</p>}
+            {plan.available && plan.href ? <Link href={plan.href} className="rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white transition hover:bg-blue-700">{plan.cta}</Link> : <>
+              <button type="button" aria-expanded={pendingPlan === plan.name} aria-controls={`payment-status-${plan.name}`} onClick={() => setPendingPlan(plan.name)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-bold text-white hover:bg-blue-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blue-600"><Clock3 aria-hidden="true" className="h-4 w-4" />{lang === 'ar' ? `الاشتراك في ${plan.name}` : `Subscribe to ${plan.name}`}</button>
+              <div id={`payment-status-${plan.name}`} role="status" aria-live="polite">{pendingPlan === plan.name && <p className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-7 text-blue-900">{lang === 'ar' ? 'جارٍ العمل على تفعيل الاشتراكات والدفع. لم يتم إنشاء اشتراك أو تحصيل أي مبلغ. يمكنك استخدام النسخة المجانية حالياً.' : 'Subscriptions and payments are being prepared. No subscription was created and no payment was collected. You can use the free version for now.'}</p>}</div>
+            </>}
           </div>
         </article>)}
       </section>
