@@ -1,0 +1,23 @@
+name: Browser checks (partial launch coverage)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      E2E_BASE_URL: https://waha.systems
+      E2E_REQUIRE_AUTH: 'true'
+      E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+      E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:critical

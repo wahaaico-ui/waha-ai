@@ -32,7 +32,7 @@ export default defineConfig({
   projects: [
     { name: 'chromium-desktop', use: { ...devices['Desktop Chrome'] } },
     {
-      name: 'android-legacy',
+      name: 'android-mobile',
       use: {
         ...devices['Galaxy S8'],
         browserName: 'chromium',
