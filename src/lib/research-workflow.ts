@@ -108,7 +108,8 @@ export function evaluateGate(stage: WorkflowStage, outputs: Partial<Record<Workf
   }
 
   if (!stageComplete(stage, outputs[stage])) {
-    return { status: 'needs_improvement', stage, reason: requirementFor(stage), nextStage: stage };
+    const reason = stage === 'problem' ? consistencyIssueFor(stage, outputs) || requirementFor(stage) : requirementFor(stage);
+    return { status: 'needs_improvement', stage, reason, nextStage: stage };
   }
 
   const consistencyIssue = consistencyIssueFor(stage, outputs);

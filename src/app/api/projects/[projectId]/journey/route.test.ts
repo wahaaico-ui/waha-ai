@@ -7,6 +7,7 @@ jest.mock('@/lib/supabase/authorization', () => ({
 }));
 
 import { GET, POST } from './route';
+import { buildProblemDraftFallback } from '@/lib/research-draft-fallback';
 
 const context = { params: Promise.resolve({ projectId: 'project-owned-by-b' }) };
 const accessForA = {
@@ -96,6 +97,57 @@ describe('project journey authorization', () => {
     expect(body.gate.status).toBe('needs_improvement');
     expect(body.consistency.status).toBe('failed');
     expect(body.consistency.checkType).toBe('problem_objective_consistency');
+    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  test('POST refuses unchanged problem guidance before any database write', async () => {
+    const documents = journeyDocuments().filter(document => document.type !== 'journey:problem');
+    accessForA.supabase.from.mockReturnValue(createJourneyReadQuery(documents));
+    requireAuthenticatedUser.mockResolvedValue(accessForA);
+    ownsProject.mockResolvedValue(true);
+    const draft = buildProblemDraftFallback({ title: JSON.parse(documents[1].content) });
+    const response = await POST(new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage: 'problem', content: { ...draft, requireResearcherNote: false, researcherNote: 'أهتم بتحسين التعلم الإلكتروني لدى طلبة التمريض في الجامعة.' } }),
+    }), context);
+    expect(response.status).toBe(422);
+    expect((await response.json()).error).toContain('إرشادي');
+    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  test('GET preserves stored guidance but returns the researcher to the problem stage', async () => {
+    const documents = journeyDocuments();
+    const draft = buildProblemDraftFallback({ title: JSON.parse(documents[1].content) });
+    documents[2].content = JSON.stringify({ ...draft, researcherNote: 'أهتم بتحسين التعلم الإلكتروني لدى طلبة التمريض في الجامعة.' });
+    const before = JSON.stringify(documents);
+    accessForA.supabase.from.mockReturnValue(createJourneyReadQuery(documents));
+    requireAuthenticatedUser.mockResolvedValue(accessForA);
+    ownsProject.mockResolvedValue(true);
+    const response = await GET(new Request('https://waha.test/api/projects/project-owned-by-b/journey'), context);
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.nextStage).toBe('problem');
+    expect(body.outputs.problem.researchGap).toBe(draft?.researchGap);
+    expect(JSON.stringify(documents)).toBe(before);
+    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  test('POST cannot bypass unfinished saved guidance by requesting objectives directly', async () => {
+    const documents = journeyDocuments();
+    const draft = buildProblemDraftFallback({ title: JSON.parse(documents[1].content) });
+    documents[2].content = JSON.stringify({ ...draft, researcherNote: 'أهتم بتحسين التعلم الإلكتروني لدى طلبة التمريض في الجامعة.' });
+    accessForA.supabase.from.mockReturnValue(createJourneyReadQuery(documents));
+    requireAuthenticatedUser.mockResolvedValue(accessForA);
+    ownsProject.mockResolvedValue(true);
+    const response = await POST(new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage: 'objectives', content: { objectives: [
+        'قياس أثر التعلم الإلكتروني على تحصيل طلبة التمريض في الجامعات المحلية.',
+        'تحليل دافعية طلبة التمريض نحو التعلم الإلكتروني في الجامعات المحلية.',
+      ] } }),
+    }), context);
+    expect(response.status).toBe(409);
+    expect((await response.json()).gate.nextStage).toBe('problem');
     expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
   });
 

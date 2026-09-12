@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import SiteHeader from '@/components/SiteHeader';
+import ProjectExportButton from '@/components/ProjectExportButton';
 import JourneyProgress from '@/components/JourneyProgress';
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import {
@@ -115,6 +116,7 @@ export default function ResearchPublicationPage() {
       : error && !journey ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{error}</section>
       : !recommendationsComplete ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">اعتمد التوصيات أولاً</h2><p className="mt-3 text-sm leading-7 text-amber-900">لا تكتمل حزمة النشر قبل إغلاق سلسلة النتائج والمناقشة والاستنتاجات والتوصيات.</p><Link href={`/research/recommendations?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى التوصيات</Link></section>
       : journey && form ? <>
+        <ProjectExportButton projectId={projectId} />
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-bold text-emerald-700">العنوان المعتمد — للقراءة فقط</p><p className="mt-2 text-lg font-black leading-8 text-emerald-950">{form.approvedTitle}</p></section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">

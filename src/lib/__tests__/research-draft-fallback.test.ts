@@ -2,7 +2,7 @@ import { assessProblemDraft } from '@/lib/academic-content-quality';
 import { buildInstrumentDraftFallback, buildObjectivesDraftFallback, buildProblemDraftFallback } from '@/lib/research-draft-fallback';
 import { stageComplete } from '@/lib/research-workflow';
 
-test('builds a valid grounded problem draft from the saved title and gap', () => {
+test('builds a structurally valid provisional draft, not a verified gap', () => {
   const draft = buildProblemDraftFallback({
     title: { title: 'الحرب الساخنة وأثرها على فلسطين ضمن سياق اجتماعي معاصر' },
     verify: { gaps: ['محدودية الدراسات التي تفحص الآثار الاجتماعية ضمن السياق الفلسطيني الحديث'] },
@@ -16,6 +16,60 @@ test('builds a valid grounded problem draft from the saved title and gap', () =>
     researcherNote: '',
     requireResearcherNote: false,
   })).toEqual({ valid: true, reason: null });
+});
+
+describe('problem fallback evidence boundaries (DOC-11-05 / DOC-25-03)', () => {
+  const title = 'أثر التعلم المدمج في دافعية طلبة الدراسات العليا';
+
+  it('does not infer a shortage of published evidence from a title alone', () => {
+    const draft = buildProblemDraftFallback({ title: { title } });
+    expect(draft).not.toBeNull();
+    expect(draft?.problemStatement).not.toContain('المعرفة المتاحة لا تكفي');
+    expect(draft?.researchGap).not.toContain('محدودية الأدلة');
+    expect(draft?.researchGap).toContain('لا يمكن تحديد فجوة علمية من العنوان وحده');
+    expect(draft?.researchGap).toContain('لا يعني غياب الدراسات');
+    expect(draft?.problemStatement).toContain(title);
+  });
+
+  it('attributes an exploration hint without promoting it to evidence of a gap', () => {
+    const hint = 'تمثيل ضعيف للسياق العربي في بيانات الانتماء المؤسسي';
+    const draft = buildProblemDraftFallback({ title: { title }, verify: { gaps: [hint] } });
+    expect(draft?.researchGap).toContain(hint);
+    expect(draft?.researchGap).toContain('ملاحظة محفوظة غير متحققة');
+    expect(draft?.researchGap).toContain('ليست دليلاً على فجوة علمية');
+    expect(draft?.researchGap).not.toContain('تشير مراجعة الاستكشاف الأولية إلى فجوة');
+  });
+
+  it.each([undefined, null, [], ['  ', 12, {}], 'not-an-array'])('handles absent or malformed hints without inventing evidence: %j', (gaps) => {
+    const draft = buildProblemDraftFallback({ title: { title }, verify: { gaps } });
+    expect(draft?.researchGap).toContain('لا يمكن تحديد فجوة علمية من العنوان وحده');
+    expect(assessProblemDraft({ title, problemStatement: draft?.problemStatement, researchGap: draft?.researchGap, researcherNote: '', requireResearcherNote: false }).valid).toBe(true);
+  });
+
+  it('uses the first non-empty textual hint and preserves the source context', () => {
+    const context = { title: { title }, verify: { gaps: [' ', 'ملاحظة تحتاج قراءة الدراسات الأصلية'] } };
+    const before = JSON.stringify(context);
+    const draft = buildProblemDraftFallback(context);
+    expect(draft?.researchGap).toContain('ملاحظة تحتاج قراءة الدراسات الأصلية');
+    expect(JSON.stringify(context)).toBe(before);
+  });
+
+  it.each([undefined, ['تمثيل ضعيف للسياق العربي في بيانات الانتماء المؤسسي']])('allows guidance preview but never approves it unchanged: %j', (gaps) => {
+    const draft = buildProblemDraftFallback({ title: { title }, verify: { gaps } });
+    const content = { ...draft, researcherNote: 'اخترت هذا الموضوع لتحسين تجربة التعلم لدى طلبة الدراسات العليا.' };
+    expect(stageComplete('problem', content)).toBe(false);
+    expect(assessProblemDraft({ title, problemStatement: draft?.problemStatement, researchGap: draft?.researchGap, researcherNote: content.researcherNote }).reason).toContain('إرشادي');
+  });
+
+  it('rejects known guidance even with diacritics, formatting characters or whitespace changes', () => {
+    const draft = buildProblemDraftFallback({ title: { title } });
+    expect(stageComplete('problem', {
+      ...draft,
+      problemStatement: draft?.problemStatement.replace('صياغة', 'صِيـاغة').replaceAll(' ', '  \n'),
+      researchGap: draft?.researchGap.replaceAll(' ', '  \n'),
+      researcherNote: 'اخترت هذا الموضوع لتحسين تجربة التعلم لدى طلبة الدراسات العليا.',
+    })).toBe(false);
+  });
 });
 
 describe('buildInstrumentDraftFallback', () => {

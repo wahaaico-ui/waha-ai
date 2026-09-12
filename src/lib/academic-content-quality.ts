@@ -92,6 +92,21 @@ export function assessProblemDraft(input: {
   researcherNote: unknown;
   requireResearcherNote?: boolean;
 }): ProblemDraftAssessment {
+  // Preview can show guidance; approval requires a completed research statement.
+  // This detects our own scaffolds, not the scientific validity of arbitrary prose.
+  if (input.requireResearcherNote !== false) {
+    const guidanceMarkers = [
+      'هذه صياغة إرشادية أولية لدراسة موضوع',
+      'هذه إرشادات لاستكمال الفجوة وليست فجوة معتمدة',
+      'ملاحظة محفوظة غير متحققة من الاستكشاف',
+      'لا يمكن تحديد فجوة علمية من العنوان وحده',
+    ];
+    const candidateText = normalizedText(`${normalizedText(input.problemStatement)} ${normalizedText(input.researchGap)}`)
+      .replace(/[\u064B-\u065F\u0670\u0640\u200B-\u200F\u202A-\u202E\u2066-\u2069]/gu, '');
+    if (guidanceMarkers.some((marker) => candidateText.includes(marker))) {
+      return { valid: false, reason: 'النص ما زال إرشادياً وليس مشكلة وفجوة مستكملتين. اكتب الواقع المحدد وما بقي غير محسوم مع مصادره، واستبدل تعليمات المسودة قبل الاعتماد. إضافة سبب اهتمامك وحده لا تكفي.' };
+    }
+  }
   const checks = [
     assessAcademicText(input.problemStatement, { minChars: 50, minWords: 8, label: 'مشكلة البحث' }),
     assessAcademicText(input.researchGap, { minChars: 35, minWords: 6, label: 'الفجوة البحثية' }),

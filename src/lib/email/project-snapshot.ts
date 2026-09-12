@@ -2,7 +2,7 @@ import { isStage, type WorkflowStage } from '@/lib/research-workflow';
 
 const MAX_EMAIL_CONTENT_LENGTH = 20_000;
 
-const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
+export const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   verify: { ar: 'استكشاف المسار البحثي', en: 'Research exploration' },
   title: { ar: 'صياغة العنوان', en: 'Research title' },
   problem: { ar: 'المشكلة والفجوة', en: 'Problem and gap' },
@@ -22,7 +22,7 @@ const STAGE_LABELS: Record<WorkflowStage, { ar: string; en: string }> = {
   publication: { ar: 'جاهزية النشر', en: 'Publication readiness' },
 };
 
-const FIELD_LABELS: Record<string, string> = {
+export const FIELD_LABELS: Record<string, string> = {
   topic: 'الموضوع',
   title: 'العنوان',
   rationale: 'المبرر العلمي',

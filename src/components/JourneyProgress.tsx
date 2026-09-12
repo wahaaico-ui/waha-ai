@@ -34,80 +34,38 @@ interface JourneyProgressProps {
 export default function JourneyProgress({ current, lang = "ar" }: JourneyProgressProps) {
   const projectId = useProjectId();
   const currentIndex = JOURNEY_PHASES.findIndex(p => p.id === current);
-  const totalPhases = JOURNEY_PHASES.length;
-  const percentComplete = Math.round(((currentIndex + 1) / totalPhases) * 100);
+  const active = JOURNEY_PHASES[currentIndex];
+  if (!active) return null;
+  const arabic = lang === 'ar';
 
   return (
-    <div dir={lang === "ar" ? "rtl" : "ltr"} className="border-b border-slate-200 bg-white/90 backdrop-blur-xl">
-      <div className="w-full max-w-6xl mx-auto overflow-x-auto px-4 py-4">
-      <div className="min-w-[720px]">
-      {/* Phase circles + labels */}
-      <div className="flex items-center justify-between mb-3 relative">
-        {/* Connector line (behind circles) */}
-        <div className="absolute top-4 left-0 right-0 h-px bg-slate-200" style={{ zIndex: 0 }}></div>
-        <div
-          className="absolute top-4 h-px bg-blue-600 transition-all duration-500"
-          style={{
-            zIndex: 1,
-            width: `${(currentIndex / (totalPhases - 1)) * 100}%`,
-            [lang === "ar" ? "right" : "left"]: 0,
-          }}
-        ></div>
-
-        {JOURNEY_PHASES.map((phase, i) => {
-          const isDone = i < currentIndex;
-          const isCurrent = i === currentIndex;
-          const circleClasses = isDone
-            ? "bg-blue-600 text-white border-blue-600"
-            : isCurrent
-            ? "bg-blue-600 text-white border-blue-300 ring-4 ring-blue-100 scale-110"
-            : "bg-white text-slate-400 border-slate-200";
-
-          const labelClasses = isDone
-            ? "text-blue-700 font-semibold"
-            : isCurrent
-            ? "text-slate-900 font-bold"
-            : "text-slate-500";
-
-          const label = lang === "ar" ? phase.labelAr : phase.labelEn;
-          const content = (
-            <div className="flex flex-col items-center gap-2 relative" style={{ zIndex: 2 }}>
-              <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${circleClasses}`}>
-                {isDone ? "✓" : i + 1}
-              </div>
-              <span className={`text-[10px] md:text-xs ${labelClasses}`}>{label}</span>
-            </div>
-          );
-
-          // Make done + current + enabled phases clickable
-          if ((isDone || isCurrent) && phase.enabled) {
-            return (
-              <Link key={phase.id} href={`${phase.href}${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`} className="hover:opacity-80 transition">
-                {content}
-              </Link>
-            );
-          }
-          return <div key={phase.id}>{content}</div>;
-        })}
+    <section dir={arabic ? 'rtl' : 'ltr'} className="border-b border-slate-200 bg-white/90">
+      <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
+        <p className="text-xs font-medium text-slate-500">{arabic ? 'مساحة بحثك' : 'Your research space'}</p>
+        <p className="mt-1 text-lg font-semibold text-slate-900">
+          {arabic ? 'نركز الآن على ' : 'Now exploring: '}{arabic ? active.labelAr : active.labelEn}
+        </p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          {arabic ? 'خذ وقتك في تطوير الفكرة. راجع محتواك هنا، ثم تابع من الإجراء أسفله.' : 'Take your time shaping the idea. Review your work here, then continue using the action below.'}
+        </p>
+        <details className="mt-3">
+          <summary className="w-fit cursor-pointer rounded-lg px-2 py-1 text-sm font-medium text-blue-700 focus-visible:outline-2 focus-visible:outline-blue-600">
+            {arabic ? 'استعرض خريطة بحثك' : 'Explore your research map'}
+          </summary>
+          <nav aria-label={arabic ? 'خريطة البحث' : 'Research map'} className="mt-3 flex flex-wrap gap-2">
+            {JOURNEY_PHASES.map((phase, index) => {
+              const label = arabic ? phase.labelAr : phase.labelEn;
+              return index <= currentIndex && phase.enabled ? (
+                <Link key={phase.id} aria-current={phase.id === current ? 'page' : undefined}
+                  href={`${phase.href}${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ''}`}
+                  className={`rounded-full border px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-blue-600 ${phase.id === current ? 'border-blue-200 bg-blue-50 text-blue-800' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
+                  {label}
+                </Link>
+              ) : <span key={phase.id} className="rounded-full border border-transparent px-3 py-2 text-sm text-slate-500">{label}</span>;
+            })}
+          </nav>
+        </details>
       </div>
-
-      {/* Percent complete bar */}
-      <div className="mt-3">
-        <div className="flex justify-between items-center text-[11px] mb-1.5">
-          <span className="text-slate-500">
-            {lang === "ar" ? `المرحلة ${currentIndex + 1} من ${totalPhases}` : `Phase ${currentIndex + 1} of ${totalPhases}`}
-          </span>
-          <span className="font-semibold text-blue-600">{percentComplete}%</span>
-        </div>
-        <div className="w-full bg-slate-200 rounded-full h-1.5">
-          <div
-            className="h-1.5 rounded-full bg-blue-600 transition-all duration-500"
-            style={{ width: `${percentComplete}%` }}
-          ></div>
-        </div>
-      </div>
-      </div>
-      </div>
-    </div>
+    </section>
   );
 }
