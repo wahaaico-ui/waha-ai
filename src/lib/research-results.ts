@@ -26,7 +26,8 @@ const records = (value: unknown) => Array.isArray(value)
 const DISCUSSION_PATTERN = /(?:نوصي|يوصى|يُعزى|يرجع\s+ذلك|يفس[ّ]?ر|بسبب|يبرهن|يثبت\s+أن|تتفق\s+مع|تختلف\s+عن|recommend|because|explains?|proves?|consistent\s+with)/iu;
 
 function numericTokens(value: string) {
-  return [...value.matchAll(/(?:^|\s)([-+]?\d+(?:[.,]\d+)?%?)(?=\s|$|[،؛:()])/gu)].map((match) => match[1].replace(',', '.'));
+  return [...value.matchAll(/(?<![\p{L}\p{N}_])[-+]?\d+(?:[.,]\d+)?%?(?![\p{L}\p{N}_])/gu)]
+    .map((match) => match[0].replace(',', '.'));
 }
 
 export function researchResultsStructureIssue(output: Record<string, unknown> | undefined): string | null {
@@ -72,6 +73,9 @@ export function researchResultsConsistencyIssue(
     const statementNumbers = new Set(numericTokens(asText(result.resultStatement)));
     const missingNumber = sourceNumbers.find((token) => !statementNumbers.has(token));
     if (missingNumber) return `النتيجة ${index + 1}: القيمة «${missingNumber}» موجودة في التحليل المعتمد لكنها سقطت من الصياغة.`;
+    const sourceNumberSet = new Set(sourceNumbers);
+    const inventedNumber = [...statementNumbers].find((token) => !sourceNumberSet.has(token));
+    if (inventedNumber) return `النتيجة ${index + 1}: القيمة «${inventedNumber}» غير موجودة في التحليل المعتمد. احذفها أو صحح مخرج التحليل أولاً.`;
   }
   return null;
 }

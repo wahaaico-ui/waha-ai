@@ -48,6 +48,24 @@ describe('research results stage', () => {
     expect(researchResultsConsistencyIssue(changed, analysisInput)).toContain('0.42');
   });
 
+  test('rejects inventing a numeric value in the results wording', () => {
+    const draft = buildResultsDraft(analysisInput)!;
+    const changed = {
+      ...draft,
+      results: [{ ...draft.results[0], resultStatement: `${draft.results[0].resultStatement} وبلغ حجم الأثر 75%.` }],
+    };
+    expect(researchResultsConsistencyIssue(changed, analysisInput)).toContain('75%');
+  });
+
+  test('recognizes approved values written next to statistical symbols', () => {
+    const input = {
+      ...analysisInput,
+      findings: [{ ...analysisInput.findings[0], evidenceSummary: 'أظهر الاختبار قيمة p=0.01 ومعامل β=0.42.' }],
+    };
+    const draft = buildResultsDraft(input)!;
+    expect(researchResultsConsistencyIssue(draft, input)).toBeNull();
+  });
+
   test('keeps discussion and recommendations out of the results section', () => {
     const draft = buildResultsDraft(analysisInput)!;
     const changed = {

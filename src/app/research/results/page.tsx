@@ -53,9 +53,15 @@ export default function ResearchResultsPage() {
   const validationIssue = useMemo(() => journey && form
     ? researchResultsConsistencyIssue(form as unknown as Record<string, unknown>, journey.outputs.analysis_input)
     : 'جارٍ إعداد النتائج من مخرجات التحليل المعتمدة.', [form, journey]);
+  const readyResults = useMemo(() => form?.results.filter((result) => result.resultStatement.trim().length >= 35).length || 0, [form]);
+
+  function markEdited() {
+    setStatus('idle');
+    setError('');
+  }
 
   function updateResult(index: number, resultStatement: string) {
-    setStatus('idle');
+    markEdited();
     setForm((current) => current ? {
       ...current,
       results: current.results.map((result, resultIndex) => resultIndex === index ? { ...result, resultStatement } : result),
@@ -97,7 +103,7 @@ export default function ResearchResultsPage() {
       : journey && form ? <>
         <section className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-bold text-emerald-700">المصدر</p><p className="mt-2 text-sm font-black text-emerald-950">تحليلك الخارجي المعتمد</p></div>
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">التغطية</p><p className="mt-2 text-sm font-black text-blue-950">{form.results.length} نتيجة مقابل {form.results.length} سؤال</p></div>
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">الجاهزية الآن</p><p className="mt-2 text-sm font-black text-blue-950">{readyResults} من {form.results.length} نتائج مكتملة</p></div>
           <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4"><p className="text-xs font-bold text-violet-700">الحد المنهجي</p><p className="mt-2 text-sm font-black text-violet-950">عرض بلا تفسير أو توصيات</p></div>
         </section>
 
@@ -116,12 +122,12 @@ export default function ResearchResultsPage() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <label className="space-y-2 text-sm font-bold">الخلاصة العامة للنتائج
-            <textarea value={form.overallSummary} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, overallSummary: event.target.value } : current); }} maxLength={2400} rows={5} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.overallSummary} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, overallSummary: event.target.value } : current); }} maxLength={2400} rows={5} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
           <label className="mt-5 block space-y-2 text-sm font-bold">حدود عرض النتائج
-            <textarea value={form.limitations} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, limitations: event.target.value } : current); }} maxLength={1200} rows={3} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.limitations} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, limitations: event.target.value } : current); }} maxLength={1200} rows={3} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
-          <label className="mt-5 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-7 text-violet-950"><input type="checkbox" checked={form.reportingOnlyConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, reportingOnlyConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أن هذا القسم يعرض ما أظهره التحليل فقط، وأن تفسير النتائج ومقارنتها بالأدبيات مؤجل إلى مرحلة المناقشة.</span></label>
+          <label className="mt-5 flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-7 text-violet-950"><input type="checkbox" checked={form.reportingOnlyConfirmed} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, reportingOnlyConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أن هذا القسم يعرض ما أظهره التحليل فقط، وأن تفسير النتائج ومقارنتها بالأدبيات مؤجل إلى مرحلة المناقشة.</span></label>
           {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{validationIssue}</p> : null}
           {error ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-7 text-rose-800">{error}</p> : null}
           <button type="button" onClick={() => void save()} disabled={Boolean(validationIssue) || status === 'saving'} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? 'جارٍ التحقق والحفظ…' : 'اعتماد النتائج'}</button>
