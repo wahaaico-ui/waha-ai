@@ -71,8 +71,13 @@ export default function ResearchDiscussionPage() {
     : 'جارٍ إعداد المناقشة من النتائج المعتمدة.', [form, journey]);
   const loading = Boolean(projectId) && loadedProjectId !== projectId;
 
-  function updateItem(index: number, field: 'interpretation' | 'literatureComparison', value: string) {
+  function markEdited() {
     setStatus('idle');
+    setError('');
+  }
+
+  function updateItem(index: number, field: 'interpretation' | 'literatureComparison', value: string) {
+    markEdited();
     setForm((current) => current ? {
       ...current,
       discussions: current.discussions.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item),
@@ -80,7 +85,7 @@ export default function ResearchDiscussionPage() {
   }
 
   function togglePaper(index: number, paperId: string) {
-    setStatus('idle');
+    markEdited();
     setForm((current) => current ? {
       ...current,
       discussions: current.discussions.map((item, itemIndex) => {
@@ -121,7 +126,7 @@ export default function ResearchDiscussionPage() {
     <JourneyProgress current="discussion" lang="ar" />
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
       <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
-        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 14 · المناقشة</div>
+        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">فهم ما وراء النتائج</div>
         <h1 className="mt-4 text-3xl font-black">فسّر النتائج في حدود ما تسمح به الأدلة</h1>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">ناقش معنى كل نتيجة، ثم قارنها بدراسة أو أكثر من الأدلة التي اخترتها سابقاً. لا تضف رقماً جديداً، ولا تحوّل التفسير إلى توصية تنفيذية.</p>
       </header>
@@ -156,10 +161,10 @@ export default function ResearchDiscussionPage() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <label className="space-y-2 text-sm font-bold">الخلاصة التفسيرية للمناقشة
-            <textarea value={form.overallSynthesis} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, overallSynthesis: event.target.value } : current); }} maxLength={3000} rows={6} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.overallSynthesis} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, overallSynthesis: event.target.value } : current); }} maxLength={3000} rows={6} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
           <label className="mt-5 block space-y-2 text-sm font-bold">كيف تؤثر حدود الدراسة في تفسير النتائج؟
-            <textarea value={form.limitationsInterpretation} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, limitationsInterpretation: event.target.value } : current); }} maxLength={1600} rows={4} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.limitationsInterpretation} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, limitationsInterpretation: event.target.value } : current); }} maxLength={1600} rows={4} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
           <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7 text-blue-950"><input type="checkbox" checked={form.evidenceGroundingConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, evidenceGroundingConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أن المقارنات مبنية على الأدلة المحددة داخل المشروع.</span></label><label className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-7 text-violet-950"><input type="checkbox" checked={form.noNewResultsConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, noNewResultsConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أنني لم أضف نتائج أو قيماً جديدة أثناء التفسير.</span></label></div>
           {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{validationIssue}</p> : null}

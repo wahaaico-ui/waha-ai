@@ -67,6 +67,12 @@ describe('research discussion stage', () => {
     expect(researchDiscussionConsistencyIssue(discussion, results, analysis)).toContain('9.99');
   });
 
+  test('rejects unsupported numbers in the overall discussion summary', () => {
+    const discussion = completeDiscussion();
+    discussion.overallSynthesis += ' وبلغ تفسير الأثر العام 81% ضمن السياق المدروس.';
+    expect(researchDiscussionConsistencyIssue(discussion, results, analysis)).toContain('81%');
+  });
+
   test('keeps recommendations out of the discussion stage', () => {
     const discussion = completeDiscussion();
     discussion.discussions[0].literatureComparison += ' ونوصي بتطبيق المنصة في جميع الجامعات.';

@@ -1,4 +1,5 @@
 import { assessAcademicText } from '@/lib/academic-content-quality';
+import { researchNumericTokens } from '@/lib/research-numeric-integrity';
 
 export type ResearchResultItem = {
   questionIndex: number;
@@ -24,11 +25,6 @@ const records = (value: unknown) => Array.isArray(value)
   : [];
 
 const DISCUSSION_PATTERN = /(?:نوصي|يوصى|يُعزى|يرجع\s+ذلك|يفس[ّ]?ر|بسبب|يبرهن|يثبت\s+أن|تتفق\s+مع|تختلف\s+عن|recommend|because|explains?|proves?|consistent\s+with)/iu;
-
-function numericTokens(value: string) {
-  return [...value.matchAll(/(?<![\p{L}\p{N}_])[-+]?\d+(?:[.,]\d+)?%?(?![\p{L}\p{N}_])/gu)]
-    .map((match) => match[0].replace(',', '.'));
-}
 
 export function researchResultsStructureIssue(output: Record<string, unknown> | undefined): string | null {
   if (!output) return 'راجع صياغة النتائج واعتمدها قبل المتابعة.';
@@ -69,8 +65,8 @@ export function researchResultsConsistencyIssue(
     ];
     const changed = lockedFields.find(([actual, expected]) => normalize(actual) !== normalize(expected));
     if (changed) return `النتيجة ${index + 1}: ${changed[2]} لا يطابق المخرج المعتمد ولا يمكن تغييره من هذه المرحلة.`;
-    const sourceNumbers = numericTokens(`${asText(finding.findingSummary)} ${asText(finding.evidenceSummary)}`);
-    const statementNumbers = new Set(numericTokens(asText(result.resultStatement)));
+    const sourceNumbers = researchNumericTokens(`${asText(finding.findingSummary)} ${asText(finding.evidenceSummary)}`);
+    const statementNumbers = new Set(researchNumericTokens(asText(result.resultStatement)));
     const missingNumber = sourceNumbers.find((token) => !statementNumbers.has(token));
     if (missingNumber) return `النتيجة ${index + 1}: القيمة «${missingNumber}» موجودة في التحليل المعتمد لكنها سقطت من الصياغة.`;
     const sourceNumberSet = new Set(sourceNumbers);

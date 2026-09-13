@@ -54,8 +54,13 @@ export default function ResearchConclusionsPage() {
     ? researchConclusionsConsistencyIssue(form as unknown as Record<string, unknown>, journey.outputs.discussion)
     : 'جارٍ إعداد الاستنتاجات من المناقشة المعتمدة.', [form, journey]);
 
-  function updateConclusion(index: number, conclusionStatement: string) {
+  function markEdited() {
     setStatus('idle');
+    setError('');
+  }
+
+  function updateConclusion(index: number, conclusionStatement: string) {
+    markEdited();
     setForm((current) => current ? {
       ...current,
       conclusions: current.conclusions.map((item, itemIndex) => itemIndex === index ? { ...item, conclusionStatement } : item),
@@ -85,7 +90,7 @@ export default function ResearchConclusionsPage() {
     <JourneyProgress current="conclusions" lang="ar" />
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
       <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
-        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 15 · الاستنتاجات</div>
+        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">الخلاصة التي تجيب عن أسئلتك</div>
         <h1 className="mt-4 text-3xl font-black">استخلص ما تجيب عنه الدراسة فعلاً</h1>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">حوّل كل نتيجة مُناقشة إلى استنتاج مباشر يجيب عن سؤال البحث، مع الالتزام بحدود العينة والمنهج. لا تضف دليلاً جديداً ولا تكتب ما ينبغي فعله؛ مكان ذلك مرحلة التوصيات.</p>
       </header>
@@ -114,10 +119,10 @@ export default function ResearchConclusionsPage() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <label className="space-y-2 text-sm font-bold">الاستنتاج العام للدراسة
-            <textarea value={form.overallConclusion} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, overallConclusion: event.target.value } : current); }} maxLength={3000} rows={6} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.overallConclusion} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, overallConclusion: event.target.value } : current); }} maxLength={3000} rows={6} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
           <label className="mt-5 block space-y-2 text-sm font-bold">حدود انطباق الاستنتاجات
-            <textarea value={form.scopeStatement} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, scopeStatement: event.target.value } : current); }} maxLength={1800} rows={4} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.scopeStatement} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, scopeStatement: event.target.value } : current); }} maxLength={1800} rows={4} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
           <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7 text-blue-950"><input type="checkbox" checked={form.noNewEvidenceConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, noNewEvidenceConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أن الاستنتاجات لا تضيف دليلاً أو نتيجة جديدة.</span></label><label className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-7 text-violet-950"><input type="checkbox" checked={form.noRecommendationsConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, noRecommendationsConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أن ما ينبغي فعله مؤجل إلى مرحلة التوصيات.</span></label></div>
           {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{validationIssue}</p> : null}

@@ -1,4 +1,5 @@
 import { assessAcademicText } from '@/lib/academic-content-quality';
+import { firstUnsupportedResearchNumber } from '@/lib/research-numeric-integrity';
 
 export type ResearchConclusionItem = {
   questionIndex: number;
@@ -25,11 +26,6 @@ const records = (value: unknown) => Array.isArray(value)
   : [];
 
 const RECOMMENDATION_PATTERN = /(?:نوصي|يوصى|يُوصى|ينبغي\s+(?:تطبيق|تنفيذ|اعتماد)|يجب\s+(?:تطبيق|تنفيذ|اعتماد)|recommend(?:ed|ation)?|should\s+be\s+(?:implemented|adopted))/iu;
-
-function numericTokens(value: string) {
-  return [...value.matchAll(/(?:^|\s)([-+]?\d+(?:[.,]\d+)?%?)(?=\s|$|[،؛:()])/gu)]
-    .map((match) => match[1].replace(',', '.'));
-}
 
 export function researchConclusionsStructureIssue(output: RecordValue | undefined): string | null {
   if (!output) return 'راجع الاستنتاجات واعتمدها قبل المتابعة.';
@@ -73,10 +69,15 @@ export function researchConclusionsConsistencyIssue(
     const changed = lockedFields.find(([actual, expected]) => normalize(actual) !== normalize(expected));
     if (changed) return `الاستنتاج ${index + 1}: ${changed[2]} لا يطابق المرحلة المعتمدة السابقة.`;
 
-    const allowedNumbers = new Set(numericTokens(`${asText(discussion.resultStatement)} ${asText(discussion.interpretation)} ${asText(discussion.literatureComparison)}`));
-    const inventedNumber = numericTokens(asText(conclusion.conclusionStatement)).find((token) => !allowedNumbers.has(token));
+    const inventedNumber = firstUnsupportedResearchNumber(
+      asText(conclusion.conclusionStatement),
+      `${asText(discussion.resultStatement)} ${asText(discussion.interpretation)} ${asText(discussion.literatureComparison)}`,
+    );
     if (inventedNumber) return `الاستنتاج ${index + 1}: القيمة «${inventedNumber}» لم تظهر في النتيجة أو المناقشة المعتمدتين.`;
   }
+  const discussionText = discussions.map((discussion) => `${asText(discussion.resultStatement)} ${asText(discussion.interpretation)} ${asText(discussion.literatureComparison)}`).join(' ');
+  const overallNumber = firstUnsupportedResearchNumber(`${asText(output.overallConclusion)} ${asText(output.scopeStatement)}`, discussionText);
+  if (overallNumber) return `الاستنتاج العام يتضمن القيمة «${overallNumber}» وهي غير موجودة في المناقشة المعتمدة.`;
   return null;
 }
 

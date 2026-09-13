@@ -54,6 +54,18 @@ describe('research recommendations stage', () => {
     expect(researchRecommendationsConsistencyIssue(recommendations, conclusions)).toContain('88%');
   });
 
+  test('rejects an unsupported number in priorities or feasibility notes', () => {
+    const recommendations = completeRecommendations();
+    recommendations.overallPriorities += ' وتنفذ الأولوية على 95% من الوحدات المستهدفة.';
+    expect(researchRecommendationsConsistencyIssue(recommendations, conclusions)).toContain('95%');
+  });
+
+  test('rejects unsupported numbers in recommendation priorities', () => {
+    const recommendations = completeRecommendations();
+    recommendations.overallPriorities += ' وتُمنح هذه الأولوية وزناً مقداره 65%.';
+    expect(researchRecommendationsConsistencyIssue(recommendations, conclusions)).toContain('65%');
+  });
+
   test('requires a real target audience and actionable text', () => {
     const recommendations = completeRecommendations();
     recommendations.recommendations[0].targetAudience = '';

@@ -69,8 +69,13 @@ export default function ResearchRecommendationsPage() {
     ? researchRecommendationsConsistencyIssue(form as unknown as Record<string, unknown>, journey.outputs.conclusions)
     : 'جارٍ إعداد التوصيات من الاستنتاجات المعتمدة.', [form, journey]);
 
-  function updateItem(index: number, changes: Partial<ResearchRecommendationsOutput['recommendations'][number]>) {
+  function markEdited() {
     setStatus('idle');
+    setError('');
+  }
+
+  function updateItem(index: number, changes: Partial<ResearchRecommendationsOutput['recommendations'][number]>) {
+    markEdited();
     setForm((current) => current ? {
       ...current,
       recommendations: current.recommendations.map((item, itemIndex) => itemIndex === index ? { ...item, ...changes } : item),
@@ -104,7 +109,7 @@ export default function ResearchRecommendationsPage() {
     <JourneyProgress current="recommendations" lang="ar" />
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
       <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
-        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 16 · التوصيات</div>
+        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">من المعرفة إلى الإجراء</div>
         <h1 className="mt-4 text-3xl font-black">حوّل الاستنتاجات إلى خطوات مسؤولة وقابلة للتنفيذ</h1>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">حدّد لكل استنتاج من ينبغي أن يتصرف، وما نوع الإجراء، وأفقه الزمني. التوصية لا تعني أن الدراسة أثبتت شيئاً جديداً، ولا يجوز أن تتجاوز حدود الاستنتاج.</p>
       </header>
@@ -137,10 +142,10 @@ export default function ResearchRecommendationsPage() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <label className="space-y-2 text-sm font-bold">ترتيب أولويات التوصيات
-            <textarea value={form.overallPriorities} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, overallPriorities: event.target.value } : current); }} maxLength={3000} rows={6} placeholder="وضّح أي التوصيات تسبق غيرها ولماذا، اعتماداً على قوة الاستنتاج وقابلية التنفيذ…" className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.overallPriorities} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, overallPriorities: event.target.value } : current); }} maxLength={3000} rows={6} placeholder="وضّح أي التوصيات تسبق غيرها ولماذا، اعتماداً على قوة الاستنتاج وقابلية التنفيذ…" className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
           <label className="mt-5 block space-y-2 text-sm font-bold">ملاحظة قابلية التنفيذ والحدود
-            <textarea value={form.feasibilityNote} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, feasibilityNote: event.target.value } : current); }} maxLength={1800} rows={4} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.feasibilityNote} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, feasibilityNote: event.target.value } : current); }} maxLength={1800} rows={4} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
           <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7 text-blue-950"><input type="checkbox" checked={form.conclusionGroundingConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, conclusionGroundingConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أن كل توصية مشتقة من استنتاج معتمد.</span></label><label className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-7 text-violet-950"><input type="checkbox" checked={form.noNewFindingsConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, noNewFindingsConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أن التوصيات لا تقدّم نتائج جديدة على أنها حقائق.</span></label></div>
           {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{validationIssue}</p> : null}

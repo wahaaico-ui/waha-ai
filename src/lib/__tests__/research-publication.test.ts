@@ -72,4 +72,19 @@ describe('research publication readiness stage', () => {
     publication.structuredAbstract.results = 'تتناول المدن الساحلية إدارة النفايات المنزلية خلال مواسم السياحة والتوسع العمراني.';
     expect(researchPublicationConsistencyIssue(publication, sources)).toContain('النتائج المعتمدة');
   });
+
+  test('recognizes approved statistical values adjacent to symbols', () => {
+    const withStatisticalSymbols = {
+      ...sources,
+      results: { results: [{ resultStatement: 'أظهرت النتائج قيمة p=0.01 ومعامل β=0.42 في التحليل المعتمد.' }] },
+    };
+    const publication = buildPublicationDraft(withStatisticalSymbols)!;
+    publication.targetName = 'مجلة الدراسات التربوية';
+    publication.ethicsStatus = 'not_required';
+    publication.ethicsStatement = 'أكدت الجهة المختصة أن الدراسة لا تتطلب موافقة أخلاقية مستقلة.';
+    publication.dataAvailabilityStatement = 'تتاح البيانات المجهولة وفق ضوابط الجهة البحثية وبعد تقديم طلب مبرر.';
+    publication.authorshipConfirmed = true;
+    publication.venueGuidelinesConfirmed = true;
+    expect(researchPublicationConsistencyIssue(publication, withStatisticalSymbols)).toBeNull();
+  });
 });

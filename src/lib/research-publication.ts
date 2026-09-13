@@ -1,4 +1,5 @@
 import { assessAcademicText } from '@/lib/academic-content-quality';
+import { firstUnsupportedResearchNumber } from '@/lib/research-numeric-integrity';
 
 export type PublicationTargetType = 'journal' | 'conference' | 'thesis' | 'repository';
 export type ManuscriptLanguage = 'ar' | 'en' | 'bilingual';
@@ -44,10 +45,6 @@ const records = (value: unknown) => Array.isArray(value)
 
 function normalize(value: unknown) {
   return asText(value).normalize('NFKC').replace(/\s+/g, ' ');
-}
-
-function numericTokens(value: string) {
-  return [...value.matchAll(/\d+(?:[.,]\d+)?%?/gu)].map((match) => match[0].replace(',', '.'));
 }
 
 function significantTokens(value: unknown) {
@@ -150,8 +147,7 @@ export function researchPublicationConsistencyIssue(
     if (!sharesMeaning(candidate, stringify(source))) return message;
   }
 
-  const sourceNumbers = new Set(numericTokens(stringify(sources)));
-  const unsupportedNumber = numericTokens(stringify(abstract)).find((token) => !sourceNumbers.has(token));
+  const unsupportedNumber = firstUnsupportedResearchNumber(stringify(abstract), stringify(sources));
   if (unsupportedNumber) return `الملخص يتضمن القيمة «${unsupportedNumber}» وهي غير موجودة في المخرجات المعتمدة.`;
   return null;
 }

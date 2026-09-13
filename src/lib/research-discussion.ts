@@ -1,4 +1,5 @@
 import { assessAcademicText } from '@/lib/academic-content-quality';
+import { firstUnsupportedResearchNumber } from '@/lib/research-numeric-integrity';
 
 export type ResearchDiscussionItem = {
   questionIndex: number;
@@ -29,11 +30,6 @@ const strings = (value: unknown) => Array.isArray(value)
   : [];
 
 const RECOMMENDATION_PATTERN = /(?:نوصي|يوصى|يُوصى|ينبغي\s+(?:تطبيق|تنفيذ|اعتماد)|يجب\s+(?:تطبيق|تنفيذ|اعتماد)|recommend(?:ed|ation)?|should\s+be\s+(?:implemented|adopted))/iu;
-
-function numericTokens(value: string) {
-  return [...value.matchAll(/(?:^|\s)([-+]?\d+(?:[.,]\d+)?%?)(?=\s|$|[،؛:()])/gu)]
-    .map((match) => match[1].replace(',', '.'));
-}
 
 function analysisEvidence(analysis: RecordValue | undefined) {
   const themes = records(analysis?.themes);
@@ -101,11 +97,18 @@ export function researchDiscussionConsistencyIssue(
     if (invalidId) return `المناقشة ${index + 1}: الدليل المحدد غير موجود في التخليق الأدبي المعتمد.`;
 
     const allowedEvidenceText = selectedIds.flatMap((paperId) => evidence.textByPaperId.get(paperId) || []).join(' ');
-    const allowedNumbers = new Set(numericTokens(`${asText(result.resultStatement)} ${allowedEvidenceText}`));
-    const discussionNumbers = numericTokens(`${asText(discussion.interpretation)} ${asText(discussion.literatureComparison)}`);
-    const inventedNumber = discussionNumbers.find((token) => !allowedNumbers.has(token));
+    const inventedNumber = firstUnsupportedResearchNumber(
+      `${asText(discussion.interpretation)} ${asText(discussion.literatureComparison)}`,
+      `${asText(result.resultStatement)} ${allowedEvidenceText}`,
+    );
     if (inventedNumber) return `المناقشة ${index + 1}: القيمة «${inventedNumber}» غير موجودة في النتيجة أو الأدلة المحددة.`;
   }
+  const groundedText = `${results.map((result) => asText(result.resultStatement)).join(' ')} ${[...evidence.textByPaperId.values()].flat().join(' ')}`;
+  const summaryNumber = firstUnsupportedResearchNumber(
+    `${asText(output.overallSynthesis)} ${asText(output.limitationsInterpretation)}`,
+    groundedText,
+  );
+  if (summaryNumber) return `خلاصة المناقشة تتضمن القيمة «${summaryNumber}» وهي غير موجودة في النتائج أو الأدلة المعتمدة.`;
   return null;
 }
 

@@ -1,4 +1,5 @@
 import { assessAcademicText } from '@/lib/academic-content-quality';
+import { firstUnsupportedResearchNumber } from '@/lib/research-numeric-integrity';
 
 export type RecommendationType = 'practice' | 'policy' | 'future_research';
 export type RecommendationHorizon = 'immediate' | 'short_term' | 'long_term';
@@ -30,11 +31,6 @@ const normalize = (value: unknown) => asText(value).normalize('NFKC').replace(/\
 const records = (value: unknown) => Array.isArray(value)
   ? value.filter((item): item is RecordValue => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
   : [];
-
-function numericTokens(value: string) {
-  return [...value.matchAll(/(?:^|\s)([-+]?\d+(?:[.,]\d+)?%?)(?=\s|$|[،؛:()])/gu)]
-    .map((match) => match[1].replace(',', '.'));
-}
 
 export function isRecommendationType(value: unknown): value is RecommendationType {
   return typeof value === 'string' && (TYPES as readonly string[]).includes(value);
@@ -84,10 +80,15 @@ export function researchRecommendationsConsistencyIssue(
     if (normalize(recommendation.questionText) !== normalize(conclusion.questionText)) return `التوصية ${index + 1}: سؤال البحث لا يطابق الاستنتاج المعتمد.`;
     if (normalize(recommendation.conclusionStatement) !== normalize(conclusion.conclusionStatement)) return `التوصية ${index + 1}: نص الاستنتاج تغيّر ولا يمكن تعديله من هذه المرحلة.`;
 
-    const allowedNumbers = new Set(numericTokens(`${asText(conclusion.conclusionStatement)} ${asText(conclusionsOutput?.overallConclusion)} ${asText(conclusionsOutput?.scopeStatement)}`));
-    const unsupportedNumber = numericTokens(asText(recommendation.recommendationText)).find((token) => !allowedNumbers.has(token));
+    const unsupportedNumber = firstUnsupportedResearchNumber(
+      `${asText(recommendation.targetAudience)} ${asText(recommendation.recommendationText)}`,
+      `${asText(conclusion.conclusionStatement)} ${asText(conclusionsOutput?.overallConclusion)} ${asText(conclusionsOutput?.scopeStatement)}`,
+    );
     if (unsupportedNumber) return `التوصية ${index + 1}: القيمة «${unsupportedNumber}» ليست مستندة إلى الاستنتاجات المعتمدة. استخدم حقل أفق التنفيذ بدلاً من اختراع رقم.`;
   }
+  const conclusionText = `${conclusions.map((conclusion) => asText(conclusion.conclusionStatement)).join(' ')} ${asText(conclusionsOutput?.overallConclusion)} ${asText(conclusionsOutput?.scopeStatement)}`;
+  const overallNumber = firstUnsupportedResearchNumber(`${asText(output.overallPriorities)} ${asText(output.feasibilityNote)}`, conclusionText);
+  if (overallNumber) return `أولويات التوصيات تتضمن القيمة «${overallNumber}» وهي غير موجودة في الاستنتاجات المعتمدة.`;
   return null;
 }
 

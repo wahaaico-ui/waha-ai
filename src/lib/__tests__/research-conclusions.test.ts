@@ -54,6 +54,18 @@ describe('research conclusions stage', () => {
     expect(researchConclusionsConsistencyIssue(conclusions, discussion)).toContain('7.77');
   });
 
+  test('rejects an unsupported number in the overall conclusion', () => {
+    const conclusions = completeConclusions();
+    conclusions.overallConclusion += ' وبلغ الاستنتاج الكلي 93% وفق القراءة النهائية.';
+    expect(researchConclusionsConsistencyIssue(conclusions, discussion)).toContain('93%');
+  });
+
+  test('rejects unsupported numbers in the overall conclusion', () => {
+    const conclusions = completeConclusions();
+    conclusions.overallConclusion += ' وتبلغ قابلية التعميم 91% وفق الخلاصة.';
+    expect(researchConclusionsConsistencyIssue(conclusions, discussion)).toContain('91%');
+  });
+
   test('keeps recommendations out of conclusions', () => {
     const conclusions = completeConclusions();
     conclusions.conclusions[0].conclusionStatement += ' ونوصي بتطبيق المنصة في جميع الجامعات.';

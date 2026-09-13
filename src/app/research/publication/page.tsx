@@ -67,13 +67,18 @@ export default function ResearchPublicationPage() {
     conclusions: journey.outputs.conclusions,
   }) : 'جارٍ إعداد حزمة النشر من المخرجات المعتمدة.', [form, journey]);
 
-  function update(changes: Partial<ResearchPublicationOutput>) {
+  function markEdited() {
     setStatus('idle');
+    setError('');
+  }
+
+  function update(changes: Partial<ResearchPublicationOutput>) {
+    markEdited();
     setForm((current) => current ? { ...current, ...changes } : current);
   }
 
   function updateAbstract(field: AbstractField, value: string) {
-    setStatus('idle');
+    markEdited();
     setForm((current) => current ? { ...current, structuredAbstract: { ...current.structuredAbstract, [field]: value } } : current);
   }
 
@@ -106,7 +111,7 @@ export default function ResearchPublicationPage() {
     <JourneyProgress current="publication" lang="ar" />
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
       <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
-        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 17 · جاهزية النشر</div>
+        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">حزمة جاهزية المخطوط</div>
         <h1 className="mt-4 text-3xl font-black">جهّز مخطوطك للتحكيم من دون ادعاء ضمان القبول</h1>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">تجمع هذه المرحلة ملخصاً منظماً، ووجهة النشر، والإقرارات العلمية. يفحص النظام اتساق الملخص مع نتائجك واستنتاجاتك، لكن القرار النهائي يبقى للمجلة أو الجامعة والمحكمين.</p>
       </header>
