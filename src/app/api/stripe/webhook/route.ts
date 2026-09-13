@@ -2,10 +2,6 @@ import Stripe from 'stripe';
 import { getStripePlanForPrice } from '@/lib/billing/stripe-plans';
 import { createServiceClient } from '@/lib/supabase/service';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'dummy_key', {
-  apiVersion: '2025-02-28.acacia' as Stripe.LatestApiVersion,
-});
-
 async function saveSubscription(subscription: Stripe.Subscription, fallbackUserId?: string | null) {
   const userId = subscription.metadata.userId || fallbackUserId;
   if (!userId) return false;
@@ -37,8 +33,11 @@ async function saveSubscription(subscription: Stripe.Subscription, fallbackUserI
 
 export async function POST(request: Request) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
   const signature = request.headers.get('stripe-signature');
-  if (!webhookSecret || !signature) return Response.json({ error: 'Webhook is not configured' }, { status: 400 });
+  if (!webhookSecret || !stripeSecret) return Response.json({ error: 'Webhook is not configured' }, { status: 503 });
+  if (!signature) return Response.json({ error: 'Missing webhook signature' }, { status: 400 });
+  const stripe = new Stripe(stripeSecret);
 
   let event: Stripe.Event;
   try {

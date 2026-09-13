@@ -21,6 +21,9 @@ export async function hasEntitlement(userId: string, entitlement: Entitlement) {
   if (data.current_period_end && new Date(data.current_period_end).getTime() < Date.now()) return false;
 
   const planEntitlements: Record<string, Entitlement[]> = {
+    pro: ['zotero_sync', 'academic_language_tools'],
+    expert: ['zotero_sync', 'academic_language_tools'],
+    // Compatibility while existing legacy rows are migrated to `pro`.
     researcher: ['zotero_sync', 'academic_language_tools'],
     institutional: ['zotero_sync', 'academic_language_tools'],
   };
