@@ -137,9 +137,16 @@ export default function ExternalAnalysisInputPage() {
     ? externalAnalysisConsistencyIssue(payload, journey.outputs.questions, journey.outputs.hypotheses, journey.outputs.methodology)
     : 'جارٍ تحميل أسئلة المشروع.', [journey, payload]);
   const literatureAnalysisComplete = Boolean(journey && stageComplete('analysis', journey.outputs.analysis));
+  const completedFindings = useMemo(() => form.findings.filter((finding) => finding.findingSummary.trim().length >= 25 && finding.evidenceSummary.trim().length >= 20).length, [form.findings]);
+  const analysisKindLabel = ({ quantitative: 'كمي', qualitative: 'نوعي', mixed: 'مختلط' } as Record<ExternalAnalysisKind, string>)[form.analysisKind];
+
+  function markEdited() {
+    setStatus('idle');
+    setError('');
+  }
 
   function updateFinding(index: number, field: 'findingSummary' | 'evidenceSummary', value: string) {
-    setStatus('idle');
+    markEdited();
     setForm((current) => ({
       ...current,
       findings: current.findings.map((finding, findingIndex) => findingIndex === index ? { ...finding, [field]: value } : finding),
@@ -164,15 +171,15 @@ export default function ExternalAnalysisInputPage() {
     <JourneyProgress current="analysis_input" lang="ar" />
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
       <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
-        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">المرحلة 12 · مخرجات التحليل الخارجي</div>
-        <h1 className="mt-4 text-3xl font-black">أعد نتائج تحليلك إلى أسئلة الدراسة</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">WAHA لا يجمع بياناتك ولا ينفذ التحليل الإحصائي. بعد إنهاء التحليل في أداتك المتخصصة، أدخل هنا ملخصاً مجهول الهوية؛ سنفحص اكتمال الارتباط بالأسئلة والفرضيات قبل صياغة النتائج.</p>
+        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">ربط التحليل بأسئلة البحث</div>
+        <h1 className="mt-4 text-3xl font-black">أدخل ما أظهره تحليلك الفعلي</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">بعد إنهاء التحليل في برنامجك أو مع مختص، أدخل ملخصاً مجهول الهوية لكل سؤال. WAHA لا يجمع بياناتك ولا ينفذ التحليل الإحصائي، بل يتحقق من اكتمال الربط قبل مساعدتك في صياغة النتائج.</p>
       </header>
 
       {loading ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">جارٍ تحميل الأسئلة والمنهجية المعتمدة…</section>
-      : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
+      : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">سجّل الدخول للمتابعة من مشروعك</h2><p className="mt-3 text-sm leading-7 text-amber-900">سنربط ملخص التحليل بأسئلتك المحفوظة من دون طلب ملف البيانات.</p><Link href="/login" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">تسجيل الدخول</Link></section>
       : error && !journey ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{error}</section>
-      : !literatureAnalysisComplete ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">أكمل تحليل الأدبيات أولاً</h2><p className="mt-3 text-sm leading-7 text-amber-900">يحافظ هذا الترتيب على فصل ما توصلت إليه الدراسات السابقة عن نتائج بياناتك الميدانية.</p><Link href={`/research/analysis?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى تحليل الأدبيات</Link></section>
+      : !literatureAnalysisComplete ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">أكمل صورة الأدبيات أولاً</h2><p className="mt-3 text-sm leading-7 text-amber-900">بهذا نبقي ما تقوله الدراسات السابقة منفصلاً بوضوح عما أظهرته بياناتك الفعلية.</p><Link href={`/research/analysis?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">إكمال تحليل الأدبيات</Link></section>
       : journey ? <>
         <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm leading-7 text-rose-950">
           <strong>حد الخصوصية:</strong> لا ترفع ملف البيانات، إجابات المشاركين، الأسماء، أرقام الهواتف، البريد، أو أرقام الهوية. أدخل نتائج مجمعة فقط مثل الاتجاه العام، المتوسطات، العلاقات، الثيمات أو الاقتباسات المنزوعة الهوية.
@@ -180,23 +187,23 @@ export default function ExternalAnalysisInputPage() {
 
         <section className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:grid-cols-2 sm:p-6">
           <label className="space-y-2 text-sm font-bold">نوع التحليل
-            <select value={form.analysisKind} onChange={(event) => { setStatus('idle'); setForm((current) => ({ ...current, analysisKind: event.target.value as ExternalAnalysisKind })); }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal">
+            <select value={form.analysisKind} onChange={(event) => { markEdited(); setForm((current) => ({ ...current, analysisKind: event.target.value as ExternalAnalysisKind })); }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal">
               <option value="quantitative">كمي</option><option value="qualitative">نوعي</option><option value="mixed">مختلط</option>
             </select>
           </label>
           <label className="space-y-2 text-sm font-bold">من نفّذ التحليل؟
-            <select value={form.analyzedBy} onChange={(event) => { setStatus('idle'); setForm((current) => ({ ...current, analyzedBy: event.target.value as AnalystRole })); }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal">
+            <select value={form.analyzedBy} onChange={(event) => { markEdited(); setForm((current) => ({ ...current, analyzedBy: event.target.value as AnalystRole })); }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal">
               <option value="researcher">الباحث</option><option value="statistical_specialist">مختص إحصائي/تحليلي</option><option value="research_team">فريق البحث</option>
             </select>
           </label>
           <label className="space-y-2 text-sm font-bold">الأداة أو طريقة التحليل
-            <input value={form.softwareOrMethod} onChange={(event) => { setStatus('idle'); setForm((current) => ({ ...current, softwareOrMethod: event.target.value })); }} maxLength={300} placeholder="مثال: SPSS وتحليل الانحدار المتعدد" className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal" />
+            <input value={form.softwareOrMethod} onChange={(event) => { markEdited(); setForm((current) => ({ ...current, softwareOrMethod: event.target.value })); }} maxLength={300} placeholder="مثال: SPSS وتحليل الانحدار المتعدد" className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal" />
           </label>
           <label className="space-y-2 text-sm font-bold">ما الذي شمله التحليل؟ — بلا بيانات خام
-            <input value={form.sampleAnalyzed} onChange={(event) => { setStatus('idle'); setForm((current) => ({ ...current, sampleAnalyzed: event.target.value })); }} maxLength={500} placeholder="مثال: 214 استجابة صالحة بعد استبعاد الاستجابات غير المكتملة" className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal" />
+            <input value={form.sampleAnalyzed} onChange={(event) => { markEdited(); setForm((current) => ({ ...current, sampleAnalyzed: event.target.value })); }} maxLength={500} placeholder="مثال: 214 استجابة صالحة بعد استبعاد الاستجابات غير المكتملة" className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal" />
           </label>
           <label className="space-y-2 text-sm font-bold sm:col-span-2">ملخص إجراءات التحليل
-            <textarea value={form.procedureSummary} onChange={(event) => { setStatus('idle'); setForm((current) => ({ ...current, procedureSummary: event.target.value })); }} maxLength={1500} rows={4} placeholder="اذكر الاختبارات أو خطوات الترميز ومعيار اتخاذ القرار دون لصق المخرجات الخام." className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.procedureSummary} onChange={(event) => { markEdited(); setForm((current) => ({ ...current, procedureSummary: event.target.value })); }} maxLength={1500} rows={4} placeholder="اذكر الاختبارات أو خطوات الترميز ومعيار اتخاذ القرار دون لصق المخرجات الخام." className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
         </section>
 
@@ -215,17 +222,19 @@ export default function ExternalAnalysisInputPage() {
           </article>)}
         </section>
 
+        <aside aria-live="polite" className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-black text-blue-950">ملخص ما أدخلته</h2><span className={`rounded-full px-3 py-1 text-xs font-bold ${validationIssue ? 'bg-white text-slate-600' : 'bg-emerald-100 text-emerald-800'}`}>{validationIssue ? 'قيد الاستكمال' : 'جاهز للحفظ'}</span></div><dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3"><div><dt className="text-xs font-bold text-blue-700">نوع التحليل</dt><dd className="mt-1 font-black text-blue-950">{analysisKindLabel}</dd></div><div><dt className="text-xs font-bold text-blue-700">الأسئلة المرتبطة</dt><dd className="mt-1 font-black text-blue-950">{completedFindings} من {form.findings.length}</dd></div><div><dt className="text-xs font-bold text-blue-700">حماية البيانات</dt><dd className="mt-1 font-black text-blue-950">{form.noRawDataConfirmed && form.noPersonalDataConfirmed ? 'تم تأكيد الخصوصية' : 'بانتظار التأكيد'}</dd></div></dl></aside>
+
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <label className="space-y-2 text-sm font-bold">حدود التحليل
-            <textarea value={form.limitations} onChange={(event) => { setStatus('idle'); setForm((current) => ({ ...current, limitations: event.target.value })); }} maxLength={1000} rows={3} placeholder="اذكر ما يحد تفسير النتائج: حجم العينة، الاستجابة، الافتراضات، أو حدود الأداة." className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+            <textarea value={form.limitations} onChange={(event) => { markEdited(); setForm((current) => ({ ...current, limitations: event.target.value })); }} maxLength={1000} rows={3} placeholder="اذكر ما يحد تفسير النتائج: حجم العينة، الاستجابة، الافتراضات، أو حدود الأداة." className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
           <div className="mt-5 space-y-3 border-t border-slate-200 pt-5">
-            <label className="flex items-start gap-3 text-sm leading-7"><input type="checkbox" checked={form.noRawDataConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => ({ ...current, noRawDataConfirmed: event.target.checked })); }} className="mt-1 h-4 w-4" /><span>أؤكد أنني لم أرفع بيانات خام أو إجابات المشاركين.</span></label>
-            <label className="flex items-start gap-3 text-sm leading-7"><input type="checkbox" checked={form.noPersonalDataConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => ({ ...current, noPersonalDataConfirmed: event.target.checked })); }} className="mt-1 h-4 w-4" /><span>أؤكد أن النص لا يتضمن اسماً أو بريداً أو هاتفاً أو أي معرّف شخصي.</span></label>
+            <label className="flex items-start gap-3 text-sm leading-7"><input type="checkbox" checked={form.noRawDataConfirmed} onChange={(event) => { markEdited(); setForm((current) => ({ ...current, noRawDataConfirmed: event.target.checked })); }} className="mt-1 h-4 w-4" /><span>أؤكد أنني لم أرفع بيانات خام أو إجابات المشاركين.</span></label>
+            <label className="flex items-start gap-3 text-sm leading-7"><input type="checkbox" checked={form.noPersonalDataConfirmed} onChange={(event) => { markEdited(); setForm((current) => ({ ...current, noPersonalDataConfirmed: event.target.checked })); }} className="mt-1 h-4 w-4" /><span>أؤكد أن النص لا يتضمن اسماً أو بريداً أو هاتفاً أو أي معرّف شخصي.</span></label>
           </div>
           {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{validationIssue}</p> : null}
           {error ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-7 text-rose-800">{error}</p> : null}
-          <button type="button" onClick={() => void save()} disabled={Boolean(validationIssue) || status === 'saving'} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? 'جارٍ التحقق والحفظ…' : 'اعتماد مخرجات التحليل'}</button>
+          <button type="button" onClick={() => void save()} disabled={Boolean(validationIssue) || status === 'saving'} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? 'جارٍ التحقق والحفظ…' : 'احفظ ملخص التحليل واربطه بالأسئلة'}</button>
           {status === 'saved' && !validationIssue ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-7 text-emerald-900"><strong>تم الحفظ والتحقق.</strong> أصبحت الأسئلة والفرضيات مرتبطة بمخرجات التحليل.<div><Link href={`/research/results?projectId=${encodeURIComponent(projectId)}`} className="mt-3 inline-flex rounded-xl bg-emerald-700 px-5 py-2.5 text-xs font-bold text-white">انتقل إلى صياغة النتائج ←</Link></div></div> : null}
         </section>
       </> : null}
