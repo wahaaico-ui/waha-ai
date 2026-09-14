@@ -49,6 +49,132 @@ function listOfText(value: unknown, maxItems = 12) {
     : [];
 }
 
+function approvedTitle(context: Record<string, unknown>) {
+  return cleanText(record(context.title)?.title, 500);
+}
+
+export function buildQuestionsDraftFallback(context: Record<string, unknown>) {
+  const objectives = listOfText(record(context.objectives)?.objectives, 8);
+  if (!objectives.length) return null;
+
+  const questions = objectives.map((objective) => {
+    const withoutPeriod = objective.replace(/[.؟?]+$/u, '').trim();
+    const transformations: Array<[RegExp, string]> = [
+      [/^تحديد\s+/u, 'ما '],
+      [/^تحليل\s+/u, 'ما طبيعة '],
+      [/^تقييم\s+/u, 'ما مدى '],
+      [/^قياس\s+/u, 'ما مستوى '],
+      [/^الكشف عن\s+/u, 'ما '],
+      [/^التعرف على\s+/u, 'ما '],
+      [/^دراسة\s+/u, 'ما طبيعة '],
+    ];
+    const transformed = transformations.reduce(
+      (current, [pattern, replacement]) => pattern.test(current) ? current.replace(pattern, replacement) : current,
+      withoutPeriod,
+    );
+    return `${transformed === withoutPeriod ? `كيف يمكن فحص الهدف الآتي: «${withoutPeriod}»` : transformed}؟`;
+  });
+
+  return { questions };
+}
+
+function hypothesisFromQuestion(question: string) {
+  const normalized = question.replace(/[؟?]+$/u, '').trim();
+  const effect = normalized.match(/^ما (?:مدى|مقدار) (?:أثر|تأثير) (.+?) (?:على|في) (.+)$/u);
+  if (effect) return `يوجد أثر ذو دلالة إحصائية لـ${effect[1]} على ${effect[2]}.`;
+  const relation = normalized.match(/^ما (?:طبيعة )?العلاقة بين (.+?) و(.+)$/u);
+  if (relation) return `توجد علاقة ذات دلالة إحصائية بين ${relation[1]} و${relation[2]}.`;
+  const differences = normalized.match(/^هل توجد فروق (.+)$/u);
+  if (differences) return `توجد فروق ذات دلالة إحصائية ${differences[1]}.`;
+  return null;
+}
+
+export function buildHypothesesDraftFallback(context: Record<string, unknown>) {
+  const questions = listOfText(record(context.questions)?.questions, 12);
+  if (!questions.length) return null;
+  const hypotheses = questions.map(hypothesisFromQuestion);
+
+  if (hypotheses.every((item): item is string => Boolean(item))) {
+    return {
+      mode: 'required',
+      hypotheses,
+      rationale: 'صيغت فرضية صفرية أو بديلة قابلة للاختبار لكل سؤال كمي ظاهر، وتبقى بحاجة إلى مراجعة اتجاه الاختبار والمتغيرات قبل الاعتماد.',
+    };
+  }
+
+  return {
+    mode: 'not_applicable',
+    hypotheses: [],
+    rationale: 'لا تتضمن الأسئلة المحفوظة صياغة كمية صريحة لعلاقة أو أثر أو فروق؛ لذلك لا تُفترض فرضيات إحصائية آلياً، ويُراجع الباحث هذا القرار بعد تحديد المنهج والمتغيرات.',
+  };
+}
+
+export function buildMethodologyDraftFallback(context: Record<string, unknown>) {
+  const title = approvedTitle(context);
+  const hypotheses = record(context.hypotheses);
+  const questions = listOfText(record(context.questions)?.questions, 12);
+  if (!title || !questions.length || !hypotheses) return null;
+  const quantitative = hypotheses.mode === 'required';
+
+  return {
+    approach: quantitative ? 'quantitative' : 'qualitative',
+    population: `المجتمع المرتبط مباشرة بموضوع «${title}» ضمن المكان والفترة اللذين سيحددهما الباحث قبل بدء جمع البيانات.`,
+    sample: quantitative
+      ? 'تُختار عينة مناسبة من المجتمع المحدد، ويُحسب حجمها بعد تحديد المجتمع وحجم الأثر المتوقع ومستوى الدلالة والقوة الإحصائية.'
+      : 'تُختار حالات قادرة على تقديم خبرة مرتبطة مباشرة بالموضوع، ويستمر الاختيار وفق معايير الاشتمال حتى الوصول إلى تشبع تحليلي موثق.',
+    instrument: quantitative
+      ? 'أداة كمية مبنية على المتغيرات المعتمدة، مثل استبانة أو مقياس مرخص، وتخضع للتحكيم والتجربة الاستطلاعية قبل التطبيق.'
+      : 'مقابلات شبه منظمة أو أداة نوعية مناسبة مشتقة من الأسئلة، وتخضع للتحكيم وتجربة أولية قبل جمع البيانات.',
+  };
+}
+
+function titleVariables(title: string) {
+  const match = title.match(/^(?:أثر|تأثير)\s+(.+?)\s+(?:على|في)\s+(.+)$/u);
+  return match ? { cause: cleanText(match[1], 160), outcome: cleanText(match[2], 160) } : null;
+}
+
+export function buildDesignDraftFallback(context: Record<string, unknown>) {
+  const title = approvedTitle(context);
+  const methodology = record(context.methodology);
+  if (!title || !methodology) return null;
+  const quantitative = methodology.approach === 'quantitative' || methodology.approach === 'mixed';
+  const parsed = titleVariables(title);
+  const variables = quantitative
+    ? [
+        {
+          name: parsed?.cause || 'العامل الرئيس في الدراسة',
+          role: 'independent',
+          operationalDefinition: `يعرّفه الباحث إجرائياً بوصفه العامل المرتبط بموضوع «${title}»، ثم يحدد مؤشراته وطريقة قياسه قبل جمع البيانات.`,
+        },
+        {
+          name: parsed?.outcome || 'المخرج محل الدراسة',
+          role: 'dependent',
+          operationalDefinition: `يعرّفه الباحث إجرائياً بوصفه المخرج الذي سيفحصه موضوع «${title}»، ثم يحدد مؤشراته وطريقة قياسه قبل جمع البيانات.`,
+        },
+      ]
+    : [{
+        name: title.slice(0, 150),
+        role: 'concept',
+        operationalDefinition: `مفهوم الدراسة المركزي كما سيظهر في خبرات المشاركين أو المواد المرتبطة بموضوع «${title}»، ويحدد الباحث حدوده ومؤشراته قبل الجمع.`,
+      }];
+
+  return {
+    variables,
+    population: {
+      description: cleanText(methodology.population, 1_000),
+      location: '',
+      timeframe: '',
+    },
+    sample: {
+      strategy: quantitative ? 'اختيار احتمالي مناسب لإطار المجتمع عند توفره' : 'اختيار قصدي وفق صلة الحالات بأسئلة الدراسة',
+      inclusionCriteria: 'الانتماء إلى المجتمع المحدد، والارتباط المباشر بموضوع الدراسة، وتقديم موافقة مستنيرة صالحة.',
+      sizeRationale: quantitative
+        ? 'يُحدد الحجم بتحليل قدرة إحصائية بعد توثيق حجم الأثر المتوقع ومستوى الدلالة والقوة المطلوبة.'
+        : 'يُحدد الحجم تدريجياً وفق كفاية البيانات والوصول إلى تشبع تحليلي موثق، لا وفق رقم مفترض مسبقاً.',
+    },
+  };
+}
+
 function designVariableNames(context: Record<string, unknown>) {
   const variables = record(context.design)?.variables;
   if (!Array.isArray(variables)) return [];

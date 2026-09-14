@@ -4,7 +4,15 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import type { WorkflowStage } from '@/lib/research-workflow';
 import { assessProblemDraft } from '@/lib/academic-content-quality';
 import { instrumentLabel, isStudyInstrumentType, type StudyInstrumentType } from '@/lib/research-instrument';
-import { buildInstrumentDraftFallback, buildObjectivesDraftFallback, buildProblemDraftFallback } from '@/lib/research-draft-fallback';
+import {
+  buildDesignDraftFallback,
+  buildHypothesesDraftFallback,
+  buildInstrumentDraftFallback,
+  buildMethodologyDraftFallback,
+  buildObjectivesDraftFallback,
+  buildProblemDraftFallback,
+  buildQuestionsDraftFallback,
+} from '@/lib/research-draft-fallback';
 
 const DRAFTABLE_STAGES = new Set<WorkflowStage>(['problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument']);
 
@@ -82,6 +90,14 @@ export async function POST(request: Request) {
         ? buildProblemDraftFallback(context)
         : stage === 'objectives'
           ? buildObjectivesDraftFallback(context)
+          : stage === 'questions'
+            ? buildQuestionsDraftFallback(context)
+            : stage === 'hypotheses'
+              ? buildHypothesesDraftFallback(context)
+              : stage === 'methodology'
+                ? buildMethodologyDraftFallback(context)
+                : stage === 'design'
+                  ? buildDesignDraftFallback(context)
           : stage === 'instrument'
             ? buildInstrumentDraftFallback(context, instrumentType)
           : null;

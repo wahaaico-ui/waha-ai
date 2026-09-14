@@ -1,5 +1,13 @@
 import { assessProblemDraft } from '@/lib/academic-content-quality';
-import { buildInstrumentDraftFallback, buildObjectivesDraftFallback, buildProblemDraftFallback } from '@/lib/research-draft-fallback';
+import {
+  buildDesignDraftFallback,
+  buildHypothesesDraftFallback,
+  buildInstrumentDraftFallback,
+  buildMethodologyDraftFallback,
+  buildObjectivesDraftFallback,
+  buildProblemDraftFallback,
+  buildQuestionsDraftFallback,
+} from '@/lib/research-draft-fallback';
 import { stageComplete } from '@/lib/research-workflow';
 
 test('builds a structurally valid provisional draft, not a verified gap', () => {
@@ -125,4 +133,47 @@ test('builds valid objectives grounded in the saved title and problem', () => {
 
   expect(draft).not.toBeNull();
   expect(stageComplete('objectives', draft || undefined)).toBe(true);
+});
+
+describe('provider-independent journey drafts', () => {
+  const title = 'أثر التعلم المدمج على دافعية طلبة الدراسات العليا';
+  const objectives = {
+    objectives: [
+      'تحديد الأبعاد الأساسية للتعلم المدمج لدى طلبة الدراسات العليا في الجامعة.',
+      'تقييم أثر التعلم المدمج على دافعية طلبة الدراسات العليا في الجامعة.',
+    ],
+  };
+
+  it('builds one valid question for every approved objective', () => {
+    const draft = buildQuestionsDraftFallback({ objectives });
+    expect(draft?.questions).toHaveLength(objectives.objectives.length);
+    expect(stageComplete('questions', draft || undefined)).toBe(true);
+  });
+
+  it('does not invent statistical hypotheses for non-quantitative questions', () => {
+    const draft = buildHypothesesDraftFallback({ questions: { questions: ['كيف يصف الطلبة خبرتهم مع التعلم المدمج؟'] } });
+    expect(draft?.mode).toBe('not_applicable');
+    expect(stageComplete('hypotheses', draft || undefined)).toBe(true);
+  });
+
+  it('builds a valid methodology and design from approved quantitative context', () => {
+    const questions = { questions: ['ما مدى أثر التعلم المدمج على دافعية طلبة الدراسات العليا؟'] };
+    const hypotheses = buildHypothesesDraftFallback({ questions });
+    const methodology = buildMethodologyDraftFallback({ title: { title }, questions, hypotheses });
+    const design = buildDesignDraftFallback({ title: { title }, methodology });
+
+    expect(hypotheses?.mode).toBe('required');
+    expect(stageComplete('hypotheses', hypotheses || undefined)).toBe(true);
+    expect(stageComplete('methodology', methodology || undefined)).toBe(true);
+    expect(stageComplete('design', design || undefined)).toBe(true);
+  });
+
+  it.each([
+    ['questions', buildQuestionsDraftFallback({})],
+    ['hypotheses', buildHypothesesDraftFallback({})],
+    ['methodology', buildMethodologyDraftFallback({})],
+    ['design', buildDesignDraftFallback({})],
+  ])('refuses to fabricate a %s draft without its prerequisite', (_stage, draft) => {
+    expect(draft).toBeNull();
+  });
 });
