@@ -3,6 +3,7 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import { UnifiedResearchEngine } from '@/lib/academic/services/UnifiedResearchEngine';
 import { normaliseTitle } from '@/lib/academic/integrations/normalization';
 import { CitationResolver } from '@/lib/citations';
+import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
 
 function parseDocument(content: string | null) {
   if (!content) return null;
@@ -13,14 +14,19 @@ function parseDocument(content: string | null) {
 }
 
 export async function POST(request: Request) {
+  const operation = startOperationalRequest(request, '/api/research/literature', 'api.research.literature.started');
+  const respond = (payload: Record<string, unknown>, status: number, errorCode?: string) => {
+    completeOperationalRequest(operation, 'api.research.literature.completed', status, status < 400 ? 'success' : status < 500 ? 'rejected' : 'failed', errorCode);
+    return NextResponse.json(status >= 400 ? { ...payload, requestId: operation.requestId } : payload, { status, headers: operationalHeaders(operation) });
+  };
   try {
     const access = await requireAuthenticatedUser();
-    if (!access) return NextResponse.json({ success: false, error: 'يجب تسجيل الدخول للبحث داخل أدبيات مشروعك.' }, { status: 401 });
-    const body: unknown = await request.json();
-    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ success: false, error: 'طلب غير صالح.' }, { status: 400 });
+    if (!access) return respond({ success: false, error: 'يجب تسجيل الدخول للبحث داخل أدبيات مشروعك.' }, 401, 'unauthorized');
+    const body: unknown = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return respond({ success: false, error: 'طلب غير صالح.' }, 400, 'invalid_request');
     const { projectId } = body as { projectId?: unknown };
-    if (typeof projectId !== 'string' || !projectId.trim()) return NextResponse.json({ success: false, error: 'معرّف المشروع مطلوب.' }, { status: 400 });
-    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ success: false, error: 'المشروع غير موجود.' }, { status: 404 });
+    if (typeof projectId !== 'string' || !projectId.trim()) return respond({ success: false, error: 'معرّف المشروع مطلوب.' }, 400, 'invalid_project_id');
+    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return respond({ success: false, error: 'المشروع غير موجود.' }, 404, 'project_not_found');
 
     const { data: documents, error } = await access.supabase
       .from('documents')
@@ -36,7 +42,7 @@ export async function POST(request: Request) {
     const instrumentOutput = latest('journey:instrument');
     const verificationOutput = latest('journey:verify');
     const title = typeof titleOutput?.title === 'string' ? titleOutput.title.trim() : '';
-    if (title.length < 10 || !methodologyOutput || !designOutput || !instrumentOutput) return NextResponse.json({ success: false, error: 'اعتمد العنوان والمنهجية وتصميم الدراسة وأداة الدراسة داخل المشروع قبل البحث في الأدبيات.' }, { status: 409 });
+    if (title.length < 10 || !methodologyOutput || !designOutput || !instrumentOutput) return respond({ success: false, error: 'اعتمد العنوان والمنهجية وتصميم الدراسة وأداة الدراسة داخل المشروع قبل البحث في الأدبيات.' }, 409, 'prerequisites_missing');
 
     const selectedPath = verificationOutput?.selectedResearchPath && typeof verificationOutput.selectedResearchPath === 'object'
       ? verificationOutput.selectedResearchPath as Record<string, unknown> : null;
@@ -52,7 +58,7 @@ export async function POST(request: Request) {
 
     const result = await UnifiedResearchEngine.searchDetailed({ query: title, alternateQueries: queries.slice(1), specialty, limit: 40 });
     const availableProviders = result.providers.filter((provider) => provider.available);
-    if (!availableProviders.length) return NextResponse.json({ success: false, error: 'تعذر الوصول إلى مصادر الأدبيات حالياً. أعد المحاولة لاحقاً.' }, { status: 503 });
+    if (!availableProviders.length) return respond({ success: false, error: 'تعذر الوصول إلى مصادر الأدبيات حالياً. أعد المحاولة لاحقاً.' }, 503, 'academic_providers_unavailable');
     const relevant = result.papers
       .filter((paper) => paper.relevanceScore >= 18)
       .map((paper) => ({
@@ -69,7 +75,7 @@ export async function POST(request: Request) {
         item: CitationResolver.fromPaper(paper),
       }));
 
-    return NextResponse.json({
+    return respond({
       success: true,
       query: title,
       data: relevant,
@@ -86,9 +92,8 @@ export async function POST(request: Request) {
           ? 'عُثر على تغطية أولية صالحة للمراجعة. اقرأ الملخص والنص الكامل قبل اعتماد أي دراسة.'
           : 'التغطية الحالية غير كافية للحكم على غياب الدراسات؛ جرّب توسيع المفاهيم أو مراجعة صياغة العنوان.',
       },
-    });
-  } catch (error) {
-    console.error('Literature search failed', error instanceof Error ? error.message : 'unknown error');
-    return NextResponse.json({ success: false, error: 'تعذر إكمال البحث في الأدبيات حالياً.' }, { status: 500 });
+    }, 200);
+  } catch {
+    return respond({ success: false, error: 'تعذر إكمال البحث في الأدبيات حالياً.' }, 500, 'unhandled_error');
   }
 }

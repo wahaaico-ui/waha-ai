@@ -14,6 +14,7 @@ import type {
   ResearchObjectViewWarning,
 } from '@/lib/research-objects/types';
 import { evaluateGate, isStage, nextAllowedStage, type WorkflowOutput, type WorkflowStage, WORKFLOW_STAGES } from '@/lib/research-workflow';
+import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
 
 type StoredDocument = JourneyDocumentSnapshot;
 
@@ -80,12 +81,17 @@ function evaluateConsistencyCandidate(
   };
 }
 
-export async function GET(_request: Request, context: { params: Promise<{ projectId: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ projectId: string }> }) {
+  const operation = startOperationalRequest(request, '/api/projects/[projectId]/journey', 'api.research.journey.load.started');
+  const respond = (payload: Record<string, unknown>, status: number, errorCode?: string) => {
+    completeOperationalRequest(operation, 'api.research.journey.load.completed', status, status < 400 ? 'success' : status < 500 ? 'rejected' : 'failed', errorCode);
+    return NextResponse.json(status >= 400 ? { ...payload, requestId: operation.requestId } : payload, { status, headers: operationalHeaders(operation) });
+  };
   try {
     const { projectId } = await context.params;
     const access = await requireAuthenticatedUser();
-    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    if (!access) return respond({ error: 'Unauthorized' }, 401, 'unauthorized');
+    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return respond({ error: 'Project not found' }, 404, 'project_not_found');
     const documents = await readJourney(projectId, access.supabase);
     const outputs = extractOutputs(documents);
     const nextStage = nextAllowedStage(outputs);
@@ -95,7 +101,7 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
     const latestStage = latestStageDocument?.type?.replace('journey:', '');
     const metadata = access.user.user_metadata || {};
     const metadataText = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
-    return NextResponse.json({
+    return respond({
       projectId,
       outputs,
       nextStage,
@@ -105,33 +111,38 @@ export async function GET(_request: Request, context: { params: Promise<{ projec
         displayName: metadataText(metadata.full_name) || metadataText(metadata.name) || access.user.email?.split('@')[0] || 'باحث',
         specialty: metadataText(metadata.specialty),
       },
-    });
-  } catch { return NextResponse.json({ error: 'Unable to load research journey' }, { status: 500 }); }
+    }, 200);
+  } catch { return respond({ error: 'Unable to load research journey' }, 500, 'unhandled_error'); }
 }
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
+  const operation = startOperationalRequest(request, '/api/projects/[projectId]/journey', 'api.research.journey.save.started');
+  const respond = (payload: Record<string, unknown>, status: number, errorCode?: string) => {
+    completeOperationalRequest(operation, 'api.research.journey.save.completed', status, status < 400 ? 'success' : status < 500 ? 'rejected' : 'failed', errorCode);
+    return NextResponse.json(status >= 400 ? { ...payload, requestId: operation.requestId } : payload, { status, headers: operationalHeaders(operation) });
+  };
   try {
     const { projectId } = await context.params;
     const access = await requireAuthenticatedUser();
-    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    const body: unknown = await request.json();
-    if (!body || typeof body !== 'object') return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+    if (!access) return respond({ error: 'Unauthorized' }, 401, 'unauthorized');
+    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return respond({ error: 'Project not found' }, 404, 'project_not_found');
+    const body: unknown = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') return respond({ error: 'Invalid request body' }, 400, 'invalid_request');
     const { stage, content } = body as { stage?: unknown; content?: unknown };
-    if (!isStage(stage) || !content || typeof content !== 'object' || Array.isArray(content)) return NextResponse.json({ error: 'A valid stage and content object are required' }, { status: 400 });
+    if (!isStage(stage) || !content || typeof content !== 'object' || Array.isArray(content)) return respond({ error: 'A valid stage and content object are required' }, 400, 'invalid_stage_content');
     const serialized = JSON.stringify(content);
-    if (serialized.length > 50_000) return NextResponse.json({ error: 'Stage output is too large' }, { status: 413 });
+    if (serialized.length > 50_000) return respond({ error: 'Stage output is too large' }, 413, 'stage_output_too_large');
 
     const documents = await readJourney(projectId, access.supabase);
     const outputs = extractOutputs(documents);
     const requestedIndex = WORKFLOW_STAGES.indexOf(stage);
     const missingPrevious = WORKFLOW_STAGES.slice(0, requestedIndex).find((previousStage) => !outputs[previousStage] || !evaluateGate(previousStage, outputs).status.includes('open'));
-    if (missingPrevious) return NextResponse.json({ error: 'Stage is locked', gate: evaluateGate(stage, outputs) }, { status: 409 });
+    if (missingPrevious) return respond({ error: 'Stage is locked', gate: evaluateGate(stage, outputs) }, 409, 'stage_locked');
 
     const candidate = { ...outputs, [stage]: content as WorkflowOutput };
     const gate = evaluateGate(stage, candidate);
     if (gate.status !== 'open') {
-      return NextResponse.json({ error: gate.reason, gate }, { status: 422 });
+      return respond({ error: gate.reason, gate }, 422, 'gate_rejected');
     }
     const versions = documents.filter((item) => item.type === `journey:${stage}`).map((item) => item.version || 0);
     const version = Math.max(0, ...versions) + 1;
@@ -146,12 +157,12 @@ export async function POST(request: Request, context: { params: Promise<{ projec
         reason: consistency.report.summary,
         nextStage: stage,
       };
-      return NextResponse.json({
+      return respond({
         error: consistency.report.summary,
         gate: consistencyGate,
         consistency: consistency.report,
         consistencyWarnings: consistency.warnings,
-      }, { status: 422 });
+      }, 422, 'consistency_rejected');
     }
 
     const { error: insertError } = await access.supabase.from('documents').insert({ project_id: projectId, type: `journey:${stage}`, content: serialized, version });
@@ -174,7 +185,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     const { error: decisionError } = await access.supabase.from('documents').insert({ project_id: projectId, type: 'journey:decision', content: JSON.stringify(decisionContent), version: decisionVersion });
     if (decisionError) throw decisionError;
     await access.supabase.from('projects').update({ status: gate.status === 'open' ? `${stage}_completed` : `${stage}_needs_improvement` }).eq('id', projectId).eq('user_id', access.user.id);
-    return NextResponse.json({
+    return respond({
       success: true,
       stage,
       version,
@@ -182,6 +193,6 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       nextStage: nextAllowedStage(candidate),
       consistency: consistency?.report ?? null,
       consistencyWarnings: consistency?.warnings ?? [],
-    });
-  } catch { return NextResponse.json({ error: 'Unable to save research stage' }, { status: 500 }); }
+    }, 200);
+  } catch { return respond({ error: 'Unable to save research stage' }, 500, 'unhandled_error'); }
 }

@@ -74,7 +74,9 @@ describe('project snapshot email route', () => {
   test('returns 401 before reading a project when no user is authenticated', async () => {
     requireAuthenticatedUser.mockResolvedValue(null);
     const response = await POST(request());
+    const body = await response.json();
     expect(response.status).toBe(401);
+    expect(response.headers.get('x-waha-request-id')).toBe(body.requestId);
     expect(ownsProject).not.toHaveBeenCalled();
     expect(sendProjectSnapshotEmail).not.toHaveBeenCalled();
   });

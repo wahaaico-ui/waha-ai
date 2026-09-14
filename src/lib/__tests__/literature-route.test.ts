@@ -19,7 +19,9 @@ afterEach(() => jest.clearAllMocks());
 test('literature API returns 401 before accepting a project identifier', async () => {
   mockedAuth.mockResolvedValue(null);
   const response = await POST(new Request('http://localhost/api/research/literature', { method: 'POST', body: JSON.stringify({ projectId: 'other-user-project' }) }));
+  const body = await response.json();
   expect(response.status).toBe(401);
+  expect(response.headers.get('x-waha-request-id')).toBe(body.requestId);
   expect(mockedSearch).not.toHaveBeenCalled();
 });
 

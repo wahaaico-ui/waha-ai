@@ -24,8 +24,10 @@ describe('project journey authorization', () => {
     requireAuthenticatedUser.mockResolvedValue(null);
 
     const response = await GET(new Request('https://waha.test/api/projects/project-owned-by-b/journey'), context);
+    const body = await response.json();
 
     expect(response.status).toBe(401);
+    expect(response.headers.get('x-waha-request-id')).toBe(body.requestId);
     expect(ownsProject).not.toHaveBeenCalled();
   });
 
