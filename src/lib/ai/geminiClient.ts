@@ -1,5 +1,6 @@
 import { createClient as createServerClient } from '@/lib/supabase/server';
 import { ownsProject } from '@/lib/supabase/authorization';
+import { logOperationalEvent } from '@/lib/observability';
 import { createHash } from 'node:crypto';
 
 const AI_TIMEOUT_MS = 30_000;
@@ -100,6 +101,7 @@ interface GenerateOptions {
   userId?: string;
   supabase?: Awaited<ReturnType<typeof createServerClient>>;
   feature: string;
+  requestId?: string;
 }
 
 interface GenerateResult {
@@ -113,11 +115,19 @@ export async function generateStructured({
   userId,
   supabase: callerSupabase,
   feature,
+  requestId,
 }: GenerateOptions): Promise<GenerateResult> {
+  const startedAt = Date.now();
   const geminiKey = process.env.GEMINI_API_KEY;
   const openAIKey = process.env.OPENAI_API_KEY;
   const groqKey = process.env.GROQ_API_KEY;
-  if (!geminiKey && !openAIKey && !groqKey) throw new Error('No structured-generation provider is configured.');
+  if (!geminiKey && !openAIKey && !groqKey) {
+    logOperationalEvent('error', {
+      event: 'ai.generation_failed', route: '/server/structured-generation', requestId, feature,
+      durationMs: Date.now() - startedAt, outcome: 'failed', errorCode: 'no_provider_configured',
+    });
+    throw new Error('No structured-generation provider is configured.');
+  }
 
   if (projectId) {
     if (!userId || !callerSupabase) {
@@ -128,33 +138,54 @@ export async function generateStructured({
     }
   }
 
-  let generation: { output: string; model: string } | null = null;
+  let generation: { output: string; model: string; provider: 'gemini' | 'openai' | 'groq' } | null = null;
   if (geminiKey) {
+    const providerStartedAt = Date.now();
     try {
-      generation = await generateWithGemini(geminiKey, prompt);
+      generation = { ...(await generateWithGemini(geminiKey, prompt)), provider: 'gemini' };
     } catch (reason) {
       const failure = reason instanceof AIProviderError ? reason : null;
-      console.warn('[structured-generation] Gemini unavailable; trying fallback.', { status: failure?.status ?? null });
+      logOperationalEvent('warn', {
+        event: 'ai.provider_failed', route: '/server/structured-generation', requestId, feature, provider: 'gemini',
+        status: failure?.status ?? null, durationMs: Date.now() - providerStartedAt, outcome: 'fallback',
+        errorCode: failure?.status ? 'provider_http_error' : 'provider_transport_error',
+      });
     }
   }
   if (!generation && openAIKey) {
+    const providerStartedAt = Date.now();
     try {
-      generation = await generateWithOpenAI(openAIKey, prompt);
+      generation = { ...(await generateWithOpenAI(openAIKey, prompt)), provider: 'openai' };
     } catch (reason) {
       const failure = reason instanceof AIProviderError ? reason : null;
-      console.warn('[structured-generation] OpenAI unavailable; trying fallback.', { status: failure?.status ?? null });
+      logOperationalEvent('warn', {
+        event: 'ai.provider_failed', route: '/server/structured-generation', requestId, feature, provider: 'openai',
+        status: failure?.status ?? null, durationMs: Date.now() - providerStartedAt, outcome: 'fallback',
+        errorCode: failure?.status ? 'provider_http_error' : 'provider_transport_error',
+      });
     }
   }
   if (!generation && groqKey) {
+    const providerStartedAt = Date.now();
     try {
-      generation = await generateWithGroq(groqKey, prompt);
+      generation = { ...(await generateWithGroq(groqKey, prompt)), provider: 'groq' };
     } catch (reason) {
       const failure = reason instanceof AIProviderError ? reason : null;
-      console.warn('[structured-generation] Groq unavailable.', { status: failure?.status ?? null });
+      logOperationalEvent('warn', {
+        event: 'ai.provider_failed', route: '/server/structured-generation', requestId, feature, provider: 'groq',
+        status: failure?.status ?? null, durationMs: Date.now() - providerStartedAt, outcome: 'failed',
+        errorCode: failure?.status ? 'provider_http_error' : 'provider_transport_error',
+      });
     }
   }
-  if (!generation) throw new Error('Structured generation is temporarily unavailable.');
-  const { output, model: modelName } = generation;
+  if (!generation) {
+    logOperationalEvent('error', {
+      event: 'ai.generation_failed', route: '/server/structured-generation', requestId, feature,
+      durationMs: Date.now() - startedAt, outcome: 'failed', errorCode: 'all_providers_unavailable',
+    });
+    throw new Error('Structured generation is temporarily unavailable.');
+  }
+  const { output, model: modelName, provider } = generation;
 
   // منطق بسيط لتحديد مستوى الثقة (confidenceLabel)
   let confidenceLabel = 'منخفض';
@@ -173,15 +204,26 @@ export async function generateStructured({
 
   // سجّل العملية من خلال عميل المستخدم نفسه؛ لا حاجة لتجاوز RLS بمفتاح خدمة.
   if (projectId && callerSupabase) {
-      await callerSupabase.from('ai_generations_log').insert({
-        project_id: projectId,
-        feature,
-        model: modelName,
-        output,
-        confidence_label: confidenceLabel,
-        prompt_hash: createHash('sha256').update(prompt).digest('hex'),
+    const { error } = await callerSupabase.from('ai_generations_log').insert({
+      project_id: projectId,
+      feature,
+      model: modelName,
+      output,
+      confidence_label: confidenceLabel,
+      prompt_hash: createHash('sha256').update(prompt).digest('hex'),
+    });
+    if (error) {
+      logOperationalEvent('error', {
+        event: 'ai.audit_write_failed', route: '/server/structured-generation', requestId, feature, provider,
+        model: modelName, durationMs: Date.now() - startedAt, outcome: 'failed', errorCode: 'database_write_failed',
       });
+    }
   }
+
+  logOperationalEvent('info', {
+    event: 'ai.generation_completed', route: '/server/structured-generation', requestId, feature, provider,
+    model: modelName, durationMs: Date.now() - startedAt, outcome: 'success',
+  });
 
   return {
     output,

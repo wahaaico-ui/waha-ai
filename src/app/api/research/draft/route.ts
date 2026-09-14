@@ -4,6 +4,7 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import type { WorkflowStage } from '@/lib/research-workflow';
 import { assessProblemDraft } from '@/lib/academic-content-quality';
 import { instrumentLabel, isStudyInstrumentType, type StudyInstrumentType } from '@/lib/research-instrument';
+import { logOperationalEvent, requestCorrelationId } from '@/lib/observability';
 import {
   buildDesignDraftFallback,
   buildHypothesesDraftFallback,
@@ -56,16 +57,26 @@ function stageInstructions(stage: WorkflowStage, instrumentType: StudyInstrument
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  const requestId = requestCorrelationId(request);
+  const respond = (payload: Record<string, unknown>, status: number, outcome: 'success' | 'fallback' | 'rejected') => {
+    logOperationalEvent(status >= 400 ? 'warn' : 'info', {
+      event: 'api.research_draft.completed', route: '/api/research/draft', requestId,
+      durationMs: Date.now() - startedAt, status, outcome,
+    });
+    return NextResponse.json(payload, { status, headers: { 'x-waha-request-id': requestId } });
+  };
+  logOperationalEvent('info', { event: 'api.research_draft.started', route: '/api/research/draft', requestId });
   try {
     const access = await requireAuthenticatedUser();
-    if (!access) return NextResponse.json({ error: 'يجب تسجيل الدخول لاستخدام المساعدة الكتابية.' }, { status: 401 });
+    if (!access) return respond({ error: 'يجب تسجيل الدخول لاستخدام المساعدة الكتابية.' }, 401, 'rejected');
     const body: unknown = await request.json();
-    if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'طلب غير صالح.' }, { status: 400 });
+    if (!body || typeof body !== 'object' || Array.isArray(body)) return respond({ error: 'طلب غير صالح.' }, 400, 'rejected');
     const { projectId, stage, draftOptions } = body as { projectId?: unknown; stage?: unknown; draftOptions?: unknown };
     if (typeof projectId !== 'string' || typeof stage !== 'string' || !DRAFTABLE_STAGES.has(stage as WorkflowStage)) {
-      return NextResponse.json({ error: 'المشروع والمرحلة مطلوبان.' }, { status: 400 });
+      return respond({ error: 'المشروع والمرحلة مطلوبان.' }, 400, 'rejected');
     }
-    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'المشروع غير موجود.' }, { status: 404 });
+    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return respond({ error: 'المشروع غير موجود.' }, 404, 'rejected');
 
     const { data, error } = await access.supabase.from('documents').select('type, content, version, created_at').eq('project_id', projectId).like('type', 'journey:%').order('version', { ascending: false }).order('created_at', { ascending: false });
     if (error) throw error;
@@ -83,7 +94,7 @@ export async function POST(request: Request) {
     let draft: Record<string, unknown>;
     let usedLocalFallback = false;
     try {
-      const generated = await generateStructured({ prompt, projectId, userId: access.user.id, supabase: access.supabase, feature: `research-draft-${stage}` });
+      const generated = await generateStructured({ prompt, projectId, userId: access.user.id, supabase: access.supabase, feature: `research-draft-${stage}`, requestId });
       draft = parseJsonObject(generated.output);
     } catch (reason) {
       const fallback = stage === 'problem'
@@ -102,7 +113,10 @@ export async function POST(request: Request) {
             ? buildInstrumentDraftFallback(context, instrumentType)
           : null;
       if (!fallback) throw reason;
-      console.warn('[research-draft] providers unavailable; using grounded local draft.', { stage });
+      logOperationalEvent('warn', {
+        event: 'api.research_draft.local_fallback', route: '/api/research/draft', requestId, stage,
+        durationMs: Date.now() - startedAt, outcome: 'fallback', errorCode: 'structured_generation_unavailable',
+      });
       draft = fallback;
       usedLocalFallback = true;
     }
@@ -117,11 +131,15 @@ export async function POST(request: Request) {
         researcherNote: '',
         requireResearcherNote: false,
       });
-      if (!assessment.valid) return NextResponse.json({ error: assessment.reason || 'المسودة لا تجتاز فحص الجودة.' }, { status: 422 });
+      if (!assessment.valid) return respond({ error: assessment.reason || 'المسودة لا تجتاز فحص الجودة.' }, 422, 'rejected');
     }
-    return NextResponse.json({ success: true, stage, draft, notice: usedLocalFallback ? 'أعددنا مسودة محلية آمنة من عنوانك ومؤشرات مشروعك بعد تعذر مزوّد الذكاء الاصطناعي. راجعها وصححها قبل الاعتماد.' : stage === 'hypotheses' ? 'اقترحنا قرار الفرضيات من طبيعة أسئلتك. راجعه مع مشرفك قبل الاعتماد.' : stage === 'instrument' ? `أعددنا مسودة ${instrumentLabel(instrumentType)} من سجل مشروعك. راجعها وصححها قبل الاعتماد.` : 'أعددنا مسودة من سجل مشروعك. راجعها وصححها قبل الاعتماد.' });
+    return respond({ success: true, stage, draft, notice: usedLocalFallback ? 'أعددنا مسودة محلية آمنة من عنوانك ومؤشرات مشروعك بعد تعذر مزوّد الذكاء الاصطناعي. راجعها وصححها قبل الاعتماد.' : stage === 'hypotheses' ? 'اقترحنا قرار الفرضيات من طبيعة أسئلتك. راجعه مع مشرفك قبل الاعتماد.' : stage === 'instrument' ? `أعددنا مسودة ${instrumentLabel(instrumentType)} من سجل مشروعك. راجعها وصححها قبل الاعتماد.` : 'أعددنا مسودة من سجل مشروعك. راجعها وصححها قبل الاعتماد.' }, 200, usedLocalFallback ? 'fallback' : 'success');
   } catch (reason) {
-    console.error('[research-draft] request failed', reason instanceof Error ? reason.message : 'unknown error');
-    return NextResponse.json({ error: 'تعذر إعداد المسودة الآن. حاول مجدداً بعد قليل.' }, { status: 500 });
+    logOperationalEvent('error', {
+      event: 'api.research_draft.failed', route: '/api/research/draft', requestId,
+      durationMs: Date.now() - startedAt, status: 500, outcome: 'failed',
+      errorCode: reason instanceof SyntaxError ? 'invalid_json' : 'unhandled_error',
+    });
+    return NextResponse.json({ error: 'تعذر إعداد المسودة الآن. حاول مجدداً بعد قليل.', requestId }, { status: 500, headers: { 'x-waha-request-id': requestId } });
   }
 }
