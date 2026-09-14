@@ -73,6 +73,8 @@ Use Resend SMTP/API for account and application events:
 - Set `Reply-To: support@waha.systems` when a response is useful.
 - Never place passwords, OTP secrets, API keys, or unnecessary private research content in email.
 
+Production evidence for account confirmation and password recovery is recorded in [`docs/operations/TRANSACTIONAL_EMAIL_VERIFICATION.md`](operations/TRANSACTIONAL_EMAIL_VERIFICATION.md).
+
 ### Human-operated aliases
 
 - `support@waha.systems`: technical and account support.
