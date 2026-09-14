@@ -14,6 +14,12 @@ import {
   type VerifyReport,
 } from '@/lib/research-exploration';
 import { countryName } from '@/lib/researcher-profile';
+import {
+  completeOperationalRequest,
+  logOperationalEvent,
+  operationalHeaders,
+  startOperationalRequest,
+} from '@/lib/observability';
 
 // ============================================================
 // TYPES
@@ -31,9 +37,22 @@ interface QueryPlan {
   queries: string[];  // 1-3 English search queries at different scopes
 }
 
-async function planSearchQueries(userTopic: string): Promise<QueryPlan> {
+async function planSearchQueries(userTopic: string, requestId: string): Promise<QueryPlan> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return { isValid: true, queries: [userTopic] };
+  if (!apiKey) {
+    logOperationalEvent('warn', {
+      event: 'api.verify_idea.query_plan_fallback',
+      route: '/api/verify-idea',
+      requestId,
+      provider: 'gemini',
+      feature: 'query-planning',
+      outcome: 'fallback',
+      errorCode: 'provider_not_configured',
+    });
+    return { isValid: true, queries: [userTopic] };
+  }
+
+  const startedAt = Date.now();
 
   const prompt = `You are an academic search strategist. Analyze this research topic and produce a JSON plan.
 
@@ -71,7 +90,21 @@ JSON:`;
         signal: AbortSignal.timeout(12000),
       }
     );
-    if (!res.ok) return { isValid: true, queries: [userTopic] };
+    if (!res.ok) {
+      logOperationalEvent('warn', {
+        event: 'api.verify_idea.query_plan_fallback',
+        route: '/api/verify-idea',
+        requestId,
+        durationMs: Date.now() - startedAt,
+        status: res.status,
+        provider: 'gemini',
+        model: 'gemini-3.1-flash-lite',
+        feature: 'query-planning',
+        outcome: 'fallback',
+        errorCode: 'provider_http_error',
+      });
+      return { isValid: true, queries: [userTopic] };
+    }
     const data = await res.json();
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
     // Strip any markdown fences just in case
@@ -83,9 +116,30 @@ JSON:`;
     if (parsed.focused && typeof parsed.focused === 'string' && parsed.focused !== parsed.full) queries.push(parsed.focused);
     if (parsed.broad && typeof parsed.broad === 'string' && parsed.broad !== parsed.focused && parsed.broad !== parsed.full) queries.push(parsed.broad);
     if (queries.length === 0) queries.push(userTopic);
+    logOperationalEvent('info', {
+      event: 'api.verify_idea.query_plan_completed',
+      route: '/api/verify-idea',
+      requestId,
+      durationMs: Date.now() - startedAt,
+      status: res.status,
+      provider: 'gemini',
+      model: 'gemini-3.1-flash-lite',
+      feature: 'query-planning',
+      outcome: 'success',
+    });
     return { isValid: true, queries };
   } catch {
-    // On any parse/network error, fail open: treat as valid, use original topic
+    logOperationalEvent('warn', {
+      event: 'api.verify_idea.query_plan_fallback',
+      route: '/api/verify-idea',
+      requestId,
+      durationMs: Date.now() - startedAt,
+      provider: 'gemini',
+      model: 'gemini-3.1-flash-lite',
+      feature: 'query-planning',
+      outcome: 'fallback',
+      errorCode: 'provider_or_parse_error',
+    });
     return { isValid: true, queries: [userTopic] };
   }
 }
@@ -116,7 +170,8 @@ type OpenAlexPaper = {
   primary_location?: { source?: { display_name?: string } };
 };
 
-async function fetchSemanticScholar(query: string, limit = 20): Promise<Paper[]> {
+async function fetchSemanticScholar(query: string, limit: number, requestId: string): Promise<Paper[]> {
+  const startedAt = Date.now();
   const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=title,abstract,year,citationCount,url,authors,venue`;
   const headers: Record<string, string> = {};
   const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
@@ -124,9 +179,28 @@ async function fetchSemanticScholar(query: string, limit = 20): Promise<Paper[]>
 
   try {
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      logOperationalEvent('warn', {
+        event: 'api.verify_idea.academic_source_failed', route: '/api/verify-idea', requestId,
+        durationMs: Date.now() - startedAt, status: res.status, provider: 'semantic_scholar',
+        feature: 'idea-exploration', outcome: 'fallback', errorCode: 'provider_http_error',
+      });
+      return [];
+    }
     const data = await res.json() as { data?: SemanticScholarPaper[] };
-    if (!data.data) return [];
+    if (!data.data) {
+      logOperationalEvent('warn', {
+        event: 'api.verify_idea.academic_source_failed', route: '/api/verify-idea', requestId,
+        durationMs: Date.now() - startedAt, status: res.status, provider: 'semantic_scholar',
+        feature: 'idea-exploration', outcome: 'fallback', errorCode: 'invalid_provider_payload',
+      });
+      return [];
+    }
+    logOperationalEvent('info', {
+      event: 'api.verify_idea.academic_source_completed', route: '/api/verify-idea', requestId,
+      durationMs: Date.now() - startedAt, status: res.status, provider: 'semantic_scholar',
+      feature: 'idea-exploration', outcome: 'success',
+    });
     return data.data.map((p) => ({
       title: p.title || '',
       abstract: p.abstract || '',
@@ -138,19 +212,44 @@ async function fetchSemanticScholar(query: string, limit = 20): Promise<Paper[]>
       venue: p.venue || '',
     }));
   } catch {
+    logOperationalEvent('warn', {
+      event: 'api.verify_idea.academic_source_failed', route: '/api/verify-idea', requestId,
+      durationMs: Date.now() - startedAt, provider: 'semantic_scholar',
+      feature: 'idea-exploration', outcome: 'fallback', errorCode: 'provider_network_or_parse_error',
+    });
     return [];
   }
 }
 
-async function fetchOpenAlex(query: string, limit = 20): Promise<Paper[]> {
+async function fetchOpenAlex(query: string, limit: number, requestId: string): Promise<Paper[]> {
+  const startedAt = Date.now();
   const email = process.env.OPENALEX_EMAIL;
   const mailtoParam = email ? `&mailto=${encodeURIComponent(email)}` : '';
   const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=${limit}&select=title,abstract_inverted_index,publication_year,cited_by_count,doi,authorships,primary_location${mailtoParam}`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      logOperationalEvent('warn', {
+        event: 'api.verify_idea.academic_source_failed', route: '/api/verify-idea', requestId,
+        durationMs: Date.now() - startedAt, status: res.status, provider: 'openalex',
+        feature: 'idea-exploration', outcome: 'fallback', errorCode: 'provider_http_error',
+      });
+      return [];
+    }
     const data = await res.json() as { results?: OpenAlexPaper[] };
-    if (!data.results) return [];
+    if (!data.results) {
+      logOperationalEvent('warn', {
+        event: 'api.verify_idea.academic_source_failed', route: '/api/verify-idea', requestId,
+        durationMs: Date.now() - startedAt, status: res.status, provider: 'openalex',
+        feature: 'idea-exploration', outcome: 'fallback', errorCode: 'invalid_provider_payload',
+      });
+      return [];
+    }
+    logOperationalEvent('info', {
+      event: 'api.verify_idea.academic_source_completed', route: '/api/verify-idea', requestId,
+      durationMs: Date.now() - startedAt, status: res.status, provider: 'openalex',
+      feature: 'idea-exploration', outcome: 'success',
+    });
     return data.results.map((p) => {
       let abstract = '';
       if (p.abstract_inverted_index) {
@@ -181,6 +280,11 @@ async function fetchOpenAlex(query: string, limit = 20): Promise<Paper[]> {
       };
     });
   } catch {
+    logOperationalEvent('warn', {
+      event: 'api.verify_idea.academic_source_failed', route: '/api/verify-idea', requestId,
+      durationMs: Date.now() - startedAt, provider: 'openalex',
+      feature: 'idea-exploration', outcome: 'fallback', errorCode: 'provider_network_or_parse_error',
+    });
     return [];
   }
 }
@@ -409,8 +513,7 @@ async function saveVerification(
       user_id: userId,
     });
     if (error) throw error;
-  } catch (error) {
-    console.error('Unable to persist idea verification', error);
+  } catch {
     throw new Error('Unable to persist idea verification');
   }
 }
@@ -476,23 +579,35 @@ async function persistAuthenticatedVerification(
 // MAIN HANDLER
 // ============================================================
 export async function POST(request: NextRequest) {
-  const ip = await requestFingerprint(request);
+  const operation = startOperationalRequest(request, '/api/verify-idea', 'api.verify_idea.started');
+  const respond = (payload: Record<string, unknown>, status: number, errorCode?: string) => {
+    completeOperationalRequest(operation, 'api.verify_idea.completed', status, status < 400 ? 'success' : status < 500 ? 'rejected' : 'failed', errorCode);
+    return NextResponse.json(status >= 400 ? { ...payload, requestId: operation.requestId } : payload, {
+      status,
+      headers: operationalHeaders(operation),
+    });
+  };
 
   try {
-    const body = await request.json();
-    const topic = typeof body.topic === 'string' ? body.topic.trim() : '';
-    const researcherInput = normalizeResearcherInput(body);
+    const ip = await requestFingerprint(request);
+    const body: unknown = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return respond({ error: 'طلب الفحص غير صالح.' }, 400, 'invalid_request');
+    }
+    const payload = body as Record<string, unknown>;
+    const topic = typeof payload.topic === 'string' ? payload.topic.trim() : '';
+    const researcherInput = normalizeResearcherInput(payload);
     if (!topic || topic.length < 5) {
-      return NextResponse.json({ error: 'الرجاء إدخال موضوع بحثي واضح (5 أحرف على الأقل)' }, { status: 400 });
+      return respond({ error: 'الرجاء إدخال موضوع بحثي واضح (5 أحرف على الأقل)' }, 400, 'topic_too_short');
     }
     if (topic.length > 500) {
-      return NextResponse.json({ error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' }, { status: 400 });
+      return respond({ error: 'الموضوع طويل جداً. اختصره إلى فكرة عامة، ليس عنواناً طويلاً.' }, 400, 'topic_too_long');
     }
     if (researcherInput.scenario === 'compare_titles' && researcherInput.candidateTitles.length < 2) {
-      return NextResponse.json({ error: 'أدخل عنوانين واضحين على الأقل حتى نستطيع مقارنتهما.' }, { status: 400 });
+      return respond({ error: 'أدخل عنوانين واضحين على الأقل حتى نستطيع مقارنتهما.' }, 400, 'comparison_titles_missing');
     }
     if (researcherInput.scenario === 'rejected_title' && !researcherInput.rejectionFeedback) {
-      return NextResponse.json({ error: 'اكتب ملاحظة المشرف أو سبب رفض العنوان حتى يكون التحليل مرتبطاً بالمشكلة الحقيقية.' }, { status: 400 });
+      return respond({ error: 'اكتب ملاحظة المشرف أو سبب رفض العنوان حتى يكون التحليل مرتبطاً بالمشكلة الحقيقية.' }, 400, 'rejection_feedback_missing');
     }
 
     // Resolve the cookie-bound identity once. The client cannot submit or
@@ -510,14 +625,14 @@ export async function POST(request: NextRequest) {
     };
 
     // Smart query planning via Gemini: validity gate + multi-scope queries
-    const plan = await planSearchQueries(topic);
+    const plan = await planSearchQueries(topic, operation.requestId);
     if (!plan.isValid) {
       const isAr = isArabic(topic);
-      return NextResponse.json({
+      return respond({
         error: isAr
           ? 'الموضوع الذي أدخلته لا يبدو موضوعاً بحثياً حقيقياً. الرجاء إدخال فكرة بحثية واضحة (مثل: أثر التعلم الإلكتروني على التحصيل الدراسي).'
           : 'The input does not appear to be a genuine research topic. Please enter a clear research idea.',
-      }, { status: 400 });
+      }, 400, 'non_research_input');
     }
 
     // Build query set: original topic + all English variants from the plan
@@ -532,8 +647,8 @@ export async function POST(request: NextRequest) {
     // Fetch from both sources for each query in parallel
     const fetchPromises: Promise<Paper[]>[] = [];
     for (const q of queries) {
-      fetchPromises.push(fetchSemanticScholar(q, 20));
-      fetchPromises.push(fetchOpenAlex(q, 20));
+      fetchPromises.push(fetchSemanticScholar(q, 20, operation.requestId));
+      fetchPromises.push(fetchOpenAlex(q, 20, operation.requestId));
     }
     const results = await Promise.all(fetchPromises);
     const mergedCandidates = mergePapers(...results);
@@ -608,6 +723,16 @@ export async function POST(request: NextRequest) {
     // journey link. Anonymous visitors deliberately keep the existing local
     // exploration flow and never receive a project id.
     const projectId = await persistAuthenticatedVerification(report, access);
+    if (access && !projectId) {
+      logOperationalEvent('warn', {
+        event: 'api.verify_idea.project_persistence_failed',
+        route: '/api/verify-idea',
+        requestId: operation.requestId,
+        feature: 'idea-exploration',
+        outcome: 'fallback',
+        errorCode: 'authenticated_project_not_persisted',
+      });
+    }
 
     // Freemium: compute usage info based on the history before this request.
     const FREE_LIMIT = 3;
@@ -625,11 +750,8 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    return NextResponse.json(reportWithUsage);
+    return respond(reportWithUsage, 200);
   } catch {
-    return NextResponse.json(
-      { error: 'حدث خطأ أثناء الفحص. حاول مرة أخرى.' },
-      { status: 500 }
-    );
+    return respond({ error: 'حدث خطأ أثناء الفحص. حاول مرة أخرى.' }, 500, 'unhandled_error');
   }
 }

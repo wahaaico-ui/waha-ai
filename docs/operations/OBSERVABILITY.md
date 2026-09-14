@@ -22,6 +22,9 @@ The research draft, journey load/save, literature search, evidence synthesis, an
 | `api.research.literature.*` | Searching configured academic sources |
 | `api.research.analysis.*` | Synthesising only the user's selected evidence |
 | `api.email.project_snapshot.*` | Sending the latest saved project snapshot |
+| `api.verify_idea.*` | Validating an idea, querying academic providers, and saving exploration |
+
+For idea exploration, separate events identify Gemini query-planning fallback, Semantic Scholar/OpenAlex availability, and authenticated project persistence. No event contains the topic or returned paper metadata.
 
 ## Incident lookup
 

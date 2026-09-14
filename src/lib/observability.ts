@@ -8,7 +8,7 @@ export interface OperationalEvent {
   requestId?: string;
   durationMs?: number;
   status?: number | null;
-  provider?: 'gemini' | 'openai' | 'groq';
+  provider?: 'gemini' | 'openai' | 'groq' | 'semantic_scholar' | 'openalex';
   model?: string;
   feature?: string;
   stage?: string;
