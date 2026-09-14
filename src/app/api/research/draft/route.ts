@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       event: 'api.research_draft.completed', route: '/api/research/draft', requestId,
       durationMs: Date.now() - startedAt, status, outcome,
     });
-    return NextResponse.json(payload, { status, headers: { 'x-waha-request-id': requestId } });
+    return NextResponse.json(status >= 400 ? { ...payload, requestId } : payload, { status, headers: { 'x-waha-request-id': requestId } });
   };
   logOperationalEvent('info', { event: 'api.research_draft.started', route: '/api/research/draft', requestId });
   try {
