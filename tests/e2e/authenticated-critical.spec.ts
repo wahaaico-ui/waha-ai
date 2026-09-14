@@ -3,8 +3,9 @@ import { expect, test } from '@playwright/test';
 const email = process.env.E2E_TEST_EMAIL?.trim();
 const password = process.env.E2E_TEST_PASSWORD;
 
+test.use({ trace: 'off', screenshot: 'off', video: 'off' });
+
 test.describe('WAHA authenticated critical path', () => {
-  test.use({ trace: 'off', screenshot: 'off', video: 'off' });
   test.skip((!email || !password) && process.env.E2E_REQUIRE_AUTH !== 'true', 'Set a dedicated confirmed E2E_TEST_EMAIL and E2E_TEST_PASSWORD account.');
 
   test('@critical login, resume dashboard, and logout', async ({ page }) => {
@@ -18,7 +19,7 @@ test.describe('WAHA authenticated critical path', () => {
     expect(page.url().includes('/auth/mfa'), 'MFA challenge reached; login/logout verification remains incomplete.').toBe(false);
 
     await expect(page.getByText(/مرحباً/).first()).toBeVisible();
-    await expect(page.getByText(/مشاريعي البحثية/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'مشاريعي البحثية' })).toBeVisible();
 
     const logout = page.getByRole('button', { name: 'خروج' });
     if (!(await logout.isVisible())) {
