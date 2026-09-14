@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 
 export type AuthUser = {
@@ -48,18 +48,19 @@ export default function AuthSessionProvider({
 }) {
   const [user, setUser] = useState<AuthUser | null>(initialUser);
   const [authResolved, setAuthResolved] = useState(true);
+  const signingOutRef = useRef(false);
 
   useEffect(() => {
     let active = true;
     void supabase.auth.getUser().then(({ data }) => {
       if (!active) return;
       setUser(normalizeUser(data.user));
-      setAuthResolved(true);
+      if (!signingOutRef.current) setAuthResolved(true);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
       setUser(normalizeUser(session?.user ?? null));
-      setAuthResolved(true);
+      if (!signingOutRef.current) setAuthResolved(true);
     });
     return () => {
       active = false;
@@ -68,9 +69,11 @@ export default function AuthSessionProvider({
   }, []);
 
   const signOut = async () => {
+    signingOutRef.current = true;
     setAuthResolved(false);
     const { error } = await supabase.auth.signOut();
     if (error) {
+      signingOutRef.current = false;
       setAuthResolved(true);
       return false;
     }
