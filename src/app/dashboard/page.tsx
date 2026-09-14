@@ -181,8 +181,13 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!authResolved) return;
     if (!user) {
-      router.push('/login?redirect=/dashboard');
-      return;
+      // Give an explicit logout navigation time to leave this protected page.
+      // Without this short grace period, the auth-state event races SiteHeader's
+      // redirect and sends a user who clicked "خروج" back to the login screen.
+      const redirectTimer = window.setTimeout(() => {
+        router.replace('/login?redirect=/dashboard');
+      }, 250);
+      return () => window.clearTimeout(redirectTimer);
     }
     fetch('/api/dashboard-stats', { cache: 'no-store' })
       .then(async (res) => ({ ok: res.ok, status: res.status, data: await res.json() }))
