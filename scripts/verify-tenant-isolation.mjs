@@ -97,13 +97,27 @@ async function run() {
     .insert({ project_id: projectId, type: 'journey:title', content: '{}', version: 1 });
   assert.ok(documentWriteBError, 'User B document insert must be rejected by RLS');
 
-  const { data: verification, error: verificationAError } = await clientA
+  const { error: directVerificationWriteError } = await clientA
     .from('idea_verifications')
     .insert({
       user_id: userA.id,
       user_ip: `authorization-test:${runId}`,
       topic: 'Disposable authorization test',
       translated_query: 'Disposable authorization test',
+      acceptance_score: 0,
+      decision: 'test',
+      total_papers: 0,
+      gaps_count: 0,
+    });
+  assert.ok(directVerificationWriteError, 'Browser clients must not write verification audit records directly');
+
+  const { data: verification, error: verificationAError } = await service
+    .from('idea_verifications')
+    .insert({
+      user_id: userA.id,
+      user_ip: `authorization-test:${runId}:server`,
+      topic: 'Disposable server-mediated authorization test',
+      translated_query: 'Disposable server-mediated authorization test',
       acceptance_score: 0,
       decision: 'test',
       total_papers: 0,
@@ -116,6 +130,13 @@ async function run() {
   }
   verificationId = verification.id;
 
+  const { data: verificationVisibleToA, error: verificationReadAError } = await clientA
+    .from('idea_verifications')
+    .select('id')
+    .eq('id', verificationId);
+  if (verificationReadAError) throw verificationReadAError;
+  assert.equal(verificationVisibleToA.length, 1, 'User A must read the owned server-created verification');
+
   const { data: verificationVisibleToB, error: verificationReadBError } = await clientB
     .from('idea_verifications')
     .select('id')
@@ -127,8 +148,11 @@ async function run() {
     .from('idea_verifications')
     .select('id')
     .eq('id', verificationId);
-  if (verificationReadAnonymousError) throw verificationReadAnonymousError;
-  assert.equal(verificationVisibleToAnonymous.length, 0, 'Anonymous users must not read verification history');
+  if (verificationReadAnonymousError) {
+    assert.equal(verificationReadAnonymousError.code, '42501', 'Anonymous verification reads must be denied by grants or RLS');
+  } else {
+    assert.equal(verificationVisibleToAnonymous.length, 0, 'Anonymous users must not read verification history');
+  }
 
   const { error: verificationImpersonationError } = await clientB
     .from('idea_verifications')
@@ -163,7 +187,7 @@ async function run() {
   console.log('PASS user A can read and write owned project data');
   console.log('PASS user B cannot read or update user A project');
   console.log('PASS user B cannot read or insert documents in user A project');
-  console.log('PASS verification history is private and user IDs cannot be impersonated');
+  console.log('PASS verification audit writes are server-only and history is owner-private');
   console.log('PASS anonymous users cannot read verification history');
   console.log('PASS the production rate limiter accepts then blocks atomically');
 }
