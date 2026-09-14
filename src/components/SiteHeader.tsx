@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import { Menu, X } from 'lucide-react';
-import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import Logo from './Logo';
 import { useAuthSession } from './AuthSessionProvider';
@@ -18,13 +17,12 @@ const labels = {
 export default function SiteHeader() {
   const { language: lang, toggleLanguage: changeLanguage } = useWahaLanguage();
   const [open, setOpen] = useState(false);
-  const { user } = useAuthSession();
+  const { user, signOut } = useAuthSession();
   const email = user?.email ?? null;
   const router = useRouter();
   const t = labels[lang];
   const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) return;
+    if (!(await signOut())) return;
     setOpen(false);
     router.replace('/');
   };

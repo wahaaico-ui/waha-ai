@@ -14,6 +14,7 @@ type AuthSessionContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
   authResolved: boolean;
+  signOut: () => Promise<boolean>;
 };
 
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
@@ -66,10 +67,22 @@ export default function AuthSessionProvider({
     };
   }, []);
 
+  const signOut = async () => {
+    setAuthResolved(false);
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      setAuthResolved(true);
+      return false;
+    }
+    setUser(null);
+    return true;
+  };
+
   const value = useMemo(() => ({
     user,
     isAuthenticated: Boolean(user),
     authResolved,
+    signOut,
   }), [user, authResolved]);
 
   return <AuthSessionContext.Provider value={value}>{children}</AuthSessionContext.Provider>;
