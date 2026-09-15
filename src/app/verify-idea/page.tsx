@@ -138,16 +138,31 @@ export default function VerifyIdeaPage() {
   const [adoptingPath, setAdoptingPath] = useState(false);
 
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [historyStatus, setHistoryStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [historyReloadToken, setHistoryReloadToken] = useState(0);
+  const [historyOwnerId, setHistoryOwnerId] = useState<string | null>(null);
+  const authenticatedUserId = user?.id || null;
 
   useEffect(() => {
-    if (!authResolved || !isAuthenticated) {
-      return;
-    }
-    fetch('/api/verify-idea/history')
-      .then(r => r.json())
-      .then(d => setHistory(d.items || []))
-      .catch(() => {});
-  }, [authResolved, isAuthenticated, report]); // Refresh after each new verification
+    if (!authResolved || !isAuthenticated || !authenticatedUserId) return;
+    const controller = new AbortController();
+    fetch('/api/verify-idea/history', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const data: unknown = await response.json();
+        if (!response.ok || !data || typeof data !== 'object' || !Array.isArray((data as { items?: unknown }).items)) {
+          throw new Error('Unable to load verification history');
+        }
+        setHistory((data as { items: HistoryItem[] }).items);
+        setHistoryOwnerId(authenticatedUserId);
+        setHistoryStatus('ready');
+      })
+      .catch((reason) => {
+        if (reason instanceof DOMException && reason.name === 'AbortError') return;
+        setHistoryOwnerId(authenticatedUserId);
+        setHistoryStatus('error');
+      });
+    return () => controller.abort();
+  }, [authResolved, isAuthenticated, authenticatedUserId, report, historyReloadToken]); // Refresh after each new verification
 
   const saveJourney = async (verification: VerifyReport, serverProjectId: string | null, selectedResearchPath: ResearchPath) => {
     const snapshot: JourneySnapshot = {
@@ -347,10 +362,12 @@ export default function VerifyIdeaPage() {
           <p className="mt-3 text-xs text-slate-500 text-center">
             قد يستغرق التحليل 10–20 ثانية
           </p>
-          {isAuthenticated && history.length > 0 && topic.trim() && !loading && !report && <button type="button" onClick={() => document.getElementById('verification-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="mx-auto mt-4 flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700"><span className="animate-bounce" aria-hidden="true">↓</span> لديك {history.length} استكشافات سابقة أسفل الفحص</button>}
+          {isAuthenticated && historyOwnerId === authenticatedUserId && history.length > 0 && topic.trim() && !loading && !report && <button type="button" onClick={() => document.getElementById('verification-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="mx-auto mt-4 flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-4 py-2 text-xs font-bold text-blue-700"><span className="animate-bounce" aria-hidden="true">↓</span> لديك {history.length} استكشافات سابقة أسفل الفحص</button>}
         </div>
 
-        {isAuthenticated && !report && !loading && <VerificationHistory items={history} onReuse={(previousTopic) => {
+        {isAuthenticated && !report && !loading && (historyOwnerId !== authenticatedUserId || historyStatus === 'idle' || historyStatus === 'loading') && <div role="status" className="rounded-2xl border border-slate-200 bg-white p-5 text-center text-sm text-slate-500">جارٍ تحميل استكشافاتك السابقة…</div>}
+        {isAuthenticated && !report && !loading && historyOwnerId === authenticatedUserId && historyStatus === 'error' && <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center text-sm text-amber-900">تعذر تحميل استكشافاتك السابقة. <button type="button" onClick={() => { setHistoryStatus('loading'); setHistoryReloadToken((value) => value + 1); }} className="font-black text-blue-700 underline">إعادة المحاولة</button></div>}
+        {isAuthenticated && !report && !loading && historyOwnerId === authenticatedUserId && historyStatus === 'ready' && <VerificationHistory items={history} onReuse={(previousTopic) => {
           setTopic(previousTopic);
           setError('');
           document.getElementById('new-exploration')?.scrollIntoView({ behavior: 'smooth', block: 'start' });

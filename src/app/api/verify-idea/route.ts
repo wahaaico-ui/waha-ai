@@ -469,10 +469,16 @@ function makeDecision(score: number, gaps: string[], evidenceCount: number): {
 // ============================================================
 // SAVE VERIFICATION TO DATABASE
 // ============================================================
-async function countDailyUserVerifications(ip: string): Promise<number> {
+async function countDailyUserVerifications(ip: string, requestId: string): Promise<number> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) return 0;
+  if (!supabaseUrl || !supabaseKey) {
+    logOperationalEvent('error', {
+      event: 'api.verify_idea.usage_count_failed', route: '/api/verify-idea', requestId,
+      feature: 'idea-exploration', outcome: 'failed', errorCode: 'database_not_configured',
+    });
+    return 0;
+  }
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { count, error } = await supabase
@@ -480,9 +486,19 @@ async function countDailyUserVerifications(ip: string): Promise<number> {
       .select('*', { count: 'exact', head: true })
       .eq('user_ip', ip)
       .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString());
-    if (error) return 0;
+    if (error) {
+      logOperationalEvent('warn', {
+        event: 'api.verify_idea.usage_count_failed', route: '/api/verify-idea', requestId,
+        feature: 'idea-exploration', outcome: 'fallback', errorCode: 'database_query_failed',
+      });
+      return 0;
+    }
     return count || 0;
   } catch {
+    logOperationalEvent('warn', {
+      event: 'api.verify_idea.usage_count_failed', route: '/api/verify-idea', requestId,
+      feature: 'idea-exploration', outcome: 'fallback', errorCode: 'database_unavailable',
+    });
     return 0;
   }
 }
@@ -495,11 +511,12 @@ async function saveVerification(
   decision: string,
   totalPapers: number,
   gapsCount: number,
-  userId: string | null
+  userId: string | null,
+  requestId: string,
 ): Promise<void> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !supabaseKey) return;
+  if (!supabaseUrl || !supabaseKey) throw new Error('DATABASE_NOT_CONFIGURED');
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { error } = await supabase.from('idea_verifications').insert({
@@ -514,7 +531,11 @@ async function saveVerification(
     });
     if (error) throw error;
   } catch {
-    throw new Error('Unable to persist idea verification');
+    logOperationalEvent('error', {
+      event: 'api.verify_idea.history_persistence_failed', route: '/api/verify-idea', requestId,
+      feature: 'idea-exploration', outcome: 'failed', errorCode: 'verification_history_write_failed',
+    });
+    throw new Error('VERIFICATION_HISTORY_WRITE_FAILED');
   }
 }
 
@@ -542,7 +563,7 @@ async function persistAuthenticatedVerification(
     .limit(1)
     .maybeSingle();
 
-  if (existingProjectError) return null;
+  if (existingProjectError) throw new Error('PROJECT_LOOKUP_FAILED');
 
   const { data: project, error: projectError } = existingProject
     ? { data: existingProject, error: null }
@@ -552,7 +573,7 @@ async function persistAuthenticatedVerification(
       .select('id')
       .single();
 
-  if (projectError || !project) return null;
+  if (projectError || !project) throw new Error('PROJECT_WRITE_FAILED');
 
   const { data: latestDocument, error: latestDocumentError } = await supabase
     .from('documents')
@@ -563,7 +584,7 @@ async function persistAuthenticatedVerification(
     .limit(1)
     .maybeSingle();
 
-  if (latestDocumentError) return null;
+  if (latestDocumentError) throw new Error('PROJECT_DOCUMENT_LOOKUP_FAILED');
 
   const { error: documentError } = await supabase.from('documents').insert({
     project_id: project.id,
@@ -572,7 +593,8 @@ async function persistAuthenticatedVerification(
     version: (latestDocument?.version || 0) + 1,
   });
 
-  return documentError ? null : project.id;
+  if (documentError) throw new Error('PROJECT_DOCUMENT_WRITE_FAILED');
+  return project.id;
 }
 
 // ============================================================
@@ -704,34 +726,42 @@ export async function POST(request: NextRequest) {
 
     // Count before scheduling the current write so the freemium decision does
     // not depend on a race between INSERT and COUNT.
-    const usageCount = await countDailyUserVerifications(ip);
-
-    // Wait for the usage write to finish. Serverless runtimes may terminate work
-    // that is left running after the response has been returned.
-    await saveVerification(
-      ip,
-      topic,
-      englishQuery,
-      score,
-      decision.decision,
-      merged.length,
-      gaps.length,
-      access?.user.id || null
-    );
+    const usageCount = await countDailyUserVerifications(ip, operation.requestId);
 
     // Persist an authenticated researcher's output before returning the next
     // journey link. Anonymous visitors deliberately keep the existing local
     // exploration flow and never receive a project id.
-    const projectId = await persistAuthenticatedVerification(report, access);
-    if (access && !projectId) {
-      logOperationalEvent('warn', {
+    let projectId: string | null;
+    try {
+      projectId = await persistAuthenticatedVerification(report, access);
+    } catch {
+      logOperationalEvent('error', {
         event: 'api.verify_idea.project_persistence_failed',
         route: '/api/verify-idea',
         requestId: operation.requestId,
         feature: 'idea-exploration',
-        outcome: 'fallback',
+        outcome: 'failed',
         errorCode: 'authenticated_project_not_persisted',
       });
+      return respond({ error: 'تعذر حفظ نتيجة الاستكشاف داخل مشروعك. لم تُسجّل النتيجة كمحفوظة؛ حاول مجدداً.' }, 503, 'project_persistence_failed');
+    }
+
+    // Wait for the history/usage write before advertising a successful result.
+    // Serverless runtimes may terminate work left running after the response.
+    try {
+      await saveVerification(
+        ip,
+        topic,
+        englishQuery,
+        score,
+        decision.decision,
+        merged.length,
+        gaps.length,
+        access?.user.id || null,
+        operation.requestId,
+      );
+    } catch {
+      return respond({ error: 'اكتمل التحليل، لكن تعذر تسجيله في سجل الاستكشافات. حاول مجدداً قبل المتابعة.' }, 503, 'history_persistence_failed');
     }
 
     // Freemium: compute usage info based on the history before this request.
