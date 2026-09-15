@@ -14,6 +14,7 @@ import {
   type VerifyReport,
 } from '@/lib/research-exploration';
 import { countryName } from '@/lib/researcher-profile';
+import { planIdeaSearchQueries } from '@/lib/idea-query-planning';
 import {
   completeOperationalRequest,
   logOperationalEvent,
@@ -30,118 +31,6 @@ import {
 // ============================================================
 function isArabic(text: string): boolean {
   return /[؀-ۿ]/.test(text);
-}
-
-interface QueryPlan {
-  isValid: boolean;
-  queries: string[];  // 1-3 English search queries at different scopes
-}
-
-async function planSearchQueries(userTopic: string, requestId: string): Promise<QueryPlan> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    logOperationalEvent('warn', {
-      event: 'api.verify_idea.query_plan_fallback',
-      route: '/api/verify-idea',
-      requestId,
-      provider: 'gemini',
-      feature: 'query-planning',
-      outcome: 'fallback',
-      errorCode: 'provider_not_configured',
-    });
-    return { isValid: true, queries: [userTopic] };
-  }
-
-  const startedAt = Date.now();
-
-  const prompt = `You are an academic search strategist. Analyze this research topic and produce a JSON plan.
-
-TOPIC: ${userTopic}
-
-Rules:
-1. First decide: is this a GENUINE research topic (has a subject, even if broad)?
-   - Reject only: gibberish, repeated random letters (لللنن), promotional text, or empty input.
-   - A single meaningful word like "التعليم" or "diabetes" IS valid — accept it.
-   - An academic sentence in any language IS valid — accept it.
-
-2. If valid, produce THREE English search queries at different scopes:
-   - FULL: full academic translation (7-12 words)
-   - FOCUSED: core variables only (3-5 words)  
-   - BROAD: main concept only (1-3 words)
-
-Return ONLY valid JSON, no markdown, no explanation:
-{"valid": true, "full": "...", "focused": "...", "broad": "..."}
-
-Or for invalid input:
-{"valid": false}
-
-JSON:`;
-
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.1, maxOutputTokens: 200, responseMimeType: 'application/json' },
-        }),
-        signal: AbortSignal.timeout(12000),
-      }
-    );
-    if (!res.ok) {
-      logOperationalEvent('warn', {
-        event: 'api.verify_idea.query_plan_fallback',
-        route: '/api/verify-idea',
-        requestId,
-        durationMs: Date.now() - startedAt,
-        status: res.status,
-        provider: 'gemini',
-        model: 'gemini-3.1-flash-lite',
-        feature: 'query-planning',
-        outcome: 'fallback',
-        errorCode: 'provider_http_error',
-      });
-      return { isValid: true, queries: [userTopic] };
-    }
-    const data = await res.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-    // Strip any markdown fences just in case
-    const clean = raw.replace(/^```json\s*|```\s*$/g, '').trim();
-    const parsed = JSON.parse(clean);
-    if (parsed.valid === false) return { isValid: false, queries: [] };
-    const queries: string[] = [];
-    if (parsed.full && typeof parsed.full === 'string') queries.push(parsed.full);
-    if (parsed.focused && typeof parsed.focused === 'string' && parsed.focused !== parsed.full) queries.push(parsed.focused);
-    if (parsed.broad && typeof parsed.broad === 'string' && parsed.broad !== parsed.focused && parsed.broad !== parsed.full) queries.push(parsed.broad);
-    if (queries.length === 0) queries.push(userTopic);
-    logOperationalEvent('info', {
-      event: 'api.verify_idea.query_plan_completed',
-      route: '/api/verify-idea',
-      requestId,
-      durationMs: Date.now() - startedAt,
-      status: res.status,
-      provider: 'gemini',
-      model: 'gemini-3.1-flash-lite',
-      feature: 'query-planning',
-      outcome: 'success',
-    });
-    return { isValid: true, queries };
-  } catch {
-    logOperationalEvent('warn', {
-      event: 'api.verify_idea.query_plan_fallback',
-      route: '/api/verify-idea',
-      requestId,
-      durationMs: Date.now() - startedAt,
-      provider: 'gemini',
-      model: 'gemini-3.1-flash-lite',
-      feature: 'query-planning',
-      outcome: 'fallback',
-      errorCode: 'provider_or_parse_error',
-    });
-    return { isValid: true, queries: [userTopic] };
-  }
 }
 
 // ============================================================
@@ -649,8 +538,8 @@ export async function POST(request: NextRequest) {
       level: asMetadataText(metadata.level),
     };
 
-    // Smart query planning via Gemini: validity gate + multi-scope queries
-    const plan = await planSearchQueries(topic, operation.requestId);
+    // Provider-routed planning: Gemini -> OpenAI -> Groq, then a safe raw fallback.
+    const plan = await planIdeaSearchQueries(topic, operation.requestId);
     if (!plan.isValid) {
       const isAr = isArabic(topic);
       return respond({
@@ -678,6 +567,22 @@ export async function POST(request: NextRequest) {
     const results = await Promise.all(fetchPromises);
     const mergedCandidates = mergePapers(...results);
     const merged = filterRelevantPapers(mergedCandidates, queries);
+
+    // An empty result after an untranslated Arabic fallback is an infrastructure
+    // limitation, not evidence of an academic gap. Do not score or persist it.
+    if (plan.mode === 'raw' && isArabic(topic) && mergedCandidates.length === 0) {
+      logOperationalEvent('error', {
+        event: 'api.verify_idea.academic_evidence_unavailable',
+        route: '/api/verify-idea',
+        requestId: operation.requestId,
+        feature: 'idea-exploration',
+        outcome: 'failed',
+        errorCode: 'arabic_query_planning_unavailable',
+      });
+      return respond({
+        error: 'تعذر تجهيز استعلام البحث الأكاديمي الآن، لذلك لم نصدر تقييماً قد يكون مضللاً. حاول مجدداً بعد قليل.',
+      }, 503, 'academic_evidence_unavailable');
+    }
 
     const currentYear = new Date().getFullYear();
     const { score, breakdown, gaps, yearDist, geoDist, methodDist } = computeScore(merged, currentYear);
