@@ -606,7 +606,10 @@ export async function POST(request: NextRequest) {
     completeOperationalRequest(operation, 'api.verify_idea.completed', status, status < 400 ? 'success' : status < 500 ? 'rejected' : 'failed', errorCode);
     return NextResponse.json(status >= 400 ? { ...payload, requestId: operation.requestId } : payload, {
       status,
-      headers: operationalHeaders(operation),
+      headers: {
+        ...operationalHeaders(operation),
+        'Cache-Control': 'private, no-store',
+      },
     });
   };
 

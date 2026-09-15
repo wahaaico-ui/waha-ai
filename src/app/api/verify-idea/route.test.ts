@@ -34,6 +34,7 @@ describe('verify idea route validation and correlation', () => {
     expect(response.status).toBe(400);
     expect(body.requestId).toBe('verify-request-1');
     expect(response.headers.get('x-waha-request-id')).toBe(body.requestId);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(requireAuthenticatedUser).not.toHaveBeenCalled();
   });
 
