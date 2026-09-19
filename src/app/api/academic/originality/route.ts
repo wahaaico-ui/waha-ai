@@ -1,58 +1,44 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
-export async function POST(req: Request) {
-  try {
-    const access = await requireAuthenticatedUser();
-    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { textToCheck } = await req.json();
-    const apiKey = process.env.GEMINI_API_KEY;
+const MAX_TEXT_LENGTH = 50_000;
+const UNAVAILABLE_MESSAGE = 'فحص التشابه مع قواعد بيانات النشر غير متاح حالياً. لن تعرض الواحة نسبة أصالة تخمينية أو تدّعي كشف الانتحال دون مقارنة موثقة بمصادر فعلية.';
 
-    if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'مفتاح Gemini API غير متوفر في البيئة' }, { status: 500 });
-    }
+function response(payload: Record<string, unknown>, status: number) {
+  return NextResponse.json(payload, {
+    status,
+    headers: {
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    },
+  });
+}
 
-    if (!textToCheck || !textToCheck.trim()) {
-      return NextResponse.json({ success: false, error: 'النص المراد فحص أصالته مفقود' }, { status: 400 });
-    }
+export async function POST(request: Request) {
+  const access = await requireAuthenticatedUser();
+  if (!access) return response({ error: 'Unauthorized' }, 401);
 
-    const prompt = `أنت خبير تدقيق أبحاث ومحكم أصالة علمية. بناءً على النص الأكاديمي التالي:
-    "${textToCheck}"
-
-    قم بتحليل مدى رصانة النص وتقييم مؤشرات الأصالة ومخاطر التطابق الشائع (Plagiarism & Originality Risk Analysis)، وقدم الآتي:
-    1. تقدير نسبة الأصالة التقديرية (Estimated Originality Score %).
-    2. تقييم مستوى المخاطر (منخفض / متوسط / مرتفع) مع رصد العبارات التي قد تبدو مألوفة أو متطابقة.
-    3. توصيات علمية لزيادة الأصالة وتجنب التطابق (Recommendations for Enhancing Originality).
-
-    أرجع النتيجة ككائن JSON صالح حصراً (بدون أي نصوص خارج الـ JSON) بالشكل التالي:
-    {
-      "originalityScore": 85,
-      "riskLevel": "...",
-      "riskPhrases": ["...", "..."],
-      "recommendations": ["...", "..."]
-    }`;
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
-      }),
-    });
-
-    const data = await response.json();
-
-    if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-      const parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
-      return NextResponse.json({ success: true, analysis: parsedData });
-    } else {
-      return NextResponse.json({ success: false, error: 'فشل التحليل عبر نموذج Gemini' }, { status: 500 });
-    }
-
-  } catch (err: unknown) {
-    return NextResponse.json({ success: false, error: err instanceof Error && err.message ? err.message : 'خطأ في الخادم' }, { status: 500 });
+  const body: unknown = await request.json().catch(() => null);
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return response({ error: 'طلب المراجعة غير صالح.' }, 400);
   }
+
+  const value = (body as Record<string, unknown>).textToCheck;
+  const textToCheck = typeof value === 'string' ? value.trim() : '';
+  if (!textToCheck) return response({ error: 'النص المراد مراجعته مفقود.' }, 400);
+  if (textToCheck.length > MAX_TEXT_LENGTH) {
+    return response({ error: 'النص يتجاوز الحد المسموح للمراجعة.' }, 413);
+  }
+
+  return response({
+    success: false,
+    available: false,
+    capability: 'source-backed-similarity-check',
+    error: UNAVAILABLE_MESSAGE,
+    limitations: [
+      'لم يُقارن النص بمستودعات جامعية أو قواعد بيانات ناشرين.',
+      'لا تُحسب نسبة أصالة أو تشابه بواسطة نموذج لغوي.',
+      'راجع متطلبات جامعتك واستخدم خدمة تشابه مرخصة عند الحاجة إلى تقرير رسمي.',
+    ],
+  }, 501);
 }

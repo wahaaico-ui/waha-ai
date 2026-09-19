@@ -3,7 +3,7 @@ import { AcademicEvidence } from '../waha-engine';
 export interface AdvancedAcademicPackage {
   arabicAbstract: string;
   englishAbstract: string;
-  plagiarismScore: number;
+  plagiarismScore: null;
   plagiarismStatus: string;
   coherenceScore: number;
 }
@@ -22,10 +22,10 @@ export function generateAdvancedSuite(
 
   const englishAbstract = `Abstract: This study investigated (${idea}), aiming to address the research gap regarding ${gap}. Utilizing a rigorous methodology and evidence from ${papers.length} peer-reviewed sources, the findings offer a robust framework and practical recommendations to advance this field.`;
 
-  // 2. فحص نسبة الاقتباس (محاكاة خوارزمية ذكية مطابقة للمراجع الحقيقية)
-  // النسبة تحسب بناءً على تداخل العناوين مع قواعد بيانات OpenAlex
-  const plagiarismScore = Math.floor(Math.random() * 6) + 4; // نسبة آمنة بين 4% إلى 9%
-  const plagiarismStatus = plagiarismScore < 15 ? 'آمن ومطابق للمعايير الأكاديمية العالمية (مقبول للنشر)' : 'نسبة اقتباس مرتفعة تتطلب إعادة صياغة';
+  // لا يجوز اشتقاق نسبة انتحال من نموذج لغوي أو قيمة عشوائية. تبقى
+  // النتيجة غير متاحة إلى أن يُربط مزود مقارنة موثق بمصادر قابلة للتتبع.
+  const plagiarismScore = null;
+  const plagiarismStatus = 'لم يُجر فحص تشابه موثق؛ استخدم خدمة جامعية مرخصة للحصول على تقرير رسمي.';
 
   // 3. مؤشر ترابط وتسلسل الأفكار
   const coherenceScore = 98; // ترابط هيكلي إلزامي
