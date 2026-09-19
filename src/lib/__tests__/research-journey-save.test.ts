@@ -1,4 +1,4 @@
-import { JourneyStageSaveError, saveJourneyStage } from '@/lib/research-journey';
+import { JourneyStageSaveError, saveJourneyDraft, saveJourneyStage } from '@/lib/research-journey';
 import type { ProblemObjectivesConsistencyReport } from '@/lib/research-objects/types';
 
 const failedReport = {
@@ -48,4 +48,53 @@ test('preserves a rejected consistency report for the objectives UI', async () =
     expect(saveError.message).toBe(failedReport.summary);
     expect(saveError.consistency).toEqual(failedReport);
   }
+});
+
+test('sends autosave drafts through PATCH without caching', async () => {
+  const savedAt = '2026-09-19T18:00:01.000Z';
+  const clientUpdatedAt = '2026-09-19T18:00:00.000Z';
+  const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+    success: true,
+    stage: 'problem',
+    draft: { content: { problemStatement: 'مسودة' }, clientUpdatedAt, savedAt },
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+  const result = await saveJourneyDraft('project/1', 'problem', { problemStatement: 'مسودة' }, clientUpdatedAt, true);
+
+  expect(result.success).toBe(true);
+  expect(fetchMock).toHaveBeenCalledWith('/api/projects/project%2F1/journey', expect.objectContaining({
+    method: 'PATCH',
+    cache: 'no-store',
+    keepalive: true,
+    body: JSON.stringify({ stage: 'problem', content: { problemStatement: 'مسودة' }, clientUpdatedAt }),
+  }));
+});
+
+test('returns the newer server draft when autosave detects a conflict', async () => {
+  const serverDraft = {
+    content: { problemStatement: 'الأحدث' },
+    clientUpdatedAt: '2026-09-19T18:05:00.000Z',
+    savedAt: '2026-09-19T18:05:01.000Z',
+  };
+  jest.spyOn(global, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+    error: 'A newer draft is already saved',
+    draft: serverDraft,
+  }), { status: 409, headers: { 'Content-Type': 'application/json' } }));
+
+  await expect(saveJourneyDraft(
+    'project-1',
+    'problem',
+    { problemStatement: 'الأقدم' },
+    '2026-09-19T18:00:00.000Z',
+  )).resolves.toEqual({ error: 'A newer draft is already saved', draft: serverDraft });
+});
+
+test('turns an expired autosave session into a clear Arabic error', async () => {
+  jest.spyOn(global, 'fetch').mockResolvedValue(new Response('{}', {
+    status: 401,
+    headers: { 'Content-Type': 'application/json' },
+  }));
+
+  await expect(saveJourneyDraft('project-1', 'problem', { problemStatement: 'مسودة' }))
+    .rejects.toThrow('انتهت جلسة الدخول');
 });

@@ -49,6 +49,31 @@ async function readJourney(projectId: string, supabase: SupabaseClient) {
   return (data || []) as StoredDocument[];
 }
 
+type StoredDraft = {
+  stage: string;
+  content: Record<string, unknown>;
+  client_updated_at: string;
+  updated_at: string;
+};
+
+async function readDrafts(projectId: string, supabase: SupabaseClient) {
+  const { data, error } = await supabase
+    .from('research_stage_drafts')
+    .select('stage, content, client_updated_at, updated_at')
+    .eq('project_id', projectId);
+  if (error) throw error;
+  const drafts: Partial<Record<WorkflowStage, { content: WorkflowOutput; clientUpdatedAt: string; savedAt: string }>> = {};
+  for (const draft of (data || []) as StoredDraft[]) {
+    if (!isStage(draft.stage) || !draft.content || typeof draft.content !== 'object' || Array.isArray(draft.content)) continue;
+    drafts[draft.stage] = {
+      content: draft.content as WorkflowOutput,
+      clientUpdatedAt: draft.client_updated_at,
+      savedAt: draft.updated_at,
+    };
+  }
+  return drafts;
+}
+
 function evaluateConsistencyCandidate(
   projectId: string,
   documents: StoredDocument[],
@@ -92,7 +117,10 @@ export async function GET(request: Request, context: { params: Promise<{ project
     const access = await requireAuthenticatedUser();
     if (!access) return respond({ error: 'Unauthorized' }, 401, 'unauthorized');
     if (!(await ownsProject(projectId, access.user.id, access.supabase))) return respond({ error: 'Project not found' }, 404, 'project_not_found');
-    const documents = await readJourney(projectId, access.supabase);
+    const [documents, drafts] = await Promise.all([
+      readJourney(projectId, access.supabase),
+      readDrafts(projectId, access.supabase),
+    ]);
     const outputs = extractOutputs(documents);
     const nextStage = nextAllowedStage(outputs);
     const latestStageDocument = [...documents]
@@ -104,6 +132,7 @@ export async function GET(request: Request, context: { params: Promise<{ project
     return respond({
       projectId,
       outputs,
+      drafts,
       nextStage,
       gate: nextStage ? evaluateGate(nextStage, outputs) : null,
       lastActivity: latestStageDocument && isStage(latestStage) ? { stage: latestStage, at: latestStageDocument.created_at } : null,
@@ -113,6 +142,60 @@ export async function GET(request: Request, context: { params: Promise<{ project
       },
     }, 200);
   } catch { return respond({ error: 'Unable to load research journey' }, 500, 'unhandled_error'); }
+}
+
+export async function PATCH(request: Request, context: { params: Promise<{ projectId: string }> }) {
+  const operation = startOperationalRequest(request, '/api/projects/[projectId]/journey', 'api.research.journey.draft.started');
+  const respond = (payload: Record<string, unknown>, status: number, errorCode?: string) => {
+    completeOperationalRequest(operation, 'api.research.journey.draft.completed', status, status < 400 ? 'success' : status < 500 ? 'rejected' : 'failed', errorCode);
+    return NextResponse.json(status >= 400 ? { ...payload, requestId: operation.requestId } : payload, {
+      status,
+      headers: { ...operationalHeaders(operation), 'Cache-Control': 'no-store' },
+    });
+  };
+  try {
+    const { projectId } = await context.params;
+    const access = await requireAuthenticatedUser();
+    if (!access) return respond({ error: 'Unauthorized' }, 401, 'unauthorized');
+    if (!(await ownsProject(projectId, access.user.id, access.supabase))) return respond({ error: 'Project not found' }, 404, 'project_not_found');
+
+    const body: unknown = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') return respond({ error: 'Invalid request body' }, 400, 'invalid_request');
+    const { stage, content, clientUpdatedAt } = body as { stage?: unknown; content?: unknown; clientUpdatedAt?: unknown };
+    if (!isStage(stage) || !content || typeof content !== 'object' || Array.isArray(content)) {
+      return respond({ error: 'A valid stage and content object are required' }, 400, 'invalid_stage_content');
+    }
+    const clientUpdatedTime = typeof clientUpdatedAt === 'string' ? Date.parse(clientUpdatedAt) : Number.NaN;
+    if (!Number.isFinite(clientUpdatedTime) || clientUpdatedTime > Date.now() + 5 * 60_000) {
+      return respond({ error: 'A valid client update timestamp is required' }, 400, 'invalid_timestamp');
+    }
+    const serialized = JSON.stringify(content);
+    if (serialized.length > 50_000) return respond({ error: 'Stage draft is too large' }, 413, 'stage_draft_too_large');
+
+    const { data, error } = await access.supabase.rpc('save_research_stage_draft', {
+      p_project_id: projectId,
+      p_stage: stage,
+      p_content: content,
+      p_client_updated_at: clientUpdatedAt,
+    });
+    if (error) throw error;
+    const saved = Array.isArray(data) ? data[0] : data;
+    if (!saved) {
+      const drafts = await readDrafts(projectId, access.supabase);
+      return respond({ error: 'A newer draft is already saved', draft: drafts[stage] || null }, 409, 'stale_draft');
+    }
+    return respond({
+      success: true,
+      stage,
+      draft: {
+        content: saved.content,
+        clientUpdatedAt: saved.client_updated_at,
+        savedAt: saved.updated_at,
+      },
+    }, 200);
+  } catch {
+    return respond({ error: 'Unable to save research draft' }, 500, 'unhandled_error');
+  }
 }
 
 export async function POST(request: Request, context: { params: Promise<{ projectId: string }> }) {
@@ -185,6 +268,12 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     const { error: decisionError } = await access.supabase.from('documents').insert({ project_id: projectId, type: 'journey:decision', content: JSON.stringify(decisionContent), version: decisionVersion });
     if (decisionError) throw decisionError;
     await access.supabase.from('projects').update({ status: gate.status === 'open' ? `${stage}_completed` : `${stage}_needs_improvement` }).eq('id', projectId).eq('user_id', access.user.id);
+    try {
+      await access.supabase.from('research_stage_drafts').delete().eq('project_id', projectId).eq('stage', stage);
+    } catch {
+      // The approved version is already durable. A stale draft is harmless and
+      // can be replaced by the next edit, so cleanup must not roll back success.
+    }
     return respond({
       success: true,
       stage,

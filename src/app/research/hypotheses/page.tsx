@@ -12,6 +12,7 @@ import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/rese
 import type { QuestionsHypothesesConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
 import { stageComplete } from '@/lib/research-workflow';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type Mode = 'required' | 'not_applicable';
 type ResponseBody = { report?: QuestionsHypothesesConsistencyReport; inputWarnings?: ResearchObjectViewWarning[]; error?: string };
@@ -51,7 +52,7 @@ export default function ResearchHypothesesPage() {
       const savedQuestions = journey.outputs.questions?.questions;
       const list = Array.isArray(savedQuestions) ? savedQuestions.filter((item): item is string => typeof item === 'string') : [];
       setQuestions(list); setQuestionsReady(stageComplete('questions', journey.outputs.questions));
-      const saved = journey.outputs.hypotheses;
+      const saved = journey.drafts.hypotheses?.content ?? journey.outputs.hypotheses;
       const savedMode: Mode = saved?.mode === 'not_applicable' ? 'not_applicable' : 'required';
       setMode(savedMode); setRationale(typeof saved?.rationale === 'string' ? saved.rationale : '');
       const savedHypotheses = Array.isArray(saved?.hypotheses) ? saved.hypotheses.map((item) => typeof item === 'string' ? item : '') : [];
@@ -92,6 +93,12 @@ export default function ResearchHypothesesPage() {
       : '';
   })();
   const canSave = questionsReady && !qualityIssue;
+  useJourneyAutosave({
+    projectId,
+    stage: 'hypotheses',
+    content: { mode, hypotheses, rationale },
+    enabled: Boolean(projectId && !loading && questionsReady),
+  });
   const save = async () => {
     if (!projectId || !canSave) return;
     setStatus('saving'); setSaveError('');

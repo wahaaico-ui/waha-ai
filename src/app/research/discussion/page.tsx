@@ -12,6 +12,7 @@ import {
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type JourneyData = Awaited<ReturnType<typeof loadJourney>>;
 type Paper = { id: string; title: string; year?: number | string };
@@ -37,9 +38,10 @@ export default function ResearchDiscussionPage() {
       .then((loaded) => {
         if (!active) return;
         setJourney(loaded);
-        const saved = savedDiscussion(loaded.outputs.discussion);
-        setForm(saved || buildDiscussionDraft(loaded.outputs.results));
-        setStatus(saved ? 'saved' : 'idle');
+        const approved = savedDiscussion(loaded.outputs.discussion);
+        const draft = savedDiscussion(loaded.drafts.discussion?.content);
+        setForm(draft || approved || buildDiscussionDraft(loaded.outputs.results));
+        setStatus(approved && !draft ? 'saved' : 'idle');
       })
       .catch((reason) => {
         if (active) setError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.');
@@ -70,6 +72,12 @@ export default function ResearchDiscussionPage() {
     ? researchDiscussionConsistencyIssue(form as unknown as Record<string, unknown>, journey.outputs.results, journey.outputs.analysis)
     : 'جارٍ إعداد المناقشة من النتائج المعتمدة.', [form, journey]);
   const loading = Boolean(projectId) && loadedProjectId !== projectId;
+  useJourneyAutosave({
+    projectId,
+    stage: 'discussion',
+    content: (form || {}) as Record<string, unknown>,
+    enabled: Boolean(projectId && !loading && journey && form),
+  });
 
   function markEdited() {
     setStatus('idle');

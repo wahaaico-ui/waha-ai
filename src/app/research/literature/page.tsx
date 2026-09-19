@@ -8,6 +8,7 @@ import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import type { CitationItem } from '@/lib/citations';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type Paper = { id: string; title: string; authors: string; year: number | string; citationCount: number; abstract: string; source: string; pdfUrl?: string | null; relevanceScore?: number; item?: CitationItem };
 type SearchCoverage = { candidateResults: number; relevantResults: number; excludedByRelevance: number; searchedAt: string; sources: Array<{ name: string; available: boolean; returned: number }>; note: string };
@@ -50,6 +51,11 @@ export default function ResearchLiteraturePage() {
           setPapers(validPapers); setSelected(validPapers.map((paper) => paper.id));
           if (validPapers.length >= 3) setStatus('saved');
         }
+        const draftSelection = journey.drafts.literature?.content.selectedIds;
+        if (Array.isArray(draftSelection)) {
+          setSelected(draftSelection.filter((item): item is string => typeof item === 'string'));
+          setStatus('idle');
+        }
         if (isSearchCoverage(journey.outputs.literature?.searchCoverage)) setCoverage(journey.outputs.literature.searchCoverage);
       })
       .catch((reason) => setJourneyError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.'))
@@ -77,6 +83,12 @@ export default function ResearchLiteraturePage() {
   const toggle = (id: string) => { setSelected((current) => current.includes(id) ? current.filter((paperId) => paperId !== id) : [...current, id]); setStatus('idle'); };
   const selectedPapers = useMemo(() => papers.filter((paper) => selected.includes(paper.id)), [papers, selected]);
   const verifiedSelected = useMemo(() => selectedPapers.filter((paper) => paper.item?.verificationStatus === 'verified' || paper.item?.verificationStatus === 'cross-checked').length, [selectedPapers]);
+  useJourneyAutosave({
+    projectId,
+    stage: 'literature',
+    content: { selectedIds: selected },
+    enabled: Boolean(projectId && !loadingJourney && instrumentReady && papers.length),
+  });
   const save = async () => {
     if (!projectId || selected.length < 3) return;
     const chosen = papers.filter((paper) => selected.includes(paper.id));

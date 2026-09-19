@@ -7,6 +7,7 @@ import SiteHeader from '@/components/SiteHeader';
 import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import type { TitleComparison } from '@/lib/title-comparison';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type ComparisonResponse = {
   success: boolean;
@@ -49,7 +50,9 @@ export default function ResearchTitlePage() {
         const verify = journey.outputs.verify as VerifyOutput | undefined;
         setVerifyOutput(verify || null);
         const candidateTitles = verify?.researcherInput?.candidateTitles?.filter((title) => typeof title === 'string' && title.trim().length >= 10) || [];
-        if (candidateTitles.length >= 2) setOwnTitles(candidateTitles.slice(0, 4));
+        const draftTitles = journey.drafts.title?.content.candidateTitles;
+        if (Array.isArray(draftTitles) && draftTitles.every((title) => typeof title === 'string')) setOwnTitles(draftTitles.slice(0, 4) as string[]);
+        else if (candidateTitles.length >= 2) setOwnTitles(candidateTitles.slice(0, 4));
         const title = journey.outputs.title?.title;
         if (typeof title === 'string') setSavedTitle(title);
       })
@@ -89,6 +92,12 @@ export default function ResearchTitlePage() {
   const canEnter = verifyOutput?.decision === 'proceed' && Boolean(verifyOutput.selectedResearchPath?.id);
   const scenario = verifyOutput?.researcherInput?.scenario || 'idea';
   const comparingProvidedTitles = scenario === 'compare_titles';
+  useJourneyAutosave({
+    projectId,
+    stage: 'title',
+    content: { candidateTitles: ownTitles },
+    enabled: Boolean(projectId && !loadingJourney && comparingProvidedTitles),
+  });
   const repairingRejectedTitle = scenario === 'rejected_title';
   const pageCopy = comparingProvidedTitles
     ? {

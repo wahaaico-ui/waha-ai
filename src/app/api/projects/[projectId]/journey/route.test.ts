@@ -6,13 +6,13 @@ jest.mock('@/lib/supabase/authorization', () => ({
   ownsProject: (...args: unknown[]) => ownsProject(...args),
 }));
 
-import { GET, POST } from './route';
+import { GET, PATCH, POST } from './route';
 import { buildProblemDraftFallback } from '@/lib/research-draft-fallback';
 
 const context = { params: Promise.resolve({ projectId: 'project-owned-by-b' }) };
 const accessForA = {
   user: { id: 'user-a', email: 'a@example.test', user_metadata: {} },
-  supabase: { from: jest.fn() },
+  supabase: { from: jest.fn(), rpc: jest.fn() },
 };
 
 describe('project journey authorization', () => {
@@ -131,7 +131,7 @@ describe('project journey authorization', () => {
     expect(body.nextStage).toBe('problem');
     expect(body.outputs.problem.researchGap).toBe(draft?.researchGap);
     expect(JSON.stringify(documents)).toBe(before);
-    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+    expect(accessForA.supabase.from).toHaveBeenCalledTimes(2);
   });
 
   test('POST cannot bypass unfinished saved guidance by requesting objectives directly', async () => {
@@ -151,6 +151,57 @@ describe('project journey authorization', () => {
     expect(response.status).toBe(409);
     expect((await response.json()).gate.nextStage).toBe('problem');
     expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+  });
+
+  test('PATCH saves an owned stage draft without evaluating the quality gate', async () => {
+    const rpc = jest.fn().mockResolvedValue({
+      data: [{
+        content: { objectives: ['مسودة قصيرة'] },
+        client_updated_at: '2026-09-19T10:00:00.000Z',
+        updated_at: '2026-09-19T10:00:01.000Z',
+      }],
+      error: null,
+    });
+    accessForA.supabase.rpc = rpc;
+    requireAuthenticatedUser.mockResolvedValue(accessForA);
+    ownsProject.mockResolvedValue(true);
+
+    const response = await PATCH(new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stage: 'objectives',
+        content: { objectives: ['مسودة قصيرة'] },
+        clientUpdatedAt: '2026-09-19T10:00:00.000Z',
+      }),
+    }), context);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.draft.content.objectives).toEqual(['مسودة قصيرة']);
+    expect(rpc).toHaveBeenCalledWith('save_research_stage_draft', {
+      p_project_id: 'project-owned-by-b',
+      p_stage: 'objectives',
+      p_content: { objectives: ['مسودة قصيرة'] },
+      p_client_updated_at: '2026-09-19T10:00:00.000Z',
+    });
+  });
+
+  test('PATCH rejects an invalid client timestamp before writing', async () => {
+    const rpc = jest.fn();
+    accessForA.supabase.rpc = rpc;
+    requireAuthenticatedUser.mockResolvedValue(accessForA);
+    ownsProject.mockResolvedValue(true);
+
+    const response = await PATCH(new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stage: 'problem', content: { problemStatement: 'مسودة' }, clientUpdatedAt: 'not-a-date' }),
+    }), context);
+
+    expect(response.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   test('POST saves objectives with a consistency warning and records the decision summary', async () => {

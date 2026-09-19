@@ -49,6 +49,34 @@ export async function saveJourneyStage(projectId: string, stage: JourneyStage, c
   };
 }
 
+export type JourneyDraft = {
+  content: Record<string, unknown>;
+  clientUpdatedAt: string;
+  savedAt: string;
+};
+
+export async function saveJourneyDraft(
+  projectId: string,
+  stage: JourneyStage,
+  content: Record<string, unknown>,
+  clientUpdatedAt = new Date().toISOString(),
+  keepalive = false,
+) {
+  const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/journey`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stage, content, clientUpdatedAt }),
+    cache: 'no-store',
+    keepalive,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) throw new Error('انتهت جلسة الدخول. سجّل الدخول مجدداً لحفظ المسودة.');
+  if (response.status === 404) throw new Error('المشروع غير موجود أو لا تملك صلاحية الوصول إليه.');
+  if (response.status === 409) return data as { success: false; draft: JourneyDraft | null };
+  if (!response.ok) throw new Error(data.error || 'تعذر حفظ المسودة تلقائياً.');
+  return data as { success: true; stage: JourneyStage; draft: JourneyDraft };
+}
+
 export async function loadJourney(projectId: string) {
   const response = await fetch(`/api/projects/${encodeURIComponent(projectId)}/journey`, { cache: 'no-store' });
   const data = await response.json();
@@ -57,6 +85,7 @@ export async function loadJourney(projectId: string) {
   if (!response.ok) throw new Error(data.error || 'تعذر تحميل المشروع');
   return data as {
     outputs: Partial<Record<JourneyStage, Record<string, unknown>>>;
+    drafts: Partial<Record<JourneyStage, JourneyDraft>>;
     nextStage: JourneyStage | null;
     gate: ServerJourneyGate | null;
     lastActivity: { stage: JourneyStage; at: string | null } | null;

@@ -11,6 +11,7 @@ import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/rese
 import { stageComplete } from '@/lib/research-workflow';
 import type { QuestionsMethodologyConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type Methodology = { approach: string; population: string; sample: string; instrument: string };
 type HypothesesDecision = { mode: 'required' | 'not_applicable'; hypotheses: string[]; rationale: string };
@@ -97,7 +98,7 @@ export default function ResearchMethodologyPage() {
             rationale: typeof savedHypotheses.rationale === 'string' ? savedHypotheses.rationale : '',
           });
         }
-        const savedMethod = journey.outputs.methodology;
+        const savedMethod = journey.drafts.methodology?.content ?? journey.outputs.methodology;
         if (savedMethod && typeof savedMethod === 'object') {
           setMethodology({
             approach: typeof savedMethod.approach === 'string' ? savedMethod.approach : '',
@@ -135,6 +136,12 @@ export default function ResearchMethodologyPage() {
     [methodology.approach],
   );
   const canSave = questions.length >= 2 && hypothesesReady && Boolean(methodology.approach) && methodology.population.trim().length >= 10 && methodology.sample.trim().length >= 10 && methodology.instrument.trim().length >= 10 && !issue;
+  useJourneyAutosave({
+    projectId,
+    stage: 'methodology',
+    content: methodology,
+    enabled: Boolean(projectId && !loading && questions.length >= 2 && hypothesesReady),
+  });
   const markEdited = () => {
     setStatus('idle');
     setConsistencyStatus((current) => current === 'ready' ? 'stale' : current);

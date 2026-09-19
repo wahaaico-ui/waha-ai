@@ -16,6 +16,7 @@ import {
 } from '@/lib/research-recommendations';
 import { stageComplete } from '@/lib/research-workflow';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type JourneyData = Awaited<ReturnType<typeof loadJourney>>;
 
@@ -50,9 +51,10 @@ export default function ResearchRecommendationsPage() {
       .then((loaded) => {
         if (!active) return;
         setJourney(loaded);
-        const saved = savedRecommendations(loaded.outputs.recommendations);
-        setForm(saved || buildRecommendationsDraft(loaded.outputs.conclusions));
-        setStatus(saved ? 'saved' : 'idle');
+        const approved = savedRecommendations(loaded.outputs.recommendations);
+        const draft = savedRecommendations(loaded.drafts.recommendations?.content);
+        setForm(draft || approved || buildRecommendationsDraft(loaded.outputs.conclusions));
+        setStatus(approved && !draft ? 'saved' : 'idle');
       })
       .catch((reason) => {
         if (active) setError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.');
@@ -68,6 +70,12 @@ export default function ResearchRecommendationsPage() {
   const validationIssue = useMemo(() => journey && form
     ? researchRecommendationsConsistencyIssue(form as unknown as Record<string, unknown>, journey.outputs.conclusions)
     : 'جارٍ إعداد التوصيات من الاستنتاجات المعتمدة.', [form, journey]);
+  useJourneyAutosave({
+    projectId,
+    stage: 'recommendations',
+    content: (form || {}) as Record<string, unknown>,
+    enabled: Boolean(projectId && !loading && journey && form),
+  });
 
   function markEdited() {
     setStatus('idle');

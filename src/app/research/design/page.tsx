@@ -9,6 +9,7 @@ import SiteHeader from '@/components/SiteHeader';
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type VariableRole = 'independent' | 'dependent' | 'predictor' | 'outcome' | 'control' | 'concept';
 type Variable = { name: string; role: VariableRole; operationalDefinition: string };
@@ -52,7 +53,7 @@ export default function StudyDesignPage() {
       setApproach(text(methodology?.approach));
       const hypothesisOutput = journey.outputs.hypotheses;
       setHypotheses(Array.isArray(hypothesisOutput?.hypotheses) ? hypothesisOutput.hypotheses.filter((item): item is string => typeof item === 'string') : []);
-      const saved = journey.outputs.design;
+      const saved = journey.drafts.design?.content ?? journey.outputs.design;
       if (saved) {
         const savedVariables = Array.isArray(saved.variables) ? saved.variables.flatMap((item) => {
           if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
@@ -90,6 +91,12 @@ export default function StudyDesignPage() {
     if (design.sample.strategy.trim().length < 15 || design.sample.inclusionCriteria.trim().length < 20 || design.sample.sizeRationale.trim().length < 20) return 'أكمل استراتيجية العينة ومعايير الاشتمال ومبرر الحجم.';
     return '';
   }, [design, quantitative]);
+  useJourneyAutosave({
+    projectId,
+    stage: 'design',
+    content: design as unknown as Record<string, unknown>,
+    enabled: Boolean(projectId && !loading && methodReady),
+  });
 
   const updateVariable = <K extends keyof Variable,>(index: number, field: K, value: Variable[K]) => {
     setDesign((current) => ({ ...current, variables: current.variables.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item) }));

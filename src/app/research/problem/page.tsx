@@ -9,6 +9,7 @@ import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
 import { loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { assessAcademicText, assessProblemDraft } from '@/lib/academic-content-quality';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type VerifyOutput = {
   topic?: string;
@@ -38,7 +39,9 @@ export default function ResearchProblemPage() {
         setVerify((journey.outputs.verify as VerifyOutput | undefined) || null);
         const savedTitle = (journey.outputs.title as TitleOutput | undefined)?.title;
         if (savedTitle) setTitle(savedTitle);
-        const savedProblem = (journey.outputs.problem as ProblemOutput | undefined) || {};
+        const savedProblem = (journey.drafts.problem?.content as ProblemOutput | undefined)
+          || (journey.outputs.problem as ProblemOutput | undefined)
+          || {};
         setStatement(savedProblem.problemStatement || '');
         setGap(savedProblem.researchGap || '');
         setResearcherNote(savedProblem.researcherNote || '');
@@ -55,6 +58,12 @@ export default function ResearchProblemPage() {
   const problemAssessment = assessProblemDraft({ title, problemStatement: statement, researchGap: gap, researcherNote });
   const qualityIssue = problemAssessment.reason || '';
   const canSave = !qualityIssue;
+  useJourneyAutosave({
+    projectId,
+    stage: 'problem',
+    content: { problemStatement: statement, researchGap: gap, researcherNote },
+    enabled: Boolean(projectId && !loading && title),
+  });
   const titleStepLabel = verify?.researcherInput?.scenario === 'compare_titles'
     ? 'مقارنة عناوينك واعتماد أحدها'
     : verify?.researcherInput?.scenario === 'rejected_title'

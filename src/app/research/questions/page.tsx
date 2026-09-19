@@ -12,6 +12,7 @@ import { stageComplete } from '@/lib/research-workflow';
 import { firstAcademicTextIssue } from '@/lib/academic-content-quality';
 import type { ObjectivesQuestionsConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type ConsistencyResponse = {
   report?: ObjectivesQuestionsConsistencyReport;
@@ -69,7 +70,7 @@ export default function ResearchQuestionsPage() {
         const objectiveList = Array.isArray(savedObjectives) ? savedObjectives.filter((item): item is string => typeof item === 'string') : [];
         setObjectives(objectiveList);
         setObjectivesReady(stageComplete('objectives', journey.outputs.objectives));
-        const savedQuestions = journey.outputs.questions?.questions;
+        const savedQuestions = journey.drafts.questions?.content.questions ?? journey.outputs.questions?.questions;
         setQuestions(Array.isArray(savedQuestions) && savedQuestions.length === objectiveList.length ? savedQuestions.map((item) => typeof item === 'string' ? item : '') : objectiveList.map(() => ''));
       })
       .catch((reason) => setLoadError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.'))
@@ -96,6 +97,12 @@ export default function ResearchQuestionsPage() {
 
   const qualityIssue = questions.length !== objectives.length ? 'يجب أن يقابل كل هدف سؤال واحد.' : firstAcademicTextIssue(questions, { minChars: 20, minWords: 5, label: 'السؤال', requireQuestion: true }, 2) || '';
   const canSave = objectives.length >= 2 && !qualityIssue;
+  useJourneyAutosave({
+    projectId,
+    stage: 'questions',
+    content: { questions },
+    enabled: Boolean(projectId && !loading && objectives.length >= 2),
+  });
   const updateQuestion = (index: number, value: string) => {
     setQuestions((current) => current.map((question, questionIndex) => questionIndex === index ? value : question));
     setStatus('idle');

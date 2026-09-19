@@ -13,6 +13,7 @@ import {
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type JourneyData = Awaited<ReturnType<typeof loadJourney>>;
 type FormState = {
@@ -53,7 +54,7 @@ function formFromJourney(journey: JourneyData): FormState {
   const questions = textList(journey.outputs.questions?.questions);
   const hypothesesRequired = journey.outputs.hypotheses?.mode === 'required';
   const hypotheses = hypothesesRequired ? textList(journey.outputs.hypotheses?.hypotheses) : [];
-  const saved = journey.outputs.analysis_input;
+  const saved = journey.drafts.analysis_input?.content ?? journey.outputs.analysis_input;
   const savedFindings = Array.isArray(saved?.findings)
     ? saved.findings.filter((item): item is ExternalAnalysisFinding => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
     : [];
@@ -132,6 +133,12 @@ export default function ExternalAnalysisInputPage() {
     noRawDataConfirmed: form.noRawDataConfirmed,
     noPersonalDataConfirmed: form.noPersonalDataConfirmed,
   }), [form]);
+  useJourneyAutosave({
+    projectId,
+    stage: 'analysis_input',
+    content: form as unknown as Record<string, unknown>,
+    enabled: Boolean(projectId && !loading && journey),
+  });
 
   const validationIssue = useMemo(() => journey
     ? externalAnalysisConsistencyIssue(payload, journey.outputs.questions, journey.outputs.hypotheses, journey.outputs.methodology)

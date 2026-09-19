@@ -17,6 +17,7 @@ import {
 } from '@/lib/research-publication';
 import { stageComplete } from '@/lib/research-workflow';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type JourneyData = Awaited<ReturnType<typeof loadJourney>>;
 type AbstractField = keyof ResearchPublicationOutput['structuredAbstract'];
@@ -45,9 +46,10 @@ export default function ResearchPublicationPage() {
     loadJourney(projectId).then((loaded) => {
       if (!active) return;
       setJourney(loaded);
-      const saved = savedPublication(loaded.outputs.publication);
-      setForm(saved || buildPublicationDraft(loaded.outputs));
-      setStatus(saved ? 'saved' : 'idle');
+      const approved = savedPublication(loaded.outputs.publication);
+      const draft = savedPublication(loaded.drafts.publication?.content);
+      setForm(draft || approved || buildPublicationDraft(loaded.outputs));
+      setStatus(approved && !draft ? 'saved' : 'idle');
     }).catch((reason) => {
       if (active) setError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.');
     }).finally(() => {
@@ -106,6 +108,12 @@ export default function ResearchPublicationPage() {
   }
 
   const loading = Boolean(projectId) && loadedProjectId !== projectId;
+  useJourneyAutosave({
+    projectId,
+    stage: 'publication',
+    content: (form || {}) as Record<string, unknown>,
+    enabled: Boolean(projectId && !loading && journey && form),
+  });
   return <div dir="rtl" className="min-h-screen bg-[#F8FAFC] pb-24 text-slate-950">
     <SiteHeader />
     <JourneyProgress current="publication" lang="ar" />

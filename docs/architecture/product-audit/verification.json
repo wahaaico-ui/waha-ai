@@ -39,6 +39,16 @@
       "14": "PARTIAL PASS — unit/route/security headers + full suite/build; authenticated production download NOT RUN"
     }
   },
+  "DOC-36-02": {
+    "status": "PARTIAL",
+    "columns": {
+      "8": "2026-09-19: PATCH آمن للمسودات وجدول research_stage_drafts بسياسات RLS وRPC مانع للكتابة الأقدم؛ الترحيل مطبق بعيداً؛ 334 اختباراً PASS مع TypeScript وESLint وبناء Webpack إنتاجي ناجح.",
+      "9": "الحفظ التلقائي يعمل بعد التحرير في صفحات الرحلة، يعرض حالته، يستعيد المسودة، ويبقيها منفصلة عن اعتماد البوابة والنسخ النهائية.",
+      "10": "اختبار إنتاجي حقيقي لقطع الشبكة وإعادة الفتح من جهاز آخر لم يُنفذ بعد؛ سجل الفروق واستعادة إصدار سابق مطالب مستقلة غير مكتملة.",
+      "12": "تطبيق الترحيل ثم اختبار كتابة فعلية وقطع الشبكة وإعادة الفتح والتعارض بين جلستين قبل ترقية المطلب إلى COMPLETE.",
+      "14": "PARTIAL PASS — implementation, remote RLS migration, conflict protection, 334 tests, production build; production interruption E2E NOT RUN"
+    }
+  },
   "DOC-59-03": {
     "status": "PARTIAL",
     "columns": {

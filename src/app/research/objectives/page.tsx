@@ -11,6 +11,7 @@ import { stageComplete } from '@/lib/research-workflow';
 import { firstAcademicTextIssue } from '@/lib/academic-content-quality';
 import type { ProblemObjectivesConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type ProblemOutput = { problemStatement?: string; researchGap?: string; researcherNote?: string };
 
@@ -71,7 +72,7 @@ export default function ResearchObjectivesPage() {
       .then((journey) => {
         setProblem((journey.outputs.problem as ProblemOutput | undefined) || null);
         setProblemReady(stageComplete('problem', journey.outputs.problem));
-        const saved = journey.outputs.objectives?.objectives;
+        const saved = journey.drafts.objectives?.content.objectives ?? journey.outputs.objectives?.objectives;
         if (Array.isArray(saved) && saved.every((item) => typeof item === 'string')) setObjectives(saved.length >= 2 ? saved as string[] : ['', '']);
       })
       .catch((reason) => setLoadError(reason instanceof Error ? reason.message : 'تعذر تحميل المشروع.'))
@@ -99,6 +100,12 @@ export default function ResearchObjectivesPage() {
   const validObjectives = objectives.map((objective) => objective.trim()).filter(Boolean);
   const qualityIssue = firstAcademicTextIssue(validObjectives, { minChars: 25, minWords: 5, label: 'الهدف' }, 2) || '';
   const canSave = !qualityIssue;
+  useJourneyAutosave({
+    projectId,
+    stage: 'objectives',
+    content: { objectives },
+    enabled: Boolean(projectId && !loading && problemReady),
+  });
   const markConsistencyStale = () => {
     setStatus('idle');
     setConsistencyStatus((current) => current === 'ready' ? 'stale' : current);

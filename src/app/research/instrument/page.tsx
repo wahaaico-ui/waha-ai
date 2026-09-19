@@ -11,6 +11,7 @@ import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/rese
 import { collectionGuidanceFor, instrumentLabel, isStudyInstrumentType, recommendStudyInstrument, STUDY_INSTRUMENT_TYPES, type StudyInstrumentType } from '@/lib/research-instrument';
 import { stageComplete } from '@/lib/research-workflow';
 import { useProjectId } from '@/lib/use-project-id';
+import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 const LIKERT = ['لا أوافق بشدة', 'لا أوافق', 'محايد', 'أوافق', 'أوافق بشدة'];
 const EMPTY: Questionnaire = { instrumentType: 'questionnaire', title: '', description: '', consentStatement: '', instructions: '', respondentFields: [], sections: [], collectionGuidance: [] };
@@ -101,11 +102,12 @@ export default function InstrumentPage() {
       setApproach(savedApproach);
       setMethodologyInstrument(savedMethodologyInstrument);
       const recommended = recommendStudyInstrument({ approach: savedApproach, methodologyInstrument: savedMethodologyInstrument, questions: journey.outputs.questions?.questions });
-      if (journey.outputs.instrument) {
-        const savedType = isStudyInstrumentType(journey.outputs.instrument.instrumentType) ? journey.outputs.instrument.instrumentType : 'questionnaire';
+      const savedInstrument = journey.drafts.instrument?.content ?? journey.outputs.instrument;
+      if (savedInstrument) {
+        const savedType = isStudyInstrumentType(savedInstrument.instrumentType) ? savedInstrument.instrumentType : 'questionnaire';
         setInstrumentType(savedType);
-        setInstrument(normalizeDraft(journey.outputs.instrument, names, savedType));
-        setStatus('saved');
+        setInstrument(normalizeDraft(savedInstrument, names, savedType));
+        setStatus(journey.drafts.instrument ? 'idle' : 'saved');
       } else {
         setInstrumentType(recommended.type);
         setInstrument((current) => ({ ...current, instrumentType: recommended.type, collectionGuidance: recommended.guidance }));
@@ -142,6 +144,12 @@ export default function InstrumentPage() {
     if (items.some((item) => (item.kind === 'single_choice' || item.kind === 'multiple_choice') && item.options.filter(Boolean).length < 2)) return 'أسئلة الاختيار تحتاج خيارين على الأقل.';
     return '';
   }, [instrument, instrumentType, variables]);
+  useJourneyAutosave({
+    projectId,
+    stage: 'instrument',
+    content: { ...instrument, instrumentType, collectionGuidance: collectionGuidanceFor(instrumentType) },
+    enabled: Boolean(projectId && !loading && designReady),
+  });
 
   const chooseInstrumentType = (nextType: StudyInstrumentType) => {
     setInstrumentType(nextType);
