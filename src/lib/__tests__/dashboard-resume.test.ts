@@ -37,4 +37,30 @@ describe('dashboard project resume', () => {
     expect(project.resume.lastOutputPreview).toBeNull();
     expect(project.resume.nextStage).toBe('verify');
   });
+
+  test('uses the highest stage version so dashboard and journey gate cannot disagree', () => {
+    const validObjectives = {
+      objectives: [
+        'قياس أثر الذكاء الاصطناعي في تحصيل طلبة الجامعات الفلسطينية.',
+        'تحليل اتجاهات طلبة الجامعات الفلسطينية نحو أدوات الذكاء الاصطناعي.',
+      ],
+    };
+    const problem = {
+      problemStatement: 'تتمثل المشكلة في غياب أدلة كافية حول أثر الذكاء الاصطناعي في تحصيل طلبة الجامعات الفلسطينية ضمن سياق أكاديمي محدد.',
+      researchGap: 'لا توضح الدراسات المتاحة طبيعة هذا الأثر لدى طلبة الجامعات الفلسطينية ضمن السياق المحلي بصورة قابلة للفحص.',
+      researcherNote: 'أهتم بهذا الموضوع لارتباطه المباشر بتطوير التعليم الجامعي الفلسطيني ورفع جودة تعلم الطلبة.',
+    };
+    const [project] = buildDashboardProjects([projects[1]], [
+      { project_id: 'active', type: 'journey:verify', content: JSON.stringify(verified), version: 1, created_at: '2026-08-29T08:00:00.000Z' },
+      { project_id: 'active', type: 'journey:title', content: JSON.stringify({ title: 'أثر الذكاء الاصطناعي التوليدي في تعلم طلبة الجامعات الفلسطينية' }), version: 1, created_at: '2026-08-29T09:00:00.000Z' },
+      { project_id: 'active', type: 'journey:problem', content: JSON.stringify(problem), version: 1, created_at: '2026-08-29T10:00:00.000Z' },
+      { project_id: 'active', type: 'journey:objectives', content: JSON.stringify(validObjectives), version: 2, created_at: '2026-08-29T11:00:00.000Z' },
+      { project_id: 'active', type: 'journey:objectives', content: JSON.stringify({ objectives: ['هدف قديم'] }), version: 3, created_at: '2026-08-29T10:30:00.000Z' },
+    ]);
+
+    expect(project.resume.nextStage).toBe('objectives');
+    expect(project.resume.lastStage).toBe('objectives');
+    expect(project.resume.lastVersion).toBe(3);
+    expect(project.resume.lastOutputPreview).toBe('هدف قديم');
+  });
 });

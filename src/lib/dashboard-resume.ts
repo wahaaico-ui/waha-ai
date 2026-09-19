@@ -32,6 +32,12 @@ export type ProjectResume = {
 
 export type DashboardProject = DashboardProjectSource & { resume: ProjectResume };
 
+function newestStageDocument(first: DashboardJourneyDocument, second: DashboardJourneyDocument) {
+  const versionDifference = (second.version ?? 0) - (first.version ?? 0);
+  if (versionDifference !== 0) return versionDifference;
+  return new Date(second.created_at).getTime() - new Date(first.created_at).getTime();
+}
+
 function parseOutput(content: unknown): WorkflowOutput | null {
   if (content && typeof content === 'object' && !Array.isArray(content)) return content as WorkflowOutput;
   if (typeof content !== 'string') return null;
@@ -123,19 +129,21 @@ export function buildDashboardProjects(
 ): DashboardProject[] {
   return projects.map((project) => {
     const projectDocuments = documents
-      .filter((document) => document.project_id === project.id && document.type?.startsWith('journey:'))
-      .sort((first, second) => new Date(second.created_at).getTime() - new Date(first.created_at).getTime());
+      .filter((document) => document.project_id === project.id && document.type?.startsWith('journey:'));
     const outputs: Partial<Record<WorkflowStage, WorkflowOutput>> = {};
+    const canonicalDocuments: DashboardJourneyDocument[] = [];
 
     for (const stage of WORKFLOW_STAGES) {
-      const latest = projectDocuments.find((document) => document.type === `journey:${stage}`);
+      const latest = projectDocuments
+        .filter((document) => document.type === `journey:${stage}`)
+        .sort(newestStageDocument)[0];
       const output = parseOutput(latest?.content);
+      if (latest) canonicalDocuments.push(latest);
       if (output) outputs[stage] = output;
     }
 
-    const lastDocument = projectDocuments.find((document) =>
-      WORKFLOW_STAGES.some((stage) => document.type === `journey:${stage}`),
-    );
+    const lastDocument = canonicalDocuments
+      .sort((first, second) => new Date(second.created_at).getTime() - new Date(first.created_at).getTime())[0];
     const rawStage = lastDocument?.type?.replace('journey:', '');
     const lastStage = WORKFLOW_STAGES.find((stage) => stage === rawStage) ?? null;
     const lastOutput = lastStage ? parseOutput(lastDocument?.content) : null;
