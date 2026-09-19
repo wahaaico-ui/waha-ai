@@ -9,6 +9,16 @@
       "14": "PARTIAL PASS — 23 unit tests; no production/E2E acceptance"
     }
   },
+  "DOC-13-08": {
+    "status": "PARTIAL",
+    "columns": {
+      "8": "2026-09-19: مركز خصوصية ومسار حذف خادمي موصولان؛ ترحيل CASCADE مطبق؛ اختبارات إعادة المصادقة والرفض PASS ضمن329 اختباراً.",
+      "9": "حذف auth.users بعد إلغاء الجلسات يزيل المشتقات المرتبطة، مع حذف سجلات الاستكشاف والملف عبر CASCADE.",
+      "10": "اختبار حذف إنتاجي تدميري بحساب مؤقت لم يُنفذ بعد، لذلك لا يُرفع إلى COMPLETE.",
+      "12": "إنشاء حساب مؤقت وبيانات بكل الجداول ثم حذفه وإثبات غيابها دون استخدام حساب عميل.",
+      "14": "PARTIAL PASS — implementation, migration, and mocked destructive-path tests; production destructive E2E NOT RUN"
+    }
+  },
   "DOC-25-03": {
     "status": "PARTIAL",
     "columns": {
@@ -17,6 +27,26 @@
       "10": "لم يكتمل إثبات الأدلة علمياً. كشف علامات القالب لا يمنع جميع إعادة الصياغات غير المدعومة أو القوالب التاريخية؛ الإنتاج وE2E غير مختبرين.",
       "12": "ربط الفجوة بأدلة قابلة للتحقق وفحص المخرجات المولدة والقوالب التاريخية؛ لا يكفي حذف العبارة الإرشادية لقبول علمي.",
       "14": "PARTIAL PASS — local unit + mocked journey GET/POST: reject guidance, block objectives, preserve stored text; production/E2E NOT RUN"
+    }
+  },
+  "DOC-59-02": {
+    "status": "PARTIAL",
+    "columns": {
+      "8": "2026-09-19: /settings/privacy وGET /api/account/export؛ 11 اختبار خصوصية PASS ضمن329 اختباراً؛ build إنتاجي Webpack PASS.",
+      "9": "تصدير JSON مقيّد بالمستخدم يشمل الحساب والمشاريع والمستندات والمصادر والمراجع والرحلة والاستخدام والاشتراك وبيانات التكامل غير السرية، ويرفض إصدار ملف ناقص.",
+      "10": "لم يُنفذ تنزيل إنتاجي فعلي بحساب عميل في هذا التدقيق؛ لا توجد ملفات Storage مستخدمة في الكود الحالي.",
+      "12": "تشغيل تنزيل إنتاجي بحساب اختبار وفحص محتوى الحزمة قبل ترقية المطلب إلى COMPLETE.",
+      "14": "PARTIAL PASS — unit/route/security headers + full suite/build; authenticated production download NOT RUN"
+    }
+  },
+  "DOC-59-03": {
+    "status": "PARTIAL",
+    "columns": {
+      "8": "2026-09-19: DELETE /api/account/delete مع عبارة صريحة وإعادة مصادقة؛ ترحيل 20260919000000 مطبق ومسجل بعيداً؛ اختبارات الرفض والنجاح PASS.",
+      "9": "الحساب البريدي يتحقق من كلمة المرور، وOAuth يتطلب دخولاً خلال10دقائق؛ تُلغى الجلسات عالمياً ثم يحذف auth.users فتُحذف المشتقات عبر CASCADE. الاشتراك النشط يمنع الحذف لتجنب استمرار رسوم.",
+      "10": "لم نحذف حساب إنتاج حقيقياً لأن ذلك إجراء مدمر؛ دورة احتفاظ نسخ مزود البنية تحتاج سياسة قانونية نهائية، وStripe مؤجل وفق قرار المالك.",
+      "12": "اختبار تدميري بحساب مؤقت مع بيانات في جميع الجداول ثم إثبات غيابها، وتوثيق احتفاظ النسخ الاحتياطية قبل COMPLETE.",
+      "14": "PARTIAL PASS — reauthentication/phrase/session tests + remote migration recorded; destructive production E2E NOT RUN"
     }
   }
 }

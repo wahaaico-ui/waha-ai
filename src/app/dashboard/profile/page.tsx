@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Shield, ArrowRight, Save, Plug, KeyRound } from 'lucide-react';
+import { User, Mail, Shield, ArrowRight, Save, Plug, KeyRound, Database } from 'lucide-react';
 import Link from 'next/link';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -74,6 +74,11 @@ export default function ProfilePage() {
 
         <Link href="/settings/security" className="mb-6 flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-emerald-300 transition hover:bg-emerald-500/10">
           <span className="flex items-center gap-3"><KeyRound className="h-5 w-5" /><span><strong className="block">أمان الحساب والتحقق الثنائي</strong><small className="text-gray-400">إضافة تطبيق مصادقة لحماية تسجيل الدخول</small></span></span>
+          <span>←</span>
+        </Link>
+
+        <Link href="/settings/privacy" className="mb-6 flex items-center justify-between rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5 text-violet-300 transition hover:bg-violet-500/10">
+          <span className="flex items-center gap-3"><Database className="h-5 w-5" /><span><strong className="block">الخصوصية وبيانات الحساب</strong><small className="text-gray-400">تنزيل بياناتك أو حذف الحساب نهائياً</small></span></span>
           <span>←</span>
         </Link>
 
