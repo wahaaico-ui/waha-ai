@@ -39,28 +39,18 @@ export async function buildAccountArchive(user: User) {
   let documents: unknown[] = [];
   let sources: unknown[] = [];
   let generations: unknown[] = [];
-  let journeys: Array<{ id: string }> = [];
+  let drafts: unknown[] = [];
   if (projectIds.length > 0) {
-    [documents, sources, generations, journeys] = await Promise.all([
+    [documents, sources, generations, drafts] = await Promise.all([
       rows(service.from('documents').select('id, project_id, type, content, version, created_at').in('project_id', projectIds).order('created_at'), 'DOCUMENTS'),
       rows(service.from('sources').select('id, project_id, raw_text, parsed_citation_apa, parsed_citation_ieee, confidence, created_at').in('project_id', projectIds).order('created_at'), 'SOURCES'),
       rows(service.from('ai_generations_log').select('id, project_id, feature, prompt_hash, model, output, confidence_label, created_at').in('project_id', projectIds).order('created_at'), 'GENERATIONS'),
-      rows<{ id: string }>(service.from('research_journeys').select('id, project_id, current_stage, status, created_at, updated_at').in('project_id', projectIds).order('created_at'), 'JOURNEYS'),
-    ]);
-  }
-
-  const journeyIds = journeys.map((journey) => journey.id);
-  let stageOutputs: unknown[] = [];
-  let decisions: unknown[] = [];
-  if (journeyIds.length > 0) {
-    [stageOutputs, decisions] = await Promise.all([
-      rows(service.from('research_stage_outputs').select('id, journey_id, stage, content, version, created_at').in('journey_id', journeyIds).order('created_at'), 'STAGE_OUTPUTS'),
-      rows(service.from('research_decisions').select('id, journey_id, stage, decision, note, created_at').in('journey_id', journeyIds).order('created_at'), 'DECISIONS'),
+      rows(service.from('research_stage_drafts').select('project_id, stage, content, client_updated_at, updated_at').in('project_id', projectIds).order('updated_at'), 'DRAFTS'),
     ]);
   }
 
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     exportedAt: new Date().toISOString(),
     account: {
       id: user.id,
@@ -72,7 +62,7 @@ export async function buildAccountArchive(user: User) {
       providers: user.app_metadata.providers ?? (user.app_metadata.provider ? [user.app_metadata.provider] : []),
       profile,
     },
-    research: { projects, documents, sources, references, journeys, stageOutputs, decisions, generations, verifications, usage },
+    research: { projects, documents, sources, references, drafts, generations, verifications, usage },
     subscription,
     integrations,
     exclusions: [

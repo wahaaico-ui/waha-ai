@@ -49,13 +49,15 @@ describe('account privacy services', () => {
   test('exports owned research data without integration credentials', async () => {
     createServiceClient.mockReturnValue(serviceWith({
       projects: [{ id: 'project-1', title: 'بحثي', user_id: 'user-1' }],
-      research_journeys: [{ id: 'journey-1', project_id: 'project-1' }],
+      research_stage_drafts: [{ project_id: 'project-1', stage: 'problem', content: { problem: 'مشكلة البحث' } }],
       user_integrations: [{ provider: 'zotero', external_user_id: '42', access_token_encrypted: 'must-not-leak' }],
       documents: [{ id: 'document-1', project_id: 'project-1', content: 'ملخص' }],
     }));
     const archive = await buildAccountArchive(user);
     expect(archive.account.id).toBe('user-1');
+    expect(archive.schemaVersion).toBe(2);
     expect(archive.research.projects).toEqual([{ id: 'project-1', title: 'بحثي' }]);
+    expect(archive.research.drafts).toEqual([{ project_id: 'project-1', stage: 'problem', content: { problem: 'مشكلة البحث' } }]);
     expect(JSON.stringify(archive)).not.toContain('must-not-leak');
     expect(JSON.stringify(archive)).not.toContain('access_token_encrypted');
   });
