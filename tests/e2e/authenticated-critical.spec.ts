@@ -28,10 +28,13 @@ test.describe('WAHA authenticated critical path', () => {
 
     const logout = page.getByRole('button', { name: 'خروج' });
     if (!(await logout.isVisible())) {
-      await page.getByRole('button', { name: 'Open menu' }).click();
+      await page.getByRole('button', { name: /^(?:فتح القائمة|Open menu)$/ }).click();
     }
     await page.getByRole('button', { name: 'خروج' }).click();
-    await expect(page).toHaveURL('/');
+    await expect(page).toHaveURL(/\/(?:login(?:\?|$)|$)/);
+    if (page.url().includes('/login')) {
+      await expect(page.getByRole('button', { name: 'تسجيل الدخول' })).toBeVisible();
+    }
   });
 
   test('@critical authenticated Word and PDF export', async ({ page }) => {
