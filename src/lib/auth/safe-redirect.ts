@@ -4,6 +4,7 @@ const ALLOWED_EXACT_PATHS = new Set([
   '/email-confirmed',
   '/pricing',
   '/reset-password',
+  '/settings/privacy',
   '/settings/security',
   '/verify-idea',
 ]);

@@ -25,5 +25,6 @@ describe('safeAuthRedirect', () => {
     expect(safeAuthRedirect('/email-confirmed')).toBe('/email-confirmed');
     expect(safeAuthRedirect('/email-confirmed?next=%2Fpricing')).toBe('/email-confirmed?next=%2Fpricing');
     expect(safeAuthRedirect('/reset-password')).toBe('/reset-password');
+    expect(safeAuthRedirect('/settings/privacy')).toBe('/settings/privacy');
   });
 });
