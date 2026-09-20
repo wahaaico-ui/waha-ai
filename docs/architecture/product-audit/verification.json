@@ -58,5 +58,15 @@
       "12": "اختبار تدميري بحساب مؤقت مع بيانات في جميع الجداول ثم إثبات غيابها، وتوثيق احتفاظ النسخ الاحتياطية قبل COMPLETE.",
       "14": "PARTIAL PASS — reauthentication/phrase/session tests + remote migration recorded; destructive production E2E NOT RUN"
     }
+  },
+  "DOC-45-01": {
+    "status": "PARTIAL",
+    "columns": {
+      "8": "2026-09-20: معيار آلي من50 حالة متنوعة في10 تخصصات و5 تصاميم؛ 450/450 قرار بوابة قبل جمع البيانات PASS؛ النتائج الفردية موثقة في docs/quality/ACADEMIC_BENCHMARK_50_RESULTS.md.",
+      "9": "توليد حالات مكتملة وفحص تسع بوابات من الاستكشاف حتى الأداة عبر evaluateGate، مع تغطية كمية ونوعية ومختلطة.",
+      "10": "هذا فحص بنيوي آلي وليس تحكيماً أكاديمياً. لم تُختبر مراحل ما بعد جمع البيانات لأنها تحتاج نتائج حقيقية، ولم يراجع العينات محكمون مستقلون.",
+      "12": "تشغيل مراجعة بشرية مستقلة على مشروعات حقيقية متعددة التخصصات، ثم توثيق القبول والملاحظات ومراحل النتائج حتى النشر.",
+      "14": "PARTIAL PASS — 50/50 automated pre-data cases; 450/450 gates open; human academic review and real post-data projects NOT RUN"
+    }
   }
 }
