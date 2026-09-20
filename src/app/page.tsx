@@ -12,7 +12,7 @@ const features = [
   { icon: FileCheck2, ar: ['بوابات اعتماد واضحة', 'لا تتقدم قبل حفظ المخرج ومراجعته وفق معيار المرحلة.'], en: ['Clear approval gates', 'Progress only after saving and reviewing the current stage output.'] },
   { icon: BookOpenCheck, ar: ['أدلة قابلة للتتبّع', 'اربط قراراتك بالمصادر التي بُنيت عليها، دون اختلاق مراجع.'], en: ['Traceable evidence', 'Connect decisions to their sources without fabricated references.'] },
   { icon: FolderKanban, ar: ['مشروع محفوظ وآمن', 'ارجع إلى مشروعك ومراحله ومخرجاته من حسابك في أي وقت.'], en: ['Saved, secure projects', 'Return to your project, stages, and outputs from your account.'] },
-  { icon: Globe2, ar: ['عربي وإنجليزي', 'تجربة ثنائية اللغة تحترم لغة الباحث الأكاديمية.'], en: ['Arabic and English', 'A bilingual experience for academic researchers.'] },
+  { icon: Globe2, ar: ['عربية أولاً', 'رحلة بحثية عربية متكاملة، مع أدوات منفصلة للترجمة وتدقيق الإنجليزية.'], en: ['Arabic first', 'A complete Arabic research journey with separate translation and English proofreading tools.'] },
 ];
 
 export default function HomePage() {
