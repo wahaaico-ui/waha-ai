@@ -25,7 +25,7 @@ describe('private project export', () => {
     expect((await POST(request())).status).toBe(404);
     expect(from).not.toHaveBeenCalled();
   });
-  it.each(['{broken', 'null', '{"projectId":123}', JSON.stringify({ projectId, format: 'docx' })])('rejects malformed or unsupported request %s', async (body) => {
+  it.each(['{broken', 'null', '{"projectId":123}', JSON.stringify({ projectId, format: 'epub' })])('rejects malformed or unsupported request %s', async (body) => {
     expect((await POST(request(body))).status).toBe(400);
     expect(from).not.toHaveBeenCalled();
   });
@@ -41,6 +41,22 @@ describe('private project export', () => {
     expect(response.headers.get('content-disposition')).toContain('attachment;');
     expect(await response.text()).toContain('نص محفوظ');
   });
+  it.each([
+    ['docx', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'PK'],
+    ['pdf', 'application/pdf', '%PDF'],
+  ])('returns a real %s attachment', async (format, contentType, signature) => {
+    from.mockImplementation((table: string) => ({ select: () => ({ eq: () => table === 'projects'
+      ? { single: async () => ({ data: { title: 'بحث عربي', university_policy: null } }) }
+      : table === 'documents' ? { order: async () => ({ data: [{ type: 'journey:problem', version: 1, content: '{"problemStatement":"نص محفوظ"}' }] }) }
+      : table === 'project_references' ? { eq: () => ({ order: async () => ({ data: [] }) }) }
+      : Promise.resolve({ data: [] }) }) }));
+    const response = await POST(request(JSON.stringify({ projectId, format })));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain(contentType);
+    const bytes = Buffer.from(await response.arrayBuffer());
+    expect(bytes.subarray(0, signature.length).toString()).toBe(signature);
+    expect(bytes.length).toBeGreaterThan(1_000);
+  }, 30_000);
   it('does not expose database exceptions', async () => {
     from.mockImplementation(() => { throw new Error('private database detail'); });
     const response = await POST(request());

@@ -1,6 +1,23 @@
 import { NextResponse } from 'next/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
-import { buildProjectMarkdown } from '@/lib/project-export';
+import { buildProjectExportModel, buildProjectMarkdown } from '@/lib/project-export';
+import { buildProjectDocx, buildProjectPdf } from '@/lib/project-document-export';
+
+export const runtime = 'nodejs';
+
+const formats = ['markdown', 'docx', 'pdf'] as const;
+type ExportFormat = typeof formats[number];
+
+const formatResponse = {
+  markdown: { contentType: 'text/markdown; charset=utf-8', filename: 'waha-project.md' },
+  docx: { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', filename: 'waha-project.docx' },
+  pdf: { contentType: 'application/pdf', filename: 'waha-project.pdf' },
+} satisfies Record<ExportFormat, { contentType: string; filename: string }>;
+
+function responseBody(content: string | Buffer): BodyInit {
+  if (typeof content === 'string') return content;
+  return Uint8Array.from(content).buffer;
+}
 
 export async function POST(request: Request) {
   try {
@@ -9,7 +26,8 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     const projectId = body?.projectId;
     if (typeof projectId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(projectId)) return NextResponse.json({ error: 'Invalid projectId' }, { status: 400 });
-    if (body.format !== undefined && body.format !== 'markdown') return NextResponse.json({ error: 'Unsupported export format' }, { status: 400 });
+    const format: ExportFormat = body.format === undefined ? 'markdown' : body.format;
+    if (!formats.includes(format)) return NextResponse.json({ error: 'Unsupported export format' }, { status: 400 });
     if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     const { data: project } = await access.supabase.from('projects').select('title, university_policy').eq('id', projectId).single();
@@ -20,7 +38,19 @@ export async function POST(request: Request) {
       .eq('project_id', projectId).eq('user_id', access.user.id).order('created_at', { ascending: true });
     if (!project || docError || sourceError || referenceError) return NextResponse.json({ error: 'Unable to export project' }, { status: 500 });
 
-    const content = buildProjectMarkdown(project, documents || [], sources || [], references || []);
-    return new NextResponse(content, { headers: { 'Content-Type': 'text/markdown; charset=utf-8', 'Content-Disposition': 'attachment; filename="waha-project.md"', 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
-  } catch { return NextResponse.json({ error: 'Unable to export project' }, { status: 500 }); }
+    const model = buildProjectExportModel(project, documents || [], sources || [], references || []);
+    const content = format === 'docx' ? await buildProjectDocx(model)
+      : format === 'pdf' ? await buildProjectPdf(model)
+        : buildProjectMarkdown(project, documents || [], sources || [], references || []);
+    const metadata = formatResponse[format];
+    return new NextResponse(responseBody(content), { headers: {
+      'Content-Type': metadata.contentType,
+      'Content-Disposition': `attachment; filename="${metadata.filename}"`,
+      'Cache-Control': 'private, no-store',
+      'X-Content-Type-Options': 'nosniff',
+    } });
+  } catch (error) {
+    console.error('Project export failed', error instanceof Error ? error.message : 'Unknown export error');
+    return NextResponse.json({ error: 'Unable to export project' }, { status: 500 });
+  }
 }
