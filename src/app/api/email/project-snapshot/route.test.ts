@@ -37,9 +37,10 @@ function authenticatedAccess(projectResult: QueryResult = { data: { id: projectI
     created_at: '2026-08-30T10:00:00.000Z',
   },
   error: null,
-}) {
+}, draftResult: QueryResult = { data: null, error: null }) {
   const projectQuery = terminalQuery(projectResult);
   const documentQuery = terminalQuery(documentResult);
+  const draftQuery = terminalQuery(draftResult);
   return {
     projectQuery,
     documentQuery,
@@ -50,7 +51,11 @@ function authenticatedAccess(projectResult: QueryResult = { data: { id: projectI
         user_metadata: { full_name: 'الباحث أحمد' },
       },
       supabase: {
-        from: jest.fn((table: string) => table === 'projects' ? projectQuery : documentQuery),
+        from: jest.fn((table: string) => table === 'projects'
+          ? projectQuery
+          : table === 'research_stage_drafts'
+            ? draftQuery
+            : documentQuery),
       },
     },
   };
@@ -136,5 +141,43 @@ describe('project snapshot email route', () => {
     const response = await POST(request());
     expect(response.status).toBe(409);
     expect(sendProjectSnapshotEmail).not.toHaveBeenCalled();
+  });
+
+  test('prefers a newer autosaved draft and labels it honestly', async () => {
+    const { access } = authenticatedAccess(
+      { data: { id: projectId, title: 'مشروع الباحث' }, error: null },
+      {
+        data: {
+          id: 'document-1',
+          type: 'journey:problem',
+          content: JSON.stringify({ problemStatement: 'نسخة معتمدة أقدم' }),
+          version: 2,
+          created_at: '2026-08-30T10:00:00.000Z',
+        },
+        error: null,
+      },
+      {
+        data: {
+          stage: 'objectives',
+          content: { objectives: ['مسودة هدف حديثة'] },
+          client_updated_at: '2026-08-30T11:00:00.000Z',
+          updated_at: '2026-08-30T11:00:01.000Z',
+        },
+        error: null,
+      },
+    );
+    requireAuthenticatedUser.mockResolvedValue(access);
+    ownsProject.mockResolvedValue(true);
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(200);
+    expect(sendProjectSnapshotEmail).toHaveBeenCalledWith(expect.objectContaining({
+      to: 'owner@example.com',
+      subject: expect.stringContaining('مسودة محفوظة تلقائياً'),
+      text: expect.stringContaining('مسودة هدف حديثة'),
+      idempotencyKey: expect.stringContaining('draft-objectives'),
+    }));
+    expect(JSON.stringify(sendProjectSnapshotEmail.mock.calls)).not.toContain('نسخة معتمدة أقدم');
   });
 });

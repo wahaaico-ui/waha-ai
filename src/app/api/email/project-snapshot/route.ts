@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       return respond({ error: 'خدمة إرسال البريد غير مفعّلة حالياً', code: 'EMAIL_NOT_CONFIGURED' }, 503, 'email_not_configured');
     }
 
-    const [projectResult, documentResult] = await Promise.all([
+    const [projectResult, documentResult, draftResult] = await Promise.all([
       access.supabase
         .from('projects')
         .select('id, title')
@@ -45,11 +45,39 @@ export async function POST(request: Request) {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
+      access.supabase
+        .from('research_stage_drafts')
+        .select('stage, content, client_updated_at, updated_at')
+        .eq('project_id', projectId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
-    if (projectResult.error || documentResult.error) throw new Error('PROJECT_SNAPSHOT_QUERY_FAILED');
+    if (projectResult.error || documentResult.error || draftResult.error) throw new Error('PROJECT_SNAPSHOT_QUERY_FAILED');
     if (!projectResult.data) return respond({ error: 'المشروع غير موجود' }, 404, 'project_not_found');
-    if (!documentResult.data) return respond({ error: 'لا توجد نسخة محفوظة لإرسالها بعد' }, 409, 'snapshot_missing');
+    const draft = draftResult.data;
+    const documentSavedAt = documentResult.data?.created_at ? new Date(documentResult.data.created_at).getTime() : 0;
+    const draftSavedAt = draft?.updated_at ? new Date(draft.updated_at).getTime() : 0;
+    const useDraft = Boolean(draft && draftSavedAt > documentSavedAt);
+    const snapshot = useDraft && draft
+      ? {
+          id: `draft-${draft.stage}-${draft.client_updated_at}`,
+          type: `journey:${draft.stage}`,
+          content: draft.content,
+          version: (documentResult.data?.version || 0) + 1,
+          savedAt: draft.updated_at,
+        }
+      : documentResult.data
+        ? {
+            id: documentResult.data.id,
+            type: documentResult.data.type,
+            content: documentResult.data.content,
+            version: documentResult.data.version || 1,
+            savedAt: documentResult.data.created_at,
+          }
+        : null;
+    if (!snapshot) return respond({ error: 'لا توجد نسخة محفوظة لإرسالها بعد' }, 409, 'snapshot_missing');
 
     const metadata = access.user.user_metadata || {};
     const researcherName = typeof metadata.full_name === 'string' && metadata.full_name.trim()
@@ -61,17 +89,18 @@ export async function POST(request: Request) {
     const message = buildProjectSnapshotEmail({
       researcherName,
       projectTitle: projectResult.data.title,
-      stage: documentResult.data.type,
-      version: documentResult.data.version || 1,
-      savedAt: documentResult.data.created_at,
-      content: documentResult.data.content,
+      stage: snapshot.type,
+      version: snapshot.version,
+      savedAt: snapshot.savedAt,
+      content: snapshot.content,
       dashboardUrl: `${appUrl.replace(/\/$/, '')}/dashboard`,
+      isDraft: useDraft,
     });
 
     await sendProjectSnapshotEmail({
       to: access.user.email,
       ...message,
-      idempotencyKey: `project-snapshot-${projectId}-${documentResult.data.id}-v${documentResult.data.version || 1}`,
+      idempotencyKey: `project-snapshot-${projectId}-${snapshot.id}-v${snapshot.version}`,
     });
 
     return respond({ success: true, sentTo: access.user.email.replace(/^(.{2}).*(@.*)$/, '$1***$2') }, 200);

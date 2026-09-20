@@ -39,4 +39,21 @@ describe('project snapshot email', () => {
     expect(email.text).toContain('https://waha.systems/dashboard');
     expect(email.text.length).toBeLessThan(22_000);
   });
+
+  test('labels autosaved drafts without presenting them as approved versions', () => {
+    const email = buildProjectSnapshotEmail({
+      researcherName: 'محمد',
+      projectTitle: 'مشروع تجريبي',
+      stage: 'journey:objectives',
+      version: 3,
+      savedAt: '2026-09-20T10:00:00.000Z',
+      content: { objectives: ['هدف محفوظ تلقائياً'] },
+      dashboardUrl: 'https://waha.systems/dashboard',
+      isDraft: true,
+    });
+
+    expect(email.subject).toContain('مسودة محفوظة تلقائياً');
+    expect(email.text).toContain('هذه أحدث مسودة محفوظة تلقائياً');
+    expect(email.text).not.toContain('رقم النسخة: 3');
+  });
 });
