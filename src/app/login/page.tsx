@@ -38,18 +38,19 @@ function LoginForm() {
     setLoading(true);
     setError(null);
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
     });
+    const result = await response.json().catch(() => ({})) as { error?: string; needsMfa?: boolean };
 
-    if (loginError) {
-      setError(loginError.message === 'Invalid login credentials' ? 'البريد الإلكتروني أو كلمة المرور غير صحيحة' : loginError.message);
+    if (!response.ok) {
+      setError(result.error || 'تعذر تسجيل الدخول. حاول مجدداً.');
       setLoading(false);
     } else {
-      const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      const needsMfa = assurance?.currentLevel === 'aal1' && assurance.nextLevel === 'aal2';
-      router.push(needsMfa ? `/auth/mfa?next=${encodeURIComponent(redirectTo)}` : redirectTo);
+      router.push(result.needsMfa ? `/auth/mfa?next=${encodeURIComponent(redirectTo)}` : redirectTo);
       router.refresh();
     }
   };

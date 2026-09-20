@@ -71,12 +71,13 @@ export default function AuthSessionProvider({
   const signOut = async () => {
     signingOutRef.current = true;
     setAuthResolved(false);
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    if (!response.ok) {
       signingOutRef.current = false;
       setAuthResolved(true);
       return false;
     }
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
     setUser(null);
     return true;
   };
