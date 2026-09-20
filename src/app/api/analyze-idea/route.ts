@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient as createSessionClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { SemanticScholarService } from '@/lib/academic/services/SemanticScholarService';
 
 const GEMINI_TIMEOUT_MS = 30000;
 const GEMINI_MAX_ATTEMPTS = 2;
@@ -42,19 +43,15 @@ interface UnifiedPaper {
 
 async function fetchFromSemanticScholar(idea: string, limit: number): Promise<UnifiedPaper[]> {
   try {
-    const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
-    const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(idea)}&limit=${limit}&fields=title,year,citationCount,url`;
-    const response = await fetch(url, {
-      headers: apiKey ? { 'x-api-key': apiKey } : {},
-    });
-    if (!response.ok) return [];
-    const data = await response.json();
-    return (data.data || []).map((p: Record<string, unknown>) => ({
-      title: ((p.title as string) || 'عنوان غير متوفر').trim(),
-      year: (p.year as number) || null,
-      citationCount: (p.citationCount as number) || 0,
-      url: (p.url as string) || null,
+    const papers = await SemanticScholarService.searchPapers(idea, limit);
+    return papers.map((paper) => ({
+      title: paper.title,
+      year: paper.year || null,
+      citationCount: paper.citationCount,
+      url: paper.url || null,
       source: 'semanticscholar' as const,
+      authors: paper.authors,
+      pdfUrl: paper.pdfUrl,
     }));
   } catch (err) {
     console.error('Semantic Scholar fetch failed:', err);

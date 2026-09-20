@@ -15,6 +15,7 @@ import {
 } from '@/lib/research-exploration';
 import { countryName } from '@/lib/researcher-profile';
 import { planIdeaSearchQueries } from '@/lib/idea-query-planning';
+import { SemanticScholarService } from '@/lib/academic/services/SemanticScholarService';
 import {
   completeOperationalRequest,
   logOperationalEvent,
@@ -36,16 +37,6 @@ function isArabic(text: string): boolean {
 // ============================================================
 // SOURCE FETCHERS (with API keys for higher limits)
 // ============================================================
-type SemanticScholarPaper = {
-  title?: string;
-  abstract?: string;
-  year?: number;
-  citationCount?: number;
-  url?: string;
-  authors?: Array<{ name?: string }>;
-  venue?: string;
-};
-
 type OpenAlexPaper = {
   title?: string;
   abstract_inverted_index?: Record<string, number[]>;
@@ -61,44 +52,23 @@ type OpenAlexPaper = {
 
 async function fetchSemanticScholar(query: string, limit: number, requestId: string): Promise<Paper[]> {
   const startedAt = Date.now();
-  const url = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(query)}&limit=${limit}&fields=title,abstract,year,citationCount,url,authors,venue`;
-  const headers: Record<string, string> = {};
-  const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
-  if (apiKey) headers['x-api-key'] = apiKey;
 
   try {
-    const res = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
-    if (!res.ok) {
-      logOperationalEvent('warn', {
-        event: 'api.verify_idea.academic_source_failed', route: '/api/verify-idea', requestId,
-        durationMs: Date.now() - startedAt, status: res.status, provider: 'semantic_scholar',
-        feature: 'idea-exploration', outcome: 'fallback', errorCode: 'provider_http_error',
-      });
-      return [];
-    }
-    const data = await res.json() as { data?: SemanticScholarPaper[] };
-    if (!data.data) {
-      logOperationalEvent('warn', {
-        event: 'api.verify_idea.academic_source_failed', route: '/api/verify-idea', requestId,
-        durationMs: Date.now() - startedAt, status: res.status, provider: 'semantic_scholar',
-        feature: 'idea-exploration', outcome: 'fallback', errorCode: 'invalid_provider_payload',
-      });
-      return [];
-    }
+    const papers = await SemanticScholarService.searchPapers(query, limit);
     logOperationalEvent('info', {
       event: 'api.verify_idea.academic_source_completed', route: '/api/verify-idea', requestId,
-      durationMs: Date.now() - startedAt, status: res.status, provider: 'semantic_scholar',
+      durationMs: Date.now() - startedAt, status: 200, provider: 'semantic_scholar',
       feature: 'idea-exploration', outcome: 'success',
     });
-    return data.data.map((p) => ({
-      title: p.title || '',
-      abstract: p.abstract || '',
-      year: p.year || 0,
-      citations: p.citationCount || 0,
-      url: p.url || '',
+    return papers.map((paper) => ({
+      title: paper.title,
+      abstract: paper.abstract,
+      year: paper.year,
+      citations: paper.citationCount,
+      url: paper.url,
       source: 'semanticscholar' as const,
-      authors: (p.authors || []).map((author) => author.name).filter((name): name is string => Boolean(name)),
-      venue: p.venue || '',
+      authors: paper.authors,
+      venue: paper.venue || '',
     }));
   } catch {
     logOperationalEvent('warn', {

@@ -21,7 +21,14 @@ const options: SearchOptions = { query: 'machine learning', limit: 5, domain: 'c
 const json = (value: unknown) => new Response(JSON.stringify(value), { status: 200, headers: { 'content-type': 'application/json' } });
 const originalFetch = global.fetch;
 
-afterEach(() => { global.fetch = originalFetch; jest.restoreAllMocks(); delete process.env.ORCID_CLIENT_ID; delete process.env.ORCID_CLIENT_SECRET; });
+afterEach(() => {
+  global.fetch = originalFetch;
+  jest.restoreAllMocks();
+  delete process.env.ORCID_CLIENT_ID;
+  delete process.env.ORCID_CLIENT_SECRET;
+  delete process.env.SEMANTIC_SCHOLAR_API_KEY;
+  delete process.env.SEMANTIC_SCHOLAR_API_KEY_2;
+});
 
 describe('academic provider adapters', () => {
   test('normalises CORE metadata', async () => {
@@ -78,6 +85,20 @@ describe('academic provider adapters', () => {
   test('reads an OpenCitations citation count', async () => {
     global.fetch = jest.fn().mockResolvedValue(json([{ count: '17' }]));
     await expect(OpenCitationsService.citationCount('10.1000/TEST')).resolves.toBe(17);
+  });
+
+  test('retries Semantic Scholar with the backup key after primary throttling', async () => {
+    process.env.SEMANTIC_SCHOLAR_API_KEY = 'primary-key';
+    process.env.SEMANTIC_SCHOLAR_API_KEY_2 = 'backup-key';
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce(new Response('', { status: 429, headers: { 'retry-after': '30' } }))
+      .mockResolvedValueOnce(json({ data: [{ paperId: 'paper-1', title: 'Recovered paper', year: 2025 }] }));
+
+    await expect(SemanticScholarService.searchPapers('reliable research', 1)).resolves.toEqual([
+      expect.objectContaining({ paperId: 'paper-1', title: 'Recovered paper' }),
+    ]);
+    expect(global.fetch).toHaveBeenNthCalledWith(1, expect.any(String), expect.objectContaining({ headers: expect.objectContaining({ 'x-api-key': 'primary-key' }) }));
+    expect(global.fetch).toHaveBeenNthCalledWith(2, expect.any(String), expect.objectContaining({ headers: expect.objectContaining({ 'x-api-key': 'backup-key' }) }));
   });
 
   test('authenticates ORCID server-side before public search', async () => {
