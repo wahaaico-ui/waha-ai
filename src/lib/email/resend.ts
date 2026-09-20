@@ -7,13 +7,14 @@ export type TransactionalEmail = {
   html: string;
   text: string;
   idempotencyKey: string;
+  replyTo?: string;
 };
 
 export function isProjectEmailConfigured() {
   return Boolean(process.env.RESEND_API_KEY?.trim() && process.env.WAHA_EMAIL_FROM?.trim());
 }
 
-export async function sendProjectSnapshotEmail(email: TransactionalEmail) {
+export async function sendTransactionalEmail(email: TransactionalEmail) {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   const from = process.env.WAHA_EMAIL_FROM?.trim();
   if (!apiKey || !from) throw new Error('EMAIL_NOT_CONFIGURED');
@@ -31,6 +32,7 @@ export async function sendProjectSnapshotEmail(email: TransactionalEmail) {
       subject: email.subject,
       html: email.html,
       text: email.text,
+      ...(email.replyTo ? { reply_to: email.replyTo } : {}),
     }),
     signal: AbortSignal.timeout(EMAIL_TIMEOUT_MS),
   });
@@ -43,3 +45,4 @@ export async function sendProjectSnapshotEmail(email: TransactionalEmail) {
   return { id: (data as { id: string }).id };
 }
 
+export const sendProjectSnapshotEmail = sendTransactionalEmail;

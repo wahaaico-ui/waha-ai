@@ -1,4 +1,4 @@
-import { isProjectEmailConfigured, sendProjectSnapshotEmail } from '@/lib/email/resend';
+import { isProjectEmailConfigured, sendProjectSnapshotEmail, sendTransactionalEmail } from '@/lib/email/resend';
 
 const originalApiKey = process.env.RESEND_API_KEY;
 const originalFrom = process.env.WAHA_EMAIL_FROM;
@@ -58,5 +58,20 @@ describe('Resend project email transport', () => {
     );
 
     await expect(sendProjectSnapshotEmail(email)).rejects.toThrow('EMAIL_PROVIDER_INVALID_RESPONSE');
+  });
+
+  test('adds reply-to for support notifications', async () => {
+    process.env.RESEND_API_KEY = 'server-secret-key';
+    process.env.WAHA_EMAIL_FROM = 'WAHA <research@example.com>';
+    const fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ id: 'email-2' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await sendTransactionalEmail({ ...email, replyTo: 'owner@example.com' });
+
+    expect(String(fetchMock.mock.calls[0][1]?.body)).toContain('"reply_to":"owner@example.com"');
   });
 });
