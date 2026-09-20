@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { safeAuthRedirect } from '@/lib/auth/safe-redirect';
@@ -14,7 +14,6 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = safeAuthRedirect(searchParams.get('redirect'), '/dashboard');
 
@@ -50,8 +49,7 @@ function LoginForm() {
       setError(result.error || 'تعذر تسجيل الدخول. حاول مجدداً.');
       setLoading(false);
     } else {
-      router.push(result.needsMfa ? `/auth/mfa?next=${encodeURIComponent(redirectTo)}` : redirectTo);
-      router.refresh();
+      window.location.assign(result.needsMfa ? `/auth/mfa?next=${encodeURIComponent(redirectTo)}` : redirectTo);
     }
   };
 

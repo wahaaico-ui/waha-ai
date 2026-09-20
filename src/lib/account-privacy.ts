@@ -27,30 +27,34 @@ export async function buildAccountArchive(user: User) {
   );
   const projectIds = projects.map((project) => project.id);
 
-  const [profile, usage, verifications, subscription, integrations, references] = await Promise.all([
-    rows(service.from('profiles').select('id, university, degree').eq('id', user.id), 'PROFILE'),
+  const [profile, usage, verifications, subscription, integrations, references, researchProjects, savedPapers] = await Promise.all([
+    rows(service.from('profiles').select('id, full_name, email, role, free_credits, created_at').eq('id', user.id), 'PROFILE'),
     rows(service.from('users_usage').select('id, created_at, idea_text, report_score').eq('user_id', user.id).order('created_at'), 'USAGE'),
     rows(service.from('idea_verifications').select('id, topic, translated_query, acceptance_score, decision, total_papers, gaps_count, created_at').eq('user_id', user.id).order('created_at'), 'VERIFICATIONS'),
     rows(service.from('subscriptions').select('plan, status, current_period_end, created_at, updated_at').eq('user_id', user.id), 'SUBSCRIPTION'),
     rows(service.from('user_integrations').select('provider, external_user_id, permissions, status, connected_at, revoked_at').eq('user_id', user.id), 'INTEGRATIONS'),
     rows(service.from('project_references').select('id, project_id, provider, external_item_key, doi, isbn, title, authors, publication_year, publication_title, url, citation_data, source_version, synced_at, created_at').eq('user_id', user.id).order('created_at'), 'REFERENCES'),
+    rows(service.from('research_projects').select('id, project_title, discipline, current_step, brain_status, clarity_score, created_at').eq('user_id', user.id).order('created_at'), 'RESEARCH_PROJECTS'),
+    rows(service.from('saved_papers').select('id, title, abstract, year, citation_count, pdf_url, source, created_at').eq('user_id', user.id).order('created_at'), 'SAVED_PAPERS'),
   ]);
 
   let documents: unknown[] = [];
   let sources: unknown[] = [];
   let generations: unknown[] = [];
   let drafts: unknown[] = [];
+  let researchProfiles: unknown[] = [];
   if (projectIds.length > 0) {
-    [documents, sources, generations, drafts] = await Promise.all([
+    [documents, sources, generations, drafts, researchProfiles] = await Promise.all([
       rows(service.from('documents').select('id, project_id, type, content, version, created_at').in('project_id', projectIds).order('created_at'), 'DOCUMENTS'),
       rows(service.from('sources').select('id, project_id, raw_text, parsed_citation_apa, parsed_citation_ieee, confidence, created_at').in('project_id', projectIds).order('created_at'), 'SOURCES'),
       rows(service.from('ai_generations_log').select('id, project_id, feature, prompt_hash, model, output, confidence_label, created_at').in('project_id', projectIds).order('created_at'), 'GENERATIONS'),
       rows(service.from('research_stage_drafts').select('project_id, stage, content, client_updated_at, updated_at').in('project_id', projectIds).order('updated_at'), 'DRAFTS'),
+      rows(service.from('research_profiles').select('id, project_id, summary, ai_recommendations, health_score, current_stage, next_action, active_tasks_count, recent_activity, references_count, chapters_progress, updated_at').in('project_id', projectIds).order('updated_at'), 'RESEARCH_PROFILES'),
     ]);
   }
 
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     exportedAt: new Date().toISOString(),
     account: {
       id: user.id,
@@ -62,7 +66,7 @@ export async function buildAccountArchive(user: User) {
       providers: user.app_metadata.providers ?? (user.app_metadata.provider ? [user.app_metadata.provider] : []),
       profile,
     },
-    research: { projects, documents, sources, references, drafts, generations, verifications, usage },
+    research: { projects, researchProjects, researchProfiles, documents, sources, references, savedPapers, drafts, generations, verifications, usage },
     subscription,
     integrations,
     exclusions: [

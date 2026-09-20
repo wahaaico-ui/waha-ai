@@ -50,14 +50,20 @@ describe('account privacy services', () => {
     createServiceClient.mockReturnValue(serviceWith({
       projects: [{ id: 'project-1', title: 'بحثي', user_id: 'user-1' }],
       research_stage_drafts: [{ project_id: 'project-1', stage: 'problem', content: { problem: 'مشكلة البحث' } }],
+      research_projects: [{ id: 'research-project-1', project_title: 'بحث مساند' }],
+      research_profiles: [{ id: 'profile-1', project_id: 'project-1', current_stage: 'problem' }],
+      saved_papers: [{ id: 'paper-1', title: 'مرجع محفوظ' }],
       user_integrations: [{ provider: 'zotero', external_user_id: '42', access_token_encrypted: 'must-not-leak' }],
       documents: [{ id: 'document-1', project_id: 'project-1', content: 'ملخص' }],
     }));
     const archive = await buildAccountArchive(user);
     expect(archive.account.id).toBe('user-1');
-    expect(archive.schemaVersion).toBe(2);
+    expect(archive.schemaVersion).toBe(3);
     expect(archive.research.projects).toEqual([{ id: 'project-1', title: 'بحثي' }]);
     expect(archive.research.drafts).toEqual([{ project_id: 'project-1', stage: 'problem', content: { problem: 'مشكلة البحث' } }]);
+    expect(archive.research.researchProjects).toEqual([{ id: 'research-project-1', project_title: 'بحث مساند' }]);
+    expect(archive.research.researchProfiles).toEqual([{ id: 'profile-1', project_id: 'project-1', current_stage: 'problem' }]);
+    expect(archive.research.savedPapers).toEqual([{ id: 'paper-1', title: 'مرجع محفوظ' }]);
     expect(JSON.stringify(archive)).not.toContain('must-not-leak');
     expect(JSON.stringify(archive)).not.toContain('access_token_encrypted');
   });

@@ -11,7 +11,10 @@ test('@critical account archive is complete and account deletion is permanent', 
   await page.goto('/login?redirect=/settings/privacy');
   await page.getByLabel('البريد الإلكتروني').fill(email);
   await page.getByLabel('كلمة المرور', { exact: true }).fill(password);
+  const loginResponsePromise = page.waitForResponse((response) => response.url().endsWith('/api/auth/login'));
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click();
+  expect((await loginResponsePromise).status()).toBe(200);
+  await expect.poll(async () => (await page.context().cookies()).some(({ name }) => name.endsWith('-auth-token'))).toBe(true);
   await expect(page).toHaveURL(/\/settings\/privacy$/);
   await page.reload();
   await expect(page).toHaveURL(/\/settings\/privacy$/);
@@ -34,7 +37,7 @@ test('@critical account archive is complete and account deletion is permanent', 
     account?: { email?: string };
     research?: { projects?: Array<{ title?: string }>; drafts?: unknown[] };
   };
-  expect(archive.schemaVersion).toBe(2);
+  expect(archive.schemaVersion).toBe(3);
   expect(archive.account?.email).toBe(email);
   expect(archive.research?.projects?.some((project) => project.title === 'مشروع اختبار خصوصية الحساب')).toBe(true);
   expect(Array.isArray(archive.research?.drafts)).toBe(true);
