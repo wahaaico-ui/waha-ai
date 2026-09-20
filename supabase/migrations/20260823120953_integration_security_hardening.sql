@@ -1,3 +1,4 @@
+-- Version aligned with production migration history.
 drop policy if exists "No direct client access to integration secrets" on public.user_integrations;
 create policy "No direct client access to integration secrets"
   on public.user_integrations for select to authenticated

@@ -1,3 +1,4 @@
+-- Version aligned with production migration history.
 create table if not exists public.subscriptions (
   user_id uuid primary key references auth.users(id) on delete cascade,
   stripe_customer_id text unique,

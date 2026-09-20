@@ -1,3 +1,4 @@
+-- Version aligned with production migration history.
 create table if not exists public.api_rate_limits (
   identifier text primary key,
   window_started_at timestamptz not null default now(),

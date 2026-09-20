@@ -1,3 +1,4 @@
+-- Version aligned with production migration history.
 -- Older WAHA environments created this table with `ip` and `window_start`.
 -- Normalize those columns without dropping the table or its existing rows.
 do $$

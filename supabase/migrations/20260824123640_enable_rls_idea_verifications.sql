@@ -1,3 +1,4 @@
+-- Version aligned with production migration history.
 -- Associate authenticated verification records with the Supabase user when
 -- available. It remains nullable so the anonymous freemium flow can continue.
 alter table public.idea_verifications
