@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { passwordStrength } from '@/lib/password-policy';
 import { isSupportedCountry } from '@/lib/researcher-profile';
 import { safeAuthRedirect } from '@/lib/auth/safe-redirect';
+import { isCompromisedPassword } from '@/lib/pwned-password';
 
 type SignupPayload = {
   email?: unknown;
@@ -25,6 +26,13 @@ export async function POST(request: Request) {
 
     if (!/^\S+@\S+\.\S+$/.test(email)) return NextResponse.json({ error: 'أدخل بريداً إلكترونياً صالحاً.' }, { status: 400 });
     if (!passwordStrength(password).isStrong) return NextResponse.json({ error: 'كلمة المرور لا تحقق متطلبات الأمان.' }, { status: 400 });
+    try {
+      if (await isCompromisedPassword(password)) {
+        return NextResponse.json({ error: 'كلمة المرور ظهرت في تسريبات معروفة. اختر كلمة فريدة لم تستخدمها في موقع آخر.' }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: 'تعذر إكمال فحص أمان كلمة المرور الآن. حاول مجدداً أو تابع باستخدام Google.' }, { status: 503 });
+    }
     if (!isText(body.fullName, 120) || !isText(body.specialty, 160) || !isText(body.university, 160) || !isText(body.level, 80) || !isSupportedCountry(body.country)) {
       return NextResponse.json({ error: 'أكمل بيانات الحساب والملف الأكاديمي.' }, { status: 400 });
     }
