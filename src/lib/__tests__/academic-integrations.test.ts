@@ -16,12 +16,14 @@ import { deduplicatePapers } from '@/lib/academic/integrations/normalization';
 import { detectAcademicDomain, providersForDomain } from '@/lib/academic/integrations/routing';
 import type { AcademicPaper, SearchOptions } from '@/lib/academic/integrations/types';
 import { resilientFetch } from '@/lib/academic/integrations/http';
+import { clearAcademicCache } from '@/lib/academic/integrations/cache';
 
 const options: SearchOptions = { query: 'machine learning', limit: 5, domain: 'computing' };
 const json = (value: unknown) => new Response(JSON.stringify(value), { status: 200, headers: { 'content-type': 'application/json' } });
 const originalFetch = global.fetch;
 
 afterEach(() => {
+  clearAcademicCache();
   global.fetch = originalFetch;
   jest.restoreAllMocks();
   delete process.env.ORCID_CLIENT_ID;
@@ -144,5 +146,49 @@ describe('routing and cross-source deduplication', () => {
     expect(result.papers).toHaveLength(1);
     expect(result.providers.find((provider) => provider.provider === 'openalex')?.available).toBe(false);
     expect(result.providers.find((provider) => provider.provider === 'core')?.available).toBe(true);
+  });
+
+  test('executes a distinct translated query and includes its results', async () => {
+    const translatedPaper: AcademicPaper = { id: 'translated', title: 'Artificial intelligence in higher education', abstract: 'Evidence about university students', year: 2025, citationCount: 2, authors: ['A'], doi: '10.1000/translated', pdfUrl: null, url: 'https://example.org/translated', source: 'openalex', sources: ['openalex'], subjects: ['education'], publicationType: 'article', openAccess: false };
+    const openAlex = jest.spyOn(OpenAlexService.prototype, 'search')
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([translatedPaper]);
+    jest.spyOn(SemanticScholarService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(OpenAIREService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(DOABService.prototype, 'search').mockResolvedValue([]);
+
+    const result = await UnifiedResearchEngine.searchDetailed({
+      query: 'الذكاء الاصطناعي في التعليم العالي',
+      alternateQueries: ['artificial intelligence in higher education'],
+      limit: 10,
+    });
+
+    expect(openAlex).toHaveBeenNthCalledWith(1, expect.objectContaining({ query: 'الذكاء الاصطناعي في التعليم العالي' }));
+    expect(openAlex).toHaveBeenNthCalledWith(2, expect.objectContaining({ query: 'artificial intelligence in higher education' }));
+    expect(result.papers).toEqual([expect.objectContaining({ doi: '10.1000/translated' })]);
+  });
+
+  test('keeps a provider available when one query fails and its alternate succeeds', async () => {
+    const recoveredPaper: AcademicPaper = { id: 'recovered', title: 'Recovered translated result', abstract: '', year: 2024, citationCount: 0, authors: [], doi: null, pdfUrl: null, url: 'https://example.org/recovered', source: 'openalex', sources: ['openalex'], subjects: [], publicationType: 'article', openAccess: false };
+    jest.spyOn(OpenAlexService.prototype, 'search')
+      .mockRejectedValueOnce(new Error('Arabic index unavailable'))
+      .mockResolvedValueOnce([recoveredPaper]);
+    jest.spyOn(SemanticScholarService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(OpenAIREService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(DOABService.prototype, 'search').mockResolvedValue([]);
+
+    const result = await UnifiedResearchEngine.searchDetailed({
+      query: 'موضوع أكاديمي عربي',
+      alternateQueries: ['academic topic in English'],
+      limit: 5,
+    });
+    const openAlex = result.providers.find((provider) => provider.provider === 'openalex');
+
+    expect(openAlex).toMatchObject({ available: true, papers: [expect.objectContaining({ id: 'recovered' })] });
+    expect(openAlex?.error).toContain('Arabic index unavailable');
   });
 });

@@ -22,14 +22,39 @@ function rankPaper(paper: AcademicPaper, queries: string[]) {
   return Math.round((overlap * 0.55 + crossValidation * 0.2 + citations * 0.1 + completeness * 0.1 + Number(paper.openAccess) * 0.05) * 100);
 }
 
-async function runProvider(provider: AcademicSearchProvider, query: string, limit: number, domain: AcademicDomain): Promise<ProviderSearchResult> {
-  const started = Date.now();
-  try {
-    const papers = await provider.search({ query, limit, domain });
-    return { provider: provider.id, available: true, papers, durationMs: Date.now() - started };
-  } catch (error) {
-    return { provider: provider.id, available: false, papers: [], error: error instanceof Error ? error.message : 'Unknown provider failure', durationMs: Date.now() - started };
+function searchQueries(query: string, alternateQueries: string[] = []) {
+  const unique = new Map<string, string>();
+  for (const candidate of [query, ...alternateQueries]) {
+    const trimmed = candidate.trim();
+    const normalised = normaliseTitle(trimmed);
+    if (trimmed.length >= 3 && trimmed.length <= 500 && normalised && !unique.has(normalised)) unique.set(normalised, trimmed);
+    if (unique.size === 2) break;
   }
+  return [...unique.values()];
+}
+
+async function runProvider(provider: AcademicSearchProvider, queries: string[], limit: number, domain: AcademicDomain): Promise<ProviderSearchResult> {
+  const started = Date.now();
+  const papers: AcademicPaper[] = [];
+  const errors: string[] = [];
+  const perQueryLimit = Math.max(5, Math.ceil(limit / queries.length));
+
+  for (const query of queries) {
+    try {
+      papers.push(...await provider.search({ query, limit: perQueryLimit, domain }));
+    } catch (error) {
+      errors.push(error instanceof Error ? error.message : 'Unknown provider failure');
+    }
+  }
+
+  const available = errors.length < queries.length;
+  return {
+    provider: provider.id,
+    available,
+    papers: deduplicatePapers(papers),
+    ...(errors.length > 0 ? { error: errors.join(' | ') } : {}),
+    durationMs: Date.now() - started,
+  };
 }
 
 export class UnifiedResearchEngine {
@@ -37,17 +62,18 @@ export class UnifiedResearchEngine {
     const query = options.query.trim();
     if (query.length < 3) throw new Error('Academic query is too short');
     const limit = Math.min(50, Math.max(1, options.limit || 25));
-    const route = ResearchRouter.route(query, options.specialty);
+    const queries = searchQueries(query, options.alternateQueries);
+    const route = ResearchRouter.route(queries.join(' '), options.specialty);
     const domain = route.domain;
     const selected = academicProviders(route.providers);
-    const providerResults = await withAcademicCache(`search:${domain}:${normaliseTitle(query)}:${limit}`, 15 * 60 * 1_000, async () => {
-      const settled = await Promise.allSettled(selected.map((provider) => runProvider(provider, query, limit, domain)));
+    const cacheQueries = queries.map(normaliseTitle).join('|');
+    const providerResults = await withAcademicCache(`search:${domain}:${cacheQueries}:${limit}`, 15 * 60 * 1_000, async () => {
+      const settled = await Promise.allSettled(selected.map((provider) => runProvider(provider, queries, limit, domain)));
       return settled.map((entry, index): ProviderSearchResult => entry.status === 'fulfilled'
         ? entry.value
         : { provider: selected[index].id, available: false, papers: [], error: 'Provider execution failed', durationMs: 0 });
     });
     const merged = deduplicatePapers(providerResults.flatMap((result) => result.papers));
-    const queries = [query, ...(options.alternateQueries || [])];
     const preliminarilyRanked = merged
       .map((paper) => ({ ...paper, relevanceScore: rankPaper(paper, queries) }))
       .sort((a, b) => (b.relevanceScore - a.relevanceScore) || (b.citationCount - a.citationCount));

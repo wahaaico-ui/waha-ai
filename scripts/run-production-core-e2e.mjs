@@ -89,6 +89,7 @@ async function main() {
     'tests/e2e/google-oauth.spec.ts',
     'tests/e2e/mfa.spec.ts',
     'tests/e2e/account-privacy.spec.ts',
+    'tests/e2e/academic-search.spec.ts',
     '--project=chromium-desktop',
   ], environment);
 
