@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
-const email = process.env.E2E_TEST_EMAIL?.trim();
-const password = process.env.E2E_TEST_PASSWORD;
+const email = process.env.E2E_PRIVACY_EMAIL?.trim() || process.env.E2E_TEST_EMAIL?.trim();
+const password = process.env.E2E_PRIVACY_PASSWORD || process.env.E2E_TEST_PASSWORD;
 
 test.use({ trace: 'off', screenshot: 'off', video: 'off' });
 

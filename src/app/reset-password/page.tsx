@@ -17,6 +17,12 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let mounted = true;
+    const clearRecoveryFragment = () => {
+      const fragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      if (fragment.get('type') === 'recovery' || fragment.has('access_token') || fragment.has('refresh_token')) {
+        window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
+      }
+    };
     if (new URLSearchParams(window.location.search).has('error')) {
       Promise.resolve().then(() => {
         if (mounted) setReady(false);
@@ -27,10 +33,16 @@ export default function ResetPasswordPage() {
     }
 
     supabase.auth.getUser().then(({ data }) => {
-      if (mounted) setReady(Boolean(data.user));
+      if (mounted) {
+        setReady(Boolean(data.user));
+        if (data.user) clearRecoveryFragment();
+      }
     });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted && session?.user) setReady(true);
+      if (mounted && session?.user) {
+        setReady(true);
+        clearRecoveryFragment();
+      }
     });
     return () => {
       mounted = false;

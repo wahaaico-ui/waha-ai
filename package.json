@@ -10,6 +10,7 @@
     "test": "jest --runInBand",
     "test:e2e": "playwright test",
     "test:e2e:critical": "playwright test --grep @critical",
+    "test:e2e:production": "node scripts/run-production-core-e2e.mjs",
     "test:e2e:report": "playwright show-report",
     "test:integrations": "node scripts/verify-academic-integrations.mjs",
     "test:authorization": "node scripts/verify-tenant-isolation.mjs"
