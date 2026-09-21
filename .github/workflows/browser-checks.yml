@@ -1,4 +1,4 @@
-name: Browser checks (partial launch coverage)
+name: Production release gate
 on:
   workflow_dispatch:
 permissions:
@@ -9,6 +9,8 @@ jobs:
     timeout-minutes: 15
     env:
       E2E_BASE_URL: https://waha.systems
+      NEXT_PUBLIC_SUPABASE_URL: https://zwbtgwgthbyddvurmefk.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
@@ -19,3 +21,4 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e:production
+      - run: npm run test:authorization
