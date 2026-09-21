@@ -99,15 +99,19 @@ async function main() {
     email: recovery.email,
     options: { redirectTo: `${baseUrl}/reset-password` },
   });
-  const actionLink = recoveryLink.data?.properties?.action_link;
-  if (recoveryLink.error || !actionLink) throw recoveryLink.error || new Error('Unable to generate recovery link.');
+  const hashedToken = recoveryLink.data?.properties?.hashed_token;
+  if (recoveryLink.error || !hashedToken) throw recoveryLink.error || new Error('Unable to generate recovery token.');
+  const recoveryUrl = new URL('/auth/confirm', baseUrl);
+  recoveryUrl.searchParams.set('token_hash', hashedToken);
+  recoveryUrl.searchParams.set('type', 'recovery');
+  recoveryUrl.searchParams.set('next', '/reset-password');
 
   runPlaywright([
     'tests/e2e/password-recovery.spec.ts',
     '--project=chromium-desktop',
     '--grep',
     'changes the password through a recovery token',
-  ], { ...environment, E2E_RECOVERY_URL: actionLink, E2E_RECOVERY_NEW_PASSWORD: credentials('changed').password });
+  ], { ...environment, E2E_RECOVERY_URL: recoveryUrl.toString(), E2E_RECOVERY_NEW_PASSWORD: credentials('changed').password });
 
   runPlaywright([
     'tests/e2e/password-recovery.spec.ts',
