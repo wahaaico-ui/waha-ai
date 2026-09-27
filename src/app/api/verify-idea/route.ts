@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { createServiceClient } from '@/lib/supabase/service';
+import { LEGACY_SCORE_NOTICE } from '@/lib/research-trust';
 import { requestFingerprint } from '@/proxy';
 import {
   buildResearchPaths,
@@ -445,7 +447,10 @@ async function persistAuthenticatedVerification(
 
   if (latestDocumentError) throw new Error('PROJECT_DOCUMENT_LOOKUP_FAILED');
 
-  const { error: documentError } = await supabase.from('documents').insert({
+  // idea_verification is the server's record of what the exploration found; the
+  // verify gate is derived from it. Ownership was established by the project
+  // lookup above, and the browser cannot write this document type.
+  const { error: documentError } = await createServiceClient().from('documents').insert({
     project_id: project.id,
     type: 'idea_verification',
     content: JSON.stringify(report),
@@ -577,6 +582,8 @@ export async function POST(request: NextRequest) {
       methodologyNote: 'تصنيف استدلالي مبني على كلمات ظاهرة في الملخصات المتاحة؛ يجب مراجعة قسم المنهجية في الدراسة الأصلية قبل الاعتماد.',
       gaps,
       acceptanceScore: score,
+      scoreStatus: 'legacy_heuristic',
+      scoreNotice: LEGACY_SCORE_NOTICE,
       scoreBreakdown: breakdown,
       decision: decision.decision,
       decisionMessage: decision.message,

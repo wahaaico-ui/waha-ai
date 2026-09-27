@@ -112,7 +112,9 @@ async function run() {
   }, 'id, user_id');
   assert.equal(project.user_id, userA.id);
 
-  const document = await insert(clientA, 'documents', {
+  // journey:* documents and the AI generation log are server-owned: the
+  // application writes them with the server client, so the fixtures do too.
+  const document = await insert(service, 'documents', {
     project_id: project.id,
     type: 'journey:verify',
     content: '{"owner":"a"}',
@@ -123,7 +125,7 @@ async function run() {
     raw_text: `RLS source ${runId}`,
     confidence: 'high',
   }, 'id');
-  const generation = await insert(clientA, 'ai_generations_log', {
+  const generation = await insert(service, 'ai_generations_log', {
     project_id: project.id,
     feature: 'rls-test',
     model: 'fixture',
@@ -281,6 +283,30 @@ async function run() {
     await assertServiceRowExists(table, key, value, `Server-managed ${table} must remain intact`);
   }
 
+  // Integrity (not confidentiality): the owner must not forge or rewrite the
+  // server-owned research state of their own project.
+  for (const type of ['journey:verify', 'idea_verification']) {
+    const forged = await clientA.from('documents').insert({
+      project_id: project.id,
+      type,
+      content: '{"decision":"proceed","searchCoverage":{"uniqueStudies":999}}',
+      version: 99,
+    }).select('id');
+    assertMutationBlocked(forged, `Browser owner must not insert a server-owned ${type} document`);
+  }
+  await assertCannotUpdate(clientA, 'documents', 'id', document.id, { content: '{"decision":"proceed"}' }, 'Browser owner must not rewrite a server-owned journey document');
+  await assertCannotDelete(clientA, 'documents', 'id', document.id, 'Browser owner must not delete a server-owned journey document');
+  await assertServiceRowExists('documents', 'id', document.id, 'Server-owned journey document must remain intact');
+  const forgedGeneration = await clientA.from('ai_generations_log').insert({
+    project_id: project.id,
+    feature: 'forged',
+    model: 'browser',
+    output: 'forged',
+    confidence_label: 'high',
+  }).select('id');
+  assertMutationBlocked(forgedGeneration, 'Browser owner must not forge AI generation audit rows');
+  await assertCannotUpdate(clientA, 'ai_generations_log', 'id', generation.id, { output: 'forged' }, 'Browser owner must not rewrite AI generation audit rows');
+
   const directUsageInsert = await clientA.from('users_usage').insert({
     user_id: userA.id,
     idea_text: 'forged browser usage',
@@ -325,6 +351,7 @@ async function run() {
   console.log('PASS security-invoker draft RPC preserves project ownership');
   console.log('PASS 5 server-managed datasets reject direct browser mutation');
   console.log('PASS verification and usage audit records cannot be forged by browser clients');
+  console.log('PASS server-owned journey documents and AI generation logs cannot be forged, rewritten or deleted by their owner');
   console.log('PASS production rate limiter accepts then blocks atomically and rejects direct browser RPC calls');
 }
 

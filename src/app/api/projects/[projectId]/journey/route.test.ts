@@ -6,6 +6,14 @@ jest.mock('@/lib/supabase/authorization', () => ({
   ownsProject: (...args: unknown[]) => ownsProject(...args),
 }));
 
+// Server-owned journey documents are written with the server client. The mock
+// delegates to the test's Supabase double so existing call sequences hold, and
+// records that the write went through the server client.
+const serviceFrom = jest.fn();
+jest.mock('@/lib/supabase/service', () => ({
+  createServiceClient: () => ({ from: (...args: unknown[]) => serviceFrom(...args) }),
+}));
+
 import { GET, PATCH, POST } from './route';
 import { buildProblemDraftFallback } from '@/lib/research-draft-fallback';
 
@@ -18,6 +26,7 @@ const accessForA = {
 describe('project journey authorization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    serviceFrom.mockImplementation((...args: unknown[]) => accessForA.supabase.from(...args));
   });
 
   test('GET returns 401 without an authenticated Supabase user', async () => {

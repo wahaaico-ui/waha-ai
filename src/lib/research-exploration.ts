@@ -23,6 +23,9 @@ export type VerifyReport = {
   methodologyNote: string;
   gaps: string[];
   acceptanceScore: number;
+  /** The score is a legacy count-based heuristic kept for compatibility, not an academic judgement. */
+  scoreStatus?: 'legacy_heuristic';
+  scoreNotice?: string;
   scoreBreakdown: {
     gapExists: number;
     recency: number;
@@ -89,6 +92,17 @@ export type ResearchPath = {
   evidenceLevel: 'suggestion';
   supportingReferences: Array<{ title: string; year: number; url: string }>;
 };
+
+/** The path used when the researcher saves their own candidate titles for comparison. */
+export function buildProvidedTitlesPath(report: Pick<VerifyReport, 'topPapers'>): ResearchPath {
+  return {
+    id: 'provided-title-comparison',
+    title: 'مقارنة العناوين التي قدّمها الباحث',
+    rationale: 'هذا الاتجاه يحفظ العناوين المدخلة كما هي لقياس وضوحها وغنى أدلتها قبل اعتماد أحدها.',
+    evidenceLevel: 'suggestion',
+    supportingReferences: (report.topPapers || []).slice(0, 3).map((paper) => ({ title: paper.title, year: paper.year, url: paper.url })),
+  };
+}
 
 export function isResearchScenario(value: unknown): value is ResearchScenario {
   return value === 'uncertain' || value === 'idea' || value === 'rejected_title' || value === 'compare_titles' || value === 'references_only';

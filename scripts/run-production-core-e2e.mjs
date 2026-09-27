@@ -24,6 +24,23 @@ function credentials(label) {
   };
 }
 
+function explorationFixture(topic) {
+  const path = (id, title) => ({ id, title: `${topic}: ${title}`, rationale: 'E2E fixture path.', evidenceLevel: 'suggestion', supportingReferences: [] });
+  return {
+    topic,
+    researcherInput: { scenario: 'idea', candidateTitles: [], rejectionFeedback: null },
+    decision: 'proceed',
+    acceptanceScore: 60,
+    gaps: [],
+    topPapers: [],
+    searchCoverage: { queryCount: 1, candidateResults: 3, uniqueStudies: 3, excludedByRelevance: 0, searchedAt: new Date().toISOString(), sources: [], scopeNote: 'E2E fixture.' },
+    researcherContext: { countryCode: null, countryName: null, specialty: null, university: null, level: null },
+    contextMatch: { localAffiliationMatches: 0, note: 'E2E fixture.' },
+    researchPaths: [path('experiences', 'experiences'), path('verification', 'verification'), path('academic-learning', 'academic learning')],
+    evidenceLimitations: ['E2E fixture; not a real exploration.'],
+  };
+}
+
 async function createFixture(label, projectTitle) {
   const account = credentials(label);
   const created = await admin.auth.admin.createUser({
@@ -42,6 +59,16 @@ async function createFixture(label, projectTitle) {
       .single();
     if (inserted.error || !inserted.data) throw inserted.error || new Error(`Unable to create ${label} project.`);
     projectId = inserted.data.id;
+    // The verify gate is derived from the server's own exploration report, never
+    // from the browser. Seed that server-owned record as a trusted fixture so the
+    // journey spec only has to choose a research path, as a researcher would.
+    const exploration = await admin.from('documents').insert({
+      project_id: projectId,
+      type: 'idea_verification',
+      version: 1,
+      content: JSON.stringify(explorationFixture(projectTitle)),
+    });
+    if (exploration.error) throw exploration.error;
   }
   return { ...account, userId, projectId };
 }

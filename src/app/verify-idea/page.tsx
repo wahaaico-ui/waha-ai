@@ -6,7 +6,7 @@ import JourneyProgress from '@/components/JourneyProgress';
 import SiteHeader from '@/components/SiteHeader';
 import AuthGate from '@/components/AuthGate';
 import { saveJourneyStage } from '@/lib/research-journey';
-import type { ResearchPath, ResearchScenario, VerifyReport } from '@/lib/research-exploration';
+import { buildProvidedTitlesPath, type ResearchPath, type ResearchScenario, type VerifyReport } from '@/lib/research-exploration';
 import { useAuthSession } from '@/components/AuthSessionProvider';
 
 // ============================================================
@@ -389,13 +389,7 @@ export default function VerifyIdeaPage() {
           const searchedAt = new Date(report.searchCoverage.searchedAt).toLocaleString('ar', { dateStyle: 'medium', timeStyle: 'short' });
           const referencesOnly = report.researcherInput.scenario === 'references_only';
           const comparisonScenario = report.researcherInput.scenario === 'compare_titles';
-          const providedTitlesPath: ResearchPath = {
-            id: 'provided-title-comparison',
-            title: 'مقارنة العناوين التي قدّمها الباحث',
-            rationale: 'هذا الاتجاه يحفظ العناوين المدخلة كما هي لقياس وضوحها وغنى أدلتها قبل اعتماد أحدها.',
-            evidenceLevel: 'suggestion',
-            supportingReferences: report.topPapers.slice(0, 3).map((paper) => ({ title: paper.title, year: paper.year, url: paper.url })),
-          };
+          const providedTitlesPath = buildProvidedTitlesPath(report);
           return (
             <div className="relative">
               {showBlock && <AuthGate variant="block" />}

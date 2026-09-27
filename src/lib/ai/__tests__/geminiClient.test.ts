@@ -1,4 +1,8 @@
-import { generateStructured } from '@/lib/ai/geminiClient';
+const serviceInsert = jest.fn();
+jest.mock('@/lib/supabase/service', () => ({ createServiceClient: () => ({ from: () => ({ insert: (...args: unknown[]) => serviceInsert(...args) }) }) }));
+jest.mock('@/lib/supabase/authorization', () => ({ ownsProject: jest.fn().mockResolvedValue(true) }));
+
+import { AI_OUTPUT_NOT_ASSESSED, generateStructured } from '@/lib/ai/geminiClient';
 
 const originalGeminiKey = process.env.GEMINI_API_KEY;
 const originalOpenAIKey = process.env.OPENAI_API_KEY;
@@ -69,4 +73,22 @@ test('tries OpenAI before Groq when Gemini is unavailable', async () => {
 
   expect(result.output).toBe('{"ok":"openai"}');
   expect((global.fetch as jest.Mock).mock.calls[1][0]).toBe('https://api.openai.com/v1/chat/completions');
+});
+
+test('does not claim a confidence level from prompt keywords and logs through the server client', async () => {
+  process.env.GEMINI_API_KEY = 'valid-gemini-key';
+  jest.spyOn(console, 'log').mockImplementation(() => undefined);
+  serviceInsert.mockResolvedValue({ error: null });
+  global.fetch = jest.fn().mockResolvedValueOnce(new Response(JSON.stringify({
+    candidates: [{ content: { parts: [{ text: 'Smith, J. (2031). Invented study.' }] } }],
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+  const callerInsert = jest.fn();
+  const caller = { from: () => ({ insert: callerInsert }) } as unknown as Parameters<typeof generateStructured>[0]['supabase'];
+
+  // Before Slice 0 a prompt mentioning "citation", "source" or "context" was labelled high confidence.
+  const result = await generateStructured({ prompt: 'Generate a citation for this source and context', feature: 'test', projectId: 'project-a', userId: 'user-a', supabase: caller });
+
+  expect(result.confidenceLabel).toBe(AI_OUTPUT_NOT_ASSESSED);
+  expect(serviceInsert).toHaveBeenCalledWith(expect.objectContaining({ project_id: 'project-a', confidence_label: 'not_assessed' }));
+  expect(callerInsert).not.toHaveBeenCalled();
 });

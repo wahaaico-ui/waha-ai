@@ -13,11 +13,9 @@ const conclusionOne = 'يمكن الاستنتاج أن الذكاء الاصط�
 const conclusionTwo = 'يمكن الاستنتاج أن صعوبة التحقق من دقة المخرجات والمصادر تحد من الاستخدام الأكاديمي الموثوق لدى طلبة الدراسات العليا.';
 
 const stages = [
+  // Only the researcher's choice is sent. Decision, coverage and paths come from
+  // the server's exploration report, seeded by scripts/run-production-core-e2e.mjs.
   ['verify', {
-    decision: 'proceed',
-    topic: titleText,
-    searchCoverage: { uniqueStudies: 3 },
-    researchPaths: [{ id: 'experiences' }, { id: 'verification' }, { id: 'academic-learning' }],
     selectedResearchPath: { id: 'experiences' },
   }],
   ['title', { title: titleText }],

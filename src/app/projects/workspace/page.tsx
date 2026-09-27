@@ -163,7 +163,7 @@ const fetchProjectData = async () => {
       if (!sourceId) throw new Error('لم يرجع sourceId');
 
       // 3. توليد مراجع حقيقية
-      setUploadStatus('جاري توليد مراجع APA/IEEE الحقيقية...');
+      setUploadStatus('جاري البحث عن معرّف DOI لتوثيق المصدر...');
       const citeRes = await fetch('/api/academic/citations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

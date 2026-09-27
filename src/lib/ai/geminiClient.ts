@@ -2,6 +2,10 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { ownsProject } from '@/lib/supabase/authorization';
 import { logOperationalEvent } from '@/lib/observability';
 import { createHash } from 'node:crypto';
+import { createServiceClient } from '@/lib/supabase/service';
+
+/** Stored and returned instead of a confidence level: the output was not evaluated. */
+export const AI_OUTPUT_NOT_ASSESSED = 'not_assessed';
 
 const AI_TIMEOUT_MS = 30_000;
 const GEMINI_MODEL = 'gemini-flash-latest';
@@ -187,31 +191,27 @@ export async function generateStructured({
   }
   const { output, model: modelName, provider } = generation;
 
-  // منطق بسيط لتحديد مستوى الثقة (confidenceLabel)
-  let confidenceLabel = 'منخفض';
-  const lowerPrompt = prompt.toLowerCase();
-  if (
-    lowerPrompt.includes('source') ||
-    lowerPrompt.includes('citation') ||
-    lowerPrompt.includes('مرجع') ||
-    lowerPrompt.includes('سياق') ||
-    lowerPrompt.includes('context')
-  ) {
-    confidenceLabel = 'عالي';
-  } else if (prompt.length > 150) {
-    confidenceLabel = 'متوسط';
-  }
+  // No quality assessment of the output is performed, so no confidence level is
+  // claimed. The previous label was derived from words in the prompt and did not
+  // measure the output at all.
+  const confidenceLabel = AI_OUTPUT_NOT_ASSESSED;
 
-  // سجّل العملية من خلال عميل المستخدم نفسه؛ لا حاجة لتجاوز RLS بمفتاح خدمة.
+  // The generation log is server-owned audit data (the browser cannot write it
+  // after migration 20260927000000). Ownership of projectId was verified above.
   if (projectId && callerSupabase) {
-    const { error } = await callerSupabase.from('ai_generations_log').insert({
-      project_id: projectId,
-      feature,
-      model: modelName,
-      output,
-      confidence_label: confidenceLabel,
-      prompt_hash: createHash('sha256').update(prompt).digest('hex'),
-    });
+    let error: unknown = null;
+    try {
+      ({ error } = await createServiceClient().from('ai_generations_log').insert({
+        project_id: projectId,
+        feature,
+        model: modelName,
+        output,
+        confidence_label: confidenceLabel,
+        prompt_hash: createHash('sha256').update(prompt).digest('hex'),
+      }));
+    } catch (reason) {
+      error = reason;
+    }
     if (error) {
       logOperationalEvent('error', {
         event: 'ai.audit_write_failed', route: '/server/structured-generation', requestId, feature, provider,
