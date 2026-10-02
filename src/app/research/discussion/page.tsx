@@ -147,7 +147,7 @@ export default function ResearchDiscussionPage() {
       : journey && form ? <>
         <section className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-bold text-emerald-700">النتائج المقفلة</p><p className="mt-2 text-sm font-black text-emerald-950">{form.discussions.length} نتيجة معتمدة</p></div>
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">الأدلة المتاحة</p><p className="mt-2 text-sm font-black text-blue-950">{availablePapers.length} دراسة موثقة</p></div>
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">الأدلة المتاحة</p><p className="mt-2 text-sm font-black text-blue-950">{availablePapers.length} دراسة مختارة (غير متحقق منها)</p></div>
           <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4"><p className="text-xs font-bold text-violet-700">الحد المنهجي</p><p className="mt-2 text-sm font-black text-violet-950">تفسير ومقارنة بلا توصيات</p></div>
         </section>
 

@@ -1,5 +1,4 @@
-// Route-level checks that literature and analysis content is sanitised or
-// re-validated before storage. Gate evaluation is not under test here (it has
+// Route-level checks that analysis content is re-validated before storage. Gate evaluation is not under test here (it has
 // its own tests), so it is reported as open for every stage.
 const requireAuthenticatedUser = jest.fn();
 const ownsProject = jest.fn();
@@ -85,27 +84,8 @@ beforeEach(() => {
   ownsProject.mockResolvedValue(true);
 });
 
-test('literature: client verification, provenance, relevance and search counts are not stored', async () => {
-  const stageInsert = mockWrites(priorDocuments('literature'));
-
-  const response = await post('literature', {
-    query: 'title',
-    searchCoverage: { candidateResults: 999, relevantResults: 999 },
-    papers: [{
-      id: 'p1', title: 'Study one', authors: 'A. Author', year: 2021, doi: 'https://doi.org/10.1000/ABC', relevanceScore: 100, source: 'سجل موثق من عدة فهارس',
-      item: { id: 'x', title: 'Study one', authors: ['A. Author'], verificationStatus: 'verified', confidenceScore: 99, provenance: ['crossref', 'openalex'] },
-    }],
-  });
-
-  expect(response.status).toBe(200);
-  const stored = JSON.parse(stageInsert.mock.calls[0][0].content);
-  expect(stored.searchCoverage).toBeUndefined();
-  expect(stored.papers[0]).toEqual(expect.objectContaining({ id: 'p1', doi: '10.1000/abc', metadataOrigin: 'client_submitted' }));
-  expect(stored.papers[0].relevanceScore).toBeUndefined();
-  expect(stored.papers[0].source).toBeUndefined();
-  expect(stored.papers[0].item).toEqual(expect.objectContaining({ verificationStatus: 'unverified', confidenceScore: 0, provenance: [] }));
-  expect(serviceFrom).toHaveBeenCalledWith('documents');
-});
+// Literature selection (by server-held result id) is covered in
+// literature-selection.test.ts.
 
 test('analysis: a theme citing a paper outside the saved literature is rejected before any write', async () => {
   const stageInsert = mockWrites(priorDocuments('analysis', { literature: savedLiterature }));

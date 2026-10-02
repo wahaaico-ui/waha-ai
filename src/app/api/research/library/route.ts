@@ -3,10 +3,29 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import { normaliseDoi } from '@/lib/academic/integrations/normalization';
 import type { CitationItem } from '@/lib/citations';
 import { BibliographyEngine, CITATION_STYLES } from '@/lib/citations';
-import { CLIENT_SUBMITTED_METADATA, sanitizeClientCitationItem } from '@/lib/research-trust';
+import { sanitizeClientCitationItem } from '@/lib/research-trust';
+import {
+  citationItemFromDiscovered,
+  DISCOVERY_PROVIDER,
+  resolveSearchResults,
+  SERVER_DISCOVERED_METADATA,
+  USER_ASSERTED_METADATA,
+  USER_ASSERTED_PROVIDER,
+} from '@/lib/research-search-results';
 
-// Provider value for references saved from the browser; it never comes from the request.
-const CLIENT_SAVED_PROVIDER = 'waha';
+// Where a reference's metadata came from, from the provider value the server set.
+// Rows saved before Slice 1 (provider 'waha' or a provider named by the browser)
+// are labelled legacy, not discovered.
+function referenceOrigin(provider: string) {
+  if (provider === DISCOVERY_PROVIDER) return 'server_discovered';
+  if (provider === USER_ASSERTED_PROVIDER) return 'user_asserted';
+  if (provider === 'zotero') return 'zotero_import';
+  return 'legacy_client_submitted';
+}
+
+function toLibraryItem(row: ReferenceRow) {
+  return { ...toItem(row), origin: referenceOrigin(row.provider) };
+}
 
 type ReferenceRow = { id: string; project_id: string; provider: string; external_item_key: string; doi: string | null; title: string; authors: unknown; publication_year: number | null; publication_title: string | null; url: string | null; citation_data: unknown };
 
@@ -38,7 +57,7 @@ export async function GET(request: Request) {
     if (!projectId || !(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     const { data, error } = await access.supabase.from('project_references').select('id, project_id, provider, external_item_key, doi, title, authors, publication_year, publication_title, url, citation_data').eq('project_id', projectId).eq('user_id', access.user.id).order('created_at', { ascending: false });
     if (error) throw error;
-    const items = ((data || []) as ReferenceRow[]).map(toItem);
+    const items = ((data || []) as ReferenceRow[]).map(toLibraryItem);
     const bibliographies = Object.fromEntries(CITATION_STYLES.map((style) => [style, BibliographyEngine.build(items, style)]));
     return NextResponse.json({ success: true, items, bibliographies });
   } catch { return NextResponse.json({ error: 'Unable to load project library' }, { status: 500 }); }
@@ -52,36 +71,54 @@ export async function POST(request: Request) {
     if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const body: unknown = await request.json();
     if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
-    const { projectId, item } = body as { projectId?: unknown; item?: unknown };
-    if (typeof projectId !== 'string' || !item || typeof item !== 'object' || Array.isArray(item)) return NextResponse.json({ error: 'Project and reference are required' }, { status: 400 });
+    const { projectId, item, resultId } = body as { projectId?: unknown; item?: unknown; resultId?: unknown };
+    const hasItem = Boolean(item && typeof item === 'object' && !Array.isArray(item));
+    if (typeof projectId !== 'string' || (resultId === undefined && !hasItem) || (resultId !== undefined && hasItem)) return NextResponse.json({ error: 'A project and either a search result or a reference are required' }, { status: 400 });
     if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    // Only bibliographic fields are accepted; verificationStatus, confidenceScore
-    // and provenance from the request are discarded (src/lib/research-trust.ts).
-    const candidate = sanitizeClientCitationItem(item);
+
+    let candidate: CitationItem | null;
+    let provider: string;
+    let origin: Record<string, unknown>;
+    if (resultId !== undefined) {
+      // A discovered source: metadata is rehydrated from the server-held search
+      // result for this user and project; the request only names the result.
+      const { resolved } = await resolveSearchResults({ userId: access.user.id, projectId, resultIds: [String(resultId)] });
+      if (!resolved.length) return NextResponse.json({ error: 'Search result not found or expired' }, { status: 404 });
+      const [result] = resolved;
+      candidate = citationItemFromDiscovered(result.paper);
+      provider = DISCOVERY_PROVIDER;
+      origin = { metadataOrigin: SERVER_DISCOVERED_METADATA, discovery: { resultId: result.resultId, searchRunId: result.searchRunId, providers: result.paper.providers, retrievedAt: result.retrievedAt } };
+    } else {
+      // A reference entered by the researcher: kept, but labelled user-asserted
+      // and never treated as discovered. Verification fields are discarded.
+      candidate = sanitizeClientCitationItem(item);
+      provider = USER_ASSERTED_PROVIDER;
+      origin = { metadataOrigin: USER_ASSERTED_METADATA };
+    }
     if (!candidate || candidate.title.length < 3) return NextResponse.json({ error: 'Reference title is required' }, { status: 400 });
     const externalKey = String(candidate.doi || candidate.id || candidate.title).slice(0, 500);
 
-    // An existing reference (for example a Zotero import) is never overwritten by
-    // client-supplied metadata; saving the same work again returns it unchanged.
+    // An existing reference (for example a Zotero import) is never overwritten;
+    // saving the same work again returns it unchanged.
     const existing = await access.supabase.from('project_references').select(SELECT_COLUMNS).eq('project_id', projectId).eq('user_id', access.user.id).eq('external_item_key', externalKey).limit(1).maybeSingle();
     if (existing.error) throw existing.error;
-    if (existing.data) return NextResponse.json({ success: true, item: toItem(existing.data as ReferenceRow), existing: true });
+    if (existing.data) return NextResponse.json({ success: true, item: toLibraryItem(existing.data as ReferenceRow), existing: true });
 
     const row = {
-      project_id: projectId, user_id: access.user.id, provider: CLIENT_SAVED_PROVIDER, external_item_key: externalKey,
+      project_id: projectId, user_id: access.user.id, provider, external_item_key: externalKey,
       doi: candidate.doi, title: candidate.title, authors: candidate.authors.map((name) => ({ type: 'author', name })),
       publication_year: candidate.year, publication_title: candidate.journal, url: candidate.url,
-      citation_data: { ...candidate, id: externalKey, metadataOrigin: CLIENT_SUBMITTED_METADATA }, synced_at: new Date().toISOString(),
+      citation_data: { ...candidate, id: externalKey, ...origin }, synced_at: new Date().toISOString(),
     };
     const { data, error } = await access.supabase.from('project_references').insert(row).select(SELECT_COLUMNS).single();
     if (error?.code === '23505') {
       // A concurrent save created the same reference first; return that row.
       const saved = await access.supabase.from('project_references').select(SELECT_COLUMNS).eq('project_id', projectId).eq('user_id', access.user.id).eq('external_item_key', externalKey).limit(1).maybeSingle();
       if (saved.error || !saved.data) throw saved.error || error;
-      return NextResponse.json({ success: true, item: toItem(saved.data as ReferenceRow), existing: true });
+      return NextResponse.json({ success: true, item: toLibraryItem(saved.data as ReferenceRow), existing: true });
     }
     if (error) throw error;
-    return NextResponse.json({ success: true, item: toItem(data as ReferenceRow) });
+    return NextResponse.json({ success: true, item: toLibraryItem(data as ReferenceRow) });
   } catch { return NextResponse.json({ error: 'Unable to save reference' }, { status: 500 }); }
 }
 

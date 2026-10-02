@@ -16,10 +16,10 @@ import type {
 import { evaluateGate, isStage, nextAllowedStage, type WorkflowOutput, type WorkflowStage, WORKFLOW_STAGES } from '@/lib/research-workflow';
 import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
 import { createServiceClient } from '@/lib/supabase/service';
+import { buildLiteratureSelection } from '@/lib/research-search-results';
 import {
   deriveAnalysisStageContent,
   deriveVerifyStageContent,
-  sanitizeLiteraturePapers,
   SERVER_DERIVED_TRUST_MODEL,
   withoutClientVerification,
   type ServerVerificationDocument,
@@ -77,12 +77,20 @@ function derivedByServer(output: WorkflowOutput | undefined) {
   return Boolean(derivation && typeof derivation === 'object' && (derivation as Record<string, unknown>).trustModel === SERVER_DERIVED_TRUST_MODEL);
 }
 
+function literatureTrust(papers: unknown) {
+  const origins = new Set((Array.isArray(papers) ? papers : []).map((paper) => paper && typeof paper === 'object' ? (paper as Record<string, unknown>).metadataOrigin : undefined));
+  if (origins.size === 1 && origins.has('server_discovered')) return 'server_discovered_unverified';
+  if (origins.size === 1 && origins.has('client_submitted')) return 'client_submitted_unverified';
+  if (!origins.has(undefined) && origins.size > 1) return 'mixed_unverified';
+  return 'legacy_client_submitted';
+}
+
 // Outputs saved before Slice 0 were accepted from the browser. They stay readable,
 // but are labelled so they are not mistaken for server-derived state.
 function outputTrust(outputs: Partial<Record<WorkflowStage, WorkflowOutput>>) {
   return {
     verify: outputs.verify ? (derivedByServer(outputs.verify) ? 'server_derived' : 'legacy_client_submitted') : null,
-    literature: outputs.literature ? (outputs.literature.papers && Array.isArray(outputs.literature.papers) && outputs.literature.papers.every((paper) => paper && typeof paper === 'object' && (paper as Record<string, unknown>).metadataOrigin === 'client_submitted') ? 'client_submitted_unverified' : 'legacy_client_submitted') : null,
+    literature: outputs.literature ? literatureTrust(outputs.literature.papers) : null,
     analysis: outputs.analysis ? (derivedByServer(outputs.analysis) ? 'server_validated' : 'legacy_client_submitted') : null,
   };
 }
@@ -271,10 +279,12 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       if (!derived.ok) return respond({ error: derived.error }, derived.status, derived.code);
       content = derived.content;
     } else if (stage === 'literature') {
-      // Search counts are system state; the browser's copy is not stored.
-      const literature: WorkflowOutput = { ...content, papers: sanitizeLiteraturePapers(content.papers) };
-      delete literature.searchCoverage;
-      content = literature;
+      // Papers are rehydrated from server-held search results or copied from the
+      // saved stage by id; paper objects and search counts from the request are
+      // not stored (src/lib/research-search-results.ts).
+      const selection = await buildLiteratureSelection({ content, savedLiterature: outputs.literature, userId: access.user.id, projectId });
+      if (!selection.ok) return respond({ error: selection.error }, selection.status, selection.code);
+      content = selection.content;
     } else if (stage === 'analysis') {
       const derived = deriveAnalysisStageContent(content, outputs.literature);
       if (!derived.ok) return respond({ error: derived.error }, 422, 'analysis_evidence_rejected');

@@ -73,6 +73,33 @@ async function createFixture(label, projectTitle) {
   return { ...account, userId, projectId };
 }
 
+// Literature is selected by server-issued search-result ids (Slice 1). Seed the
+// server-held results a literature search would have stored, so the journey
+// spec selects them by id as a researcher would.
+const literatureFixtures = [
+  ['paper-ai-learning', 'Generative artificial intelligence in postgraduate learning'],
+  ['paper-ai-literacy', 'Academic AI literacy and critical verification practices'],
+  ['paper-ai-trust', 'Student trust in generative artificial intelligence outputs'],
+];
+
+async function seedLiteratureResults(fixture) {
+  const searchRunId = randomUUID();
+  const inserted = await admin.from('research_search_results').insert(literatureFixtures.map(([id, title], position) => ({
+    search_run_id: searchRunId,
+    user_id: fixture.userId,
+    project_id: fixture.projectId,
+    context: 'literature',
+    query: 'E2E fixture literature search',
+    position,
+    metadata: {
+      id, doi: null, title, authors: ['E2E Fixture'], year: 2024, journal: null, publisher: null, volume: null, issue: null, pages: null,
+      url: null, pdfUrl: null, abstract: 'E2E fixture; not a real study.', citationCount: 0, publicationType: 'article', providers: ['e2e-fixture'],
+    },
+  }))).select('id, position');
+  if (inserted.error || !inserted.data || inserted.data.length !== literatureFixtures.length) throw inserted.error || new Error('Unable to seed literature search results.');
+  return inserted.data.sort((a, b) => a.position - b.position).map((row) => row.id);
+}
+
 function runPlaywright(args, environment) {
   const run = spawnSync('npx', ['playwright', 'test', ...args], {
     stdio: 'inherit',
@@ -94,6 +121,7 @@ async function main() {
   const privacy = await createFixture('privacy', 'مشروع اختبار خصوصية الحساب');
   const mfa = await createFixture('mfa');
   const recovery = await createFixture('recovery');
+  const literatureResultIds = await seedLiteratureResults(primary);
 
   const environment = {
     E2E_TEST_EMAIL: primary.email,
@@ -102,6 +130,7 @@ async function main() {
     E2E_JOURNEY_EMAIL: primary.email,
     E2E_JOURNEY_PASSWORD: primary.password,
     E2E_JOURNEY_PROJECT_ID: primary.projectId,
+    E2E_JOURNEY_LITERATURE_RESULT_IDS: literatureResultIds.join(','),
     E2E_PRIVACY_EMAIL: privacy.email,
     E2E_PRIVACY_PASSWORD: privacy.password,
     E2E_MFA_EMAIL: mfa.email,

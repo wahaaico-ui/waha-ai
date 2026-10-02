@@ -2,6 +2,7 @@ jest.mock('@/lib/supabase/authorization', () => ({
   requireAuthenticatedUser: jest.fn(),
   ownsProject: jest.fn(),
 }));
+jest.mock('@/lib/supabase/service', () => ({ createServiceClient: () => mockResults.client }));
 jest.mock('@/lib/academic/services/UnifiedResearchEngine', () => ({
   UnifiedResearchEngine: { searchDetailed: jest.fn() },
 }));
@@ -9,6 +10,9 @@ jest.mock('@/lib/academic/services/UnifiedResearchEngine', () => ({
 import { POST } from '@/app/api/research/literature/route';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { UnifiedResearchEngine } from '@/lib/academic/services/UnifiedResearchEngine';
+import { createSearchResultsFake } from '@/lib/test-support/search-results-fake';
+
+const mockResults = createSearchResultsFake();
 
 const mockedAuth = requireAuthenticatedUser as jest.Mock;
 const mockedOwnership = ownsProject as jest.Mock;
@@ -47,5 +51,10 @@ test('literature API searches only after ownership and saved-stage checks', asyn
   expect(response.status).toBe(200);
   expect(mockedOwnership).toHaveBeenCalledWith('project-1', 'user-1', expect.anything());
   expect(body.data).toHaveLength(1);
-  expect(body.data[0].source).toBe('سجل أكاديمي موثق');
+  expect(body.data[0].source).toBe('سجل ظهر في فهرس أكاديمي');
+  expect(body.data[0].item).toEqual(expect.objectContaining({ verificationStatus: 'unverified', confidenceScore: 0 }));
+  // Each result carries a server-issued id for a row the server holds.
+  expect(body.data[0].resultId).toBe(mockResults.rows[0].id);
+  expect(mockResults.rows[0]).toEqual(expect.objectContaining({ user_id: 'user-1', project_id: 'project-1', context: 'literature' }));
+  expect(mockResults.rows[0].metadata).toEqual(expect.objectContaining({ title: 'Machine learning in academic education', doi: '10.1000/p', providers: ['core'] }));
 });

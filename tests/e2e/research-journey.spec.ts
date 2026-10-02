@@ -67,11 +67,10 @@ const stages = [
       ] },
     ],
   }],
-  ['literature', { papers: [
-    { id: 'paper-ai-learning', title: 'Generative artificial intelligence in postgraduate learning' },
-    { id: 'paper-ai-literacy', title: 'Academic AI literacy and critical verification practices' },
-    { id: 'paper-ai-trust', title: 'Student trust in generative artificial intelligence outputs' },
-  ] }],
+  // Studies are selected by server-held search-result ids (Slice 1). The runner
+  // seeds results whose paper ids are paper-ai-learning, paper-ai-literacy and
+  // paper-ai-trust, which the analysis and discussion stages cite below.
+  ['literature', { resultIds: (process.env.E2E_JOURNEY_LITERATURE_RESULT_IDS || '').split(',').filter(Boolean) }],
   ['analysis', {
     introduction: 'تتناول الأدبيات خبرات استخدام الذكاء الاصطناعي في التعلم الأكاديمي والحاجة إلى التحقق النقدي من المخرجات.',
     thematicSynthesis: 'تتقاطع الدراسات في إبراز فائدة الدعم الأولي للفهم، لكنها تؤكد أن الثقة الأكاديمية تتطلب مراجعة المصادر والأدلة الأصلية.',
@@ -158,7 +157,7 @@ test('@critical completes and renders the full research journey', async ({ page 
   const email = process.env.E2E_JOURNEY_EMAIL;
   const password = process.env.E2E_JOURNEY_PASSWORD;
   const projectId = process.env.E2E_JOURNEY_PROJECT_ID;
-  test.skip(!email || !password || !projectId, 'Set temporary E2E journey credentials and project ID.');
+  test.skip(!email || !password || !projectId || !process.env.E2E_JOURNEY_LITERATURE_RESULT_IDS, 'Set temporary E2E journey credentials, project ID and seeded literature result IDs.');
   if (!email || !password || !projectId) throw new Error('Temporary journey account is required.');
 
   await page.goto('/login');

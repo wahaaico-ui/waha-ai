@@ -205,6 +205,19 @@ async function run() {
     summary: `RLS profile ${runId}`,
   }, 'id');
 
+  // Slice 1: discovered search results are held for the server only. Even the
+  // owner's browser must not read, add or rewrite them (a forged row would let
+  // the browser define a "discovered" source).
+  const searchResult = await insert(service, 'research_search_results', {
+    search_run_id: crypto.randomUUID(),
+    user_id: userA.id,
+    project_id: project.id,
+    context: 'literature',
+    query: `RLS search ${runId}`,
+    position: 0,
+    metadata: { id: `rls-${runId}`, title: 'Disposable server-held search result', providers: ['security-test'] },
+  }, 'id');
+
   const ownerReadable = [
     ['projects', 'id', project.id],
     ['documents', 'id', document.id],
@@ -229,6 +242,7 @@ async function run() {
     ['research_projects', 'id', researchProject.id],
     ['saved_papers', 'id', savedPaper.id],
     ['research_profiles', 'id', researchProfile.id],
+    ['research_search_results', 'id', searchResult.id],
   ];
   for (const [table, key, value] of serverOrLegacyRows) {
     await assertCannotRead(clientB, table, key, value, `User B must not read user A ${table}`);
@@ -277,11 +291,24 @@ async function run() {
     ['idea_verifications', 'id', verification.id, { decision: 'unauthorized' }],
     ['user_integrations', 'id', integration.id, { access_token_encrypted: 'stolen' }],
     ['support_requests', 'id', supportRequest.id, { status: 'closed' }],
+    ['research_search_results', 'id', searchResult.id, { metadata: { title: 'Forged by browser' } }],
   ]) {
     await assertCannotUpdate(clientA, table, key, value, patchValue, `Browser owner must not directly update server-managed ${table}`);
     await assertCannotDelete(clientA, table, key, value, `Browser owner must not directly delete server-managed ${table}`);
     await assertServiceRowExists(table, key, value, `Server-managed ${table} must remain intact`);
   }
+
+  await assertCannotRead(clientA, 'research_search_results', 'id', searchResult.id, 'Browser owner must not read server-held search results');
+  const forgedResult = await clientA.from('research_search_results').insert({
+    search_run_id: crypto.randomUUID(),
+    user_id: userA.id,
+    project_id: project.id,
+    context: 'literature',
+    query: 'forged',
+    position: 0,
+    metadata: { id: 'forged', title: 'Forged discovered source' },
+  }).select('id');
+  assertMutationBlocked(forgedResult, 'Browser owner must not insert a server-held search result');
 
   // Integrity (not confidentiality): the owner must not forge or rewrite the
   // server-owned research state of their own project.

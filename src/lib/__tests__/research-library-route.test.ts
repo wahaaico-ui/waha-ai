@@ -60,8 +60,9 @@ test('POST ignores client verification, confidence and provenance and stores the
 
   expect(response.status).toBe(200);
   const row = captured.insert as Record<string, unknown>;
-  expect(row.provider).toBe('waha');
-  expect(row.citation_data).toEqual(expect.objectContaining({ verificationStatus: 'unverified', confidenceScore: 0, provenance: [], metadataOrigin: 'client_submitted' }));
+  // A browser-supplied item is a user-asserted reference (Slice 1), never a discovered one.
+  expect(row.provider).toBe('user_asserted');
+  expect(row.citation_data).toEqual(expect.objectContaining({ verificationStatus: 'unverified', confidenceScore: 0, provenance: [], metadataOrigin: 'user_asserted' }));
   expect(body.item.verificationStatus).toBe('unverified');
 });
 
