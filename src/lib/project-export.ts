@@ -3,7 +3,7 @@ import { FIELD_LABELS, STAGE_LABELS } from '@/lib/email/project-snapshot';
 type ExportDocument = { type: string | null; content: unknown; version: number | null };
 type ExportSource = { raw_text: string | null; parsed_citation_apa: string | null; parsed_citation_ieee: string | null };
 export type ExportReference = { title: string; authors: unknown; publication_year: number | null; publication_title: string | null; doi: string | null; url: string | null };
-export type ProjectExportSection = { title: string; paragraphs: string[] };
+export type ProjectExportSection = { title: string; paragraphs: string[]; level?: 1 | 2 };
 export type ProjectExportModel = { title: string; notice: string; sections: ProjectExportSection[] };
 
 function referenceAuthors(value: unknown): string {
@@ -83,15 +83,17 @@ export function buildProjectExportModel(project: { title: string | null; univers
   const documentSections = latestExportDocuments(documents).map(([type, document]) => {
     const stage = type.slice(8) as keyof typeof STAGE_LABELS;
     const label = type.startsWith('journey:') ? STAGE_LABELS[stage].ar : type;
-    return { title: `${plainText(label)} - النسخة ${document.version || 1}`, paragraphs: plainContent(document.content) };
+    return { title: `${plainText(label)} - النسخة ${document.version || 1}`, paragraphs: plainContent(document.content), level: 1 as const };
   });
   const sourceSections = sources.map((source, index) => ({
     title: `المصدر ${index + 1}`,
+    level: 2 as const,
     paragraphs: [source.raw_text, source.parsed_citation_apa && `APA: ${source.parsed_citation_apa}`, source.parsed_citation_ieee && `IEEE: ${source.parsed_citation_ieee}`]
       .filter((value): value is string => Boolean(value)).map(plainText),
   }));
   const referenceSections = references.map((reference, index) => ({
     title: `المرجع ${index + 1}`,
+    level: 2 as const,
     paragraphs: [
       `العنوان: ${reference.title}`,
       referenceAuthors(reference.authors) && `المؤلفون: ${referenceAuthors(reference.authors)}`,
@@ -105,11 +107,11 @@ export function buildProjectExportModel(project: { title: string | null; univers
     title: plainText(project.title || 'مشروع بحثي'),
     notice: 'نسخة من آخر المخرجات المحفوظة؛ لا تعني اعتماد المخطوط أو ضمان قبوله للنشر.',
     sections: [
-      { title: 'تعليمات الجامعة', paragraphs: [plainText(project.university_policy || 'لم تُحدد')] },
+      { title: 'تعليمات الجامعة', paragraphs: [plainText(project.university_policy || 'لم تُحدد')], level: 1 },
       ...documentSections,
-      { title: 'المصادر المحفوظة', paragraphs: ['هذه بيانات المصادر كما حُفظت، وليست توثيقاً متحققاً منه تلقائياً.'] },
+      { title: 'المصادر المحفوظة', paragraphs: ['هذه بيانات المصادر كما حُفظت، وليست توثيقاً متحققاً منه تلقائياً.'], level: 1 },
       ...sourceSections,
-      { title: 'مكتبة مراجع المشروع', paragraphs: ['بيانات ببليوغرافية محفوظة؛ يجب مراجعتها قبل اعتماد نمط التوثيق النهائي.'] },
+      { title: 'مكتبة مراجع المشروع', paragraphs: ['بيانات ببليوغرافية محفوظة؛ يجب مراجعتها قبل اعتماد نمط التوثيق النهائي.'], level: 1 },
       ...referenceSections,
     ],
   };

@@ -153,6 +153,8 @@ describe('routing and cross-source deduplication', () => {
     const openAlex = jest.spyOn(OpenAlexService.prototype, 'search')
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([translatedPaper]);
+    jest.spyOn(ArxivService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(DataCiteService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(SemanticScholarService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([]);
@@ -175,6 +177,7 @@ describe('routing and cross-source deduplication', () => {
     jest.spyOn(OpenAlexService.prototype, 'search')
       .mockRejectedValueOnce(new Error('Arabic index unavailable'))
       .mockResolvedValueOnce([recoveredPaper]);
+    jest.spyOn(DataCiteService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(SemanticScholarService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([]);
