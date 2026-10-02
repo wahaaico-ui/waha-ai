@@ -2,9 +2,11 @@
 
 ## Verified release gate
 
-- Date: 2026-09-21
+- Date: 2026-10-02
 - Target: `https://waha.systems`
-- Result: **18/18 production browser checks passed**
+- Result: **19/19 production browser checks passed**
+- Tested release: `9748dcc881bd89fc2939a8d7464546492ca44a3f`
+- CI evidence: https://github.com/wahaaico-ui/waha-ai/actions/runs/37028044177
 - Fixtures: isolated temporary Supabase accounts and projects, removed after the run
 - Command: `npm run test:e2e:production`
 
@@ -27,6 +29,13 @@
 - Every run creates unique accounts and deletes any surviving fixtures in a `finally` cleanup.
 - Recovery verification uses the same PKCE-compatible `token_hash` confirmation route as production email templates; secret-bearing URL fragments are not used.
 - CI runs only on manual dispatch because the gate creates and permanently deletes isolated production fixtures.
+
+## Evidence boundaries
+
+- The journey gate submits fixed synthetic stage payloads and checks rendered output. It does not certify the scientific quality of every generated AI draft.
+- Google OAuth initiation is checked; interactive completion with a personal Google account is not automated.
+- Temporary users are preconfirmed. Signup email delivery and inbox receipt are documented separately in `TRANSACTIONAL_EMAIL_VERIFICATION.md`; they were not reverified by this run.
+- Android checks use Chromium device emulation, not a physical Xiaomi browser.
 
 ## Re-run
 

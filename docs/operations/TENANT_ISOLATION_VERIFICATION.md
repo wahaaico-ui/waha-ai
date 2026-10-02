@@ -2,10 +2,11 @@
 
 ## Verified gate
 
-- Date: 2026-09-21
+- Date: 2026-10-02
 - Target: Supabase production project used by `https://waha.systems`
 - Command: `npm run test:authorization`
 - Result: **passed**
+- CI evidence: https://github.com/wahaaico-ui/waha-ai/actions/runs/37028044177
 - Actors: two isolated confirmed users plus one anonymous browser client
 - Cleanup: temporary accounts and rows are deleted after every run
 
