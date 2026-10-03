@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { createServiceClient } from '@/lib/supabase/service';
+import { referenceOrigin } from '@/lib/research-references';
 import { normaliseDoi } from '@/lib/academic/integrations/normalization';
 import type { CitationItem } from '@/lib/citations';
 import { BibliographyEngine, CITATION_STYLES } from '@/lib/citations';
@@ -13,24 +14,6 @@ import {
   USER_ASSERTED_METADATA,
   USER_ASSERTED_PROVIDER,
 } from '@/lib/research-search-results';
-
-// Where a reference's metadata came from, from the values the server set.
-// A discovered reference must also carry the server-held search result it was
-// rehydrated from; a row that only names the discovery provider (for example
-// one written before browser writes were closed) is labelled legacy, as are
-// rows saved before Slice 1 (provider 'waha' or a provider named by the browser).
-function referenceOrigin(row: ReferenceRow) {
-  if (row.provider === DISCOVERY_PROVIDER) return hasDiscoveryRecord(row.citation_data) ? 'server_discovered' : 'legacy_client_submitted';
-  if (row.provider === USER_ASSERTED_PROVIDER) return 'user_asserted';
-  if (row.provider === 'zotero') return 'zotero_import';
-  return 'legacy_client_submitted';
-}
-
-function hasDiscoveryRecord(citationData: unknown) {
-  if (!citationData || typeof citationData !== 'object' || Array.isArray(citationData)) return false;
-  const discovery = (citationData as { discovery?: unknown }).discovery;
-  return Boolean(discovery && typeof discovery === 'object' && typeof (discovery as { resultId?: unknown }).resultId === 'string' && (discovery as { resultId: string }).resultId);
-}
 
 function toLibraryItem(row: ReferenceRow) {
   return { ...toItem(row), origin: referenceOrigin(row) };
@@ -157,6 +140,8 @@ export async function DELETE(request: Request) {
     const url = new URL(request.url); const projectId = url.searchParams.get('projectId') || ''; const referenceId = url.searchParams.get('referenceId') || '';
     if (!projectId || !referenceId || !(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     const { error } = await access.supabase.from('project_references').delete().eq('id', referenceId).eq('project_id', projectId).eq('user_id', access.user.id);
+    // A reference cited by project evidence is kept until that evidence is removed.
+    if (error?.code === '23503') return NextResponse.json({ error: 'This reference is cited by project evidence. Remove that evidence first.' }, { status: 409 });
     if (error) throw error;
     return NextResponse.json({ success: true });
   } catch { return NextResponse.json({ error: 'Unable to remove reference' }, { status: 500 }); }
