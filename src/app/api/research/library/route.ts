@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { createServiceClient } from '@/lib/supabase/service';
 import { normaliseDoi } from '@/lib/academic/integrations/normalization';
 import type { CitationItem } from '@/lib/citations';
 import { BibliographyEngine, CITATION_STYLES } from '@/lib/citations';
@@ -13,18 +14,26 @@ import {
   USER_ASSERTED_PROVIDER,
 } from '@/lib/research-search-results';
 
-// Where a reference's metadata came from, from the provider value the server set.
-// Rows saved before Slice 1 (provider 'waha' or a provider named by the browser)
-// are labelled legacy, not discovered.
-function referenceOrigin(provider: string) {
-  if (provider === DISCOVERY_PROVIDER) return 'server_discovered';
-  if (provider === USER_ASSERTED_PROVIDER) return 'user_asserted';
-  if (provider === 'zotero') return 'zotero_import';
+// Where a reference's metadata came from, from the values the server set.
+// A discovered reference must also carry the server-held search result it was
+// rehydrated from; a row that only names the discovery provider (for example
+// one written before browser writes were closed) is labelled legacy, as are
+// rows saved before Slice 1 (provider 'waha' or a provider named by the browser).
+function referenceOrigin(row: ReferenceRow) {
+  if (row.provider === DISCOVERY_PROVIDER) return hasDiscoveryRecord(row.citation_data) ? 'server_discovered' : 'legacy_client_submitted';
+  if (row.provider === USER_ASSERTED_PROVIDER) return 'user_asserted';
+  if (row.provider === 'zotero') return 'zotero_import';
   return 'legacy_client_submitted';
 }
 
+function hasDiscoveryRecord(citationData: unknown) {
+  if (!citationData || typeof citationData !== 'object' || Array.isArray(citationData)) return false;
+  const discovery = (citationData as { discovery?: unknown }).discovery;
+  return Boolean(discovery && typeof discovery === 'object' && typeof (discovery as { resultId?: unknown }).resultId === 'string' && (discovery as { resultId: string }).resultId);
+}
+
 function toLibraryItem(row: ReferenceRow) {
-  return { ...toItem(row), origin: referenceOrigin(row.provider) };
+  return { ...toItem(row), origin: referenceOrigin(row) };
 }
 
 type ReferenceRow = { id: string; project_id: string; provider: string; external_item_key: string; doi: string | null; title: string; authors: unknown; publication_year: number | null; publication_title: string | null; url: string | null; citation_data: unknown };
@@ -110,7 +119,10 @@ export async function POST(request: Request) {
       publication_year: candidate.year, publication_title: candidate.journal, url: candidate.url,
       citation_data: { ...candidate, id: externalKey, ...origin }, synced_at: new Date().toISOString(),
     };
-    const { data, error } = await access.supabase.from('project_references').insert(row).select(SELECT_COLUMNS).single();
+    // project_references is written only by the server (migration
+    // 20261004000000). The project was verified as the caller's above, and
+    // project_id and user_id come from that check, not from the request.
+    const { data, error } = await createServiceClient().from('project_references').insert(row).select(SELECT_COLUMNS).single();
     if (error?.code === '23505') {
       // A concurrent save created the same reference first; return that row.
       const saved = await access.supabase.from('project_references').select(SELECT_COLUMNS).eq('project_id', projectId).eq('user_id', access.user.id).eq('external_item_key', externalKey).limit(1).maybeSingle();

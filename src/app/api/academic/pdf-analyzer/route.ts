@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { AI_OUTPUT_NOT_ASSESSED, generateStructured } from '@/lib/ai/geminiClient';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { logOperationalEvent, requestCorrelationId } from '@/lib/observability';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // The uploaded PDF's own text is stored as the project source first. Citation
 // extraction (/api/academic/citations) works from that stored text alone, so
@@ -18,7 +19,9 @@ export async function POST(request: Request) {
 
     // Inserted exactly once, before and independently of the model call. The
     // text comes from the uploaded file and is not assessed or verified.
-    const { data, error } = await access.supabase.from('sources').insert({ project_id: projectId, raw_text: rawText, confidence: AI_OUTPUT_NOT_ASSESSED }).select('id').single();
+    // sources is written only by the server (migration 20261004000000), after
+    // the ownership check above.
+    const { data, error } = await createServiceClient().from('sources').insert({ project_id: projectId, raw_text: rawText, confidence: AI_OUTPUT_NOT_ASSESSED }).select('id').single();
     if (error || !data) return NextResponse.json({ error: 'Unable to save source' }, { status: 500 });
 
     try {

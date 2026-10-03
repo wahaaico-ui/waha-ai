@@ -6,23 +6,39 @@ type SourceRow = { id: string; project_id: string; raw_text: string; confidence:
 const store: { sources: SourceRow[] } = { sources: [] };
 const sourceWrites: Array<{ kind: 'insert' | 'update'; row: Record<string, unknown> }> = [];
 
-// In-memory stand-in for the `sources` table used by both routes.
+// In-memory stand-in for the `sources` table used by both routes. Writes go
+// through the server (service-role) client; the session client only reads, and
+// any write through it fails the test.
+const sourcesTable = {
+  insert: (row: Omit<SourceRow, 'id'>) => {
+    sourceWrites.push({ kind: 'insert', row });
+    const saved = { ...row, id: `source-${store.sources.length + 1}` } as SourceRow;
+    store.sources.push(saved);
+    return { select: () => ({ single: async () => ({ data: { id: saved.id }, error: null }) }) };
+  },
+  update: (patch: Partial<SourceRow>) => {
+    const filters: Record<string, string> = {};
+    const query = {
+      eq: (column: string, value: string) => { filters[column] = value; return query; },
+      then: (resolve: (value: unknown) => unknown) => {
+        sourceWrites.push({ kind: 'update', row: patch });
+        const target = store.sources.find((row) => row.id === filters.id && (!filters.project_id || row.project_id === filters.project_id));
+        if (target) Object.assign(target, patch);
+        return Promise.resolve({ error: null }).then(resolve);
+      },
+    };
+    return query;
+  },
+};
+
+const sessionWrites: string[] = [];
 const sessionClient = {
   from: (table: string) => {
     if (table !== 'sources') throw new Error(`unexpected table ${table}`);
     return {
-      insert: (row: Omit<SourceRow, 'id'>) => {
-        sourceWrites.push({ kind: 'insert', row });
-        const saved = { ...row, id: `source-${store.sources.length + 1}` } as SourceRow;
-        store.sources.push(saved);
-        return { select: () => ({ single: async () => ({ data: { id: saved.id }, error: null }) }) };
-      },
+      insert: () => { sessionWrites.push('insert'); throw new Error('sources must not be written with the session client'); },
+      update: () => { sessionWrites.push('update'); throw new Error('sources must not be written with the session client'); },
       select: () => ({ eq: (_column: string, id: string) => ({ maybeSingle: async () => ({ data: store.sources.find((row) => row.id === id) || null, error: null }) }) }),
-      update: (patch: Partial<SourceRow>) => ({ eq: async (_column: string, id: string) => {
-        sourceWrites.push({ kind: 'update', row: patch });
-        Object.assign(store.sources.find((row) => row.id === id) || {}, patch);
-        return { error: null };
-      } }),
     };
   },
 };
@@ -37,7 +53,9 @@ jest.mock('@/lib/supabase/authorization', () => ({
     return row ? { id: row.id, project_id: row.project_id } : null;
   },
 }));
-jest.mock('@/lib/supabase/service', () => ({ createServiceClient: () => ({ from: () => ({ insert: async () => ({ error: null }) }) }) }));
+jest.mock('@/lib/supabase/service', () => ({
+  createServiceClient: () => ({ from: (table: string) => table === 'sources' ? sourcesTable : { insert: async () => ({ error: null }) } }),
+}));
 const citeAs = jest.fn();
 jest.mock('@/lib/language/CiteAsService', () => ({ CiteAsService: { citations: (...args: unknown[]) => citeAs(...args) } }));
 
@@ -63,6 +81,7 @@ function providersFail() {
 beforeEach(() => {
   store.sources = [];
   sourceWrites.length = 0;
+  sessionWrites.length = 0;
   jest.clearAllMocks();
   requireAuthenticatedUser.mockResolvedValue({ user: { id: 'user-a' }, supabase: sessionClient });
   ownsProject.mockResolvedValue(true);
@@ -72,6 +91,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  // Every test: sources was never written with the browser's session.
+  expect(sessionWrites).toEqual([]);
   global.fetch = originalFetch;
   for (const key of providerKeys) {
     if (originalKeys[key] === undefined) delete process.env[key];

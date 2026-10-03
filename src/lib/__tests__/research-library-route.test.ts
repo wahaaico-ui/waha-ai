@@ -1,4 +1,7 @@
 jest.mock('@/lib/supabase/authorization', () => ({ requireAuthenticatedUser: jest.fn(), ownsProject: jest.fn() }));
+// project_references is written only through the server client.
+const mockServiceFrom = jest.fn();
+jest.mock('@/lib/supabase/service', () => ({ createServiceClient: () => ({ from: (...args: unknown[]) => mockServiceFrom(...args) }) }));
 
 import { GET, POST } from '@/app/api/research/library/route';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
@@ -45,11 +48,9 @@ function libraryPost(item: Record<string, unknown>) {
 
 test('POST ignores client verification, confidence and provenance and stores the reference as unverified', async () => {
   const captured: { insert?: Record<string, unknown> } = {};
-  let call = 0;
-  const from = jest.fn(() => {
-    call += 1;
-    return call === 1 ? chain({ data: null, error: null }) : chain({ data: savedRow(), error: null }, captured);
-  });
+  const sessionInsert = jest.fn();
+  const from = jest.fn(() => ({ ...chain({ data: null, error: null }), insert: sessionInsert }));
+  mockServiceFrom.mockImplementation(() => chain({ data: savedRow({ provider: 'user_asserted' }), error: null }, captured));
   auth.mockResolvedValue({ user: { id: 'user-a' }, supabase: { from } }); owns.mockResolvedValue(true);
 
   const response = await libraryPost({
@@ -64,6 +65,18 @@ test('POST ignores client verification, confidence and provenance and stores the
   expect(row.provider).toBe('user_asserted');
   expect(row.citation_data).toEqual(expect.objectContaining({ verificationStatus: 'unverified', confidenceScore: 0, provenance: [], metadataOrigin: 'user_asserted' }));
   expect(body.item.verificationStatus).toBe('unverified');
+  // The browser's session never writes the row; the server client does, with
+  // the project and user from the ownership check.
+  expect(sessionInsert).not.toHaveBeenCalled();
+  expect(mockServiceFrom).toHaveBeenCalledWith('project_references');
+  expect(row).toEqual(expect.objectContaining({ project_id: 'project-a', user_id: 'user-a' }));
+});
+
+test('POST writes nothing for a project the caller does not own', async () => {
+  auth.mockResolvedValue({ user: { id: 'user-a' }, supabase: { from: jest.fn() } }); owns.mockResolvedValue(false);
+  const response = await POST(new Request('http://localhost/api/research/library', { method: 'POST', body: JSON.stringify({ projectId: 'user-b-project', item: { title: 'Study title', user_id: 'user-b' } }) }));
+  expect(response.status).toBe(404);
+  expect(mockServiceFrom).not.toHaveBeenCalled();
 });
 
 test('POST never overwrites an existing reference (e.g. a Zotero import) with client metadata', async () => {
@@ -92,4 +105,18 @@ test('GET reports legacy rows with a stored "verified" status as unverified', as
 
   expect(response.status).toBe(200);
   expect(body.items[0]).toEqual(expect.objectContaining({ verificationStatus: 'unverified', confidenceScore: 0, provenance: ['openalex'] }));
+});
+
+test('GET labels a discovery-provider row as server_discovered only when it carries its server search record', async () => {
+  const withRecord = savedRow({ id: 'ref-1', provider: 'waha_discovery', citation_data: { metadataOrigin: 'server_discovered', discovery: { resultId: '6f1c7a52-2d1e-4c0b-9a51-0b7f1f1f2a10' } } });
+  const withoutRecord = savedRow({ id: 'ref-2', provider: 'waha_discovery', external_item_key: 'forged', citation_data: { metadataOrigin: 'server_discovered' } });
+  const manual = savedRow({ id: 'ref-3', provider: 'user_asserted', external_item_key: 'manual' });
+  const from = jest.fn(() => chain({ data: [withRecord, withoutRecord, manual], error: null }));
+  auth.mockResolvedValue({ user: { id: 'user-a' }, supabase: { from } }); owns.mockResolvedValue(true);
+
+  const body = await (await GET(new Request('http://localhost/api/research/library?projectId=project-a'))).json();
+
+  expect(body.items.map((item: { id: string; origin: string }) => [item.id, item.origin])).toEqual([
+    ['ref-1', 'server_discovered'], ['ref-2', 'legacy_client_submitted'], ['ref-3', 'user_asserted'],
+  ]);
 });

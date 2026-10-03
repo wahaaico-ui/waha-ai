@@ -120,10 +120,12 @@ async function run() {
     content: '{"owner":"a"}',
     version: 1,
   }, 'id');
-  const source = await insert(clientA, 'sources', {
+  // sources and project_references are written only by the server (migration
+  // 20261004000000), so these fixtures are created with the server client.
+  const source = await insert(service, 'sources', {
     project_id: project.id,
     raw_text: `RLS source ${runId}`,
-    confidence: 'high',
+    confidence: 'not_assessed',
   }, 'id');
   const generation = await insert(service, 'ai_generations_log', {
     project_id: project.id,
@@ -132,10 +134,10 @@ async function run() {
     output: 'owner-a',
     confidence_label: 'high',
   }, 'id');
-  const reference = await insert(clientA, 'project_references', {
+  const reference = await insert(service, 'project_references', {
     project_id: project.id,
     user_id: userA.id,
-    provider: 'manual-test',
+    provider: 'user_asserted',
     external_item_key: runId,
     title: `RLS reference ${runId}`,
   }, 'id');
@@ -310,6 +312,50 @@ async function run() {
   }).select('id');
   assertMutationBlocked(forgedResult, 'Browser owner must not insert a server-held search result');
 
+  // Integrity: the owner must not forge or rewrite reference provenance or a
+  // source's parsed citation and confidence, but may still remove their rows.
+  const forgedReference = await clientA.from('project_references').insert({
+    project_id: project.id,
+    user_id: userA.id,
+    provider: 'waha_discovery',
+    external_item_key: `forged-${runId}`,
+    title: 'Forged discovered reference',
+    citation_data: { metadataOrigin: 'server_discovered', discovery: { resultId: crypto.randomUUID() } },
+  }).select('id');
+  assertMutationBlocked(forgedReference, 'Browser owner must not insert a reference labelled server-discovered');
+  await assertCannotUpdate(clientA, 'project_references', 'id', reference.id, { provider: 'waha_discovery', title: 'Rewritten', citation_data: { metadataOrigin: 'server_discovered' } }, 'Browser owner must not rewrite reference metadata or provenance');
+  const forgedSource = await clientA.from('sources').insert({
+    project_id: project.id,
+    raw_text: 'Forged source',
+    parsed_citation_apa: 'Forged, A. (2026). Invented study.',
+    confidence: 'high',
+  }).select('id');
+  assertMutationBlocked(forgedSource, 'Browser owner must not insert a source with a parsed citation');
+  await assertCannotUpdate(clientA, 'sources', 'id', source.id, { parsed_citation_apa: 'Forged, A. (2026). Invented study.', confidence: 'high' }, 'Browser owner must not rewrite a source citation or confidence');
+  const referenceAfter = await service.from('project_references').select('provider, title, citation_data').eq('id', reference.id).single();
+  if (referenceAfter.error) throw referenceAfter.error;
+  assert.equal(referenceAfter.data.provider, 'user_asserted', 'Reference provenance must remain as the server stored it');
+  assert.equal(referenceAfter.data.title, `RLS reference ${runId}`, 'Reference metadata must remain as the server stored it');
+  const sourceAfter = await service.from('sources').select('parsed_citation_apa, confidence').eq('id', source.id).single();
+  if (sourceAfter.error) throw sourceAfter.error;
+  assert.equal(sourceAfter.data.parsed_citation_apa, null, 'Source citation must remain as the server stored it');
+  assert.equal(sourceAfter.data.confidence, 'not_assessed', 'Source confidence must remain as the server stored it');
+
+  const removableReference = await insert(service, 'project_references', {
+    project_id: project.id,
+    user_id: userA.id,
+    provider: 'user_asserted',
+    external_item_key: `removable-${runId}`,
+    title: `Removable reference ${runId}`,
+  }, 'id');
+  const removableSource = await insert(service, 'sources', { project_id: project.id, raw_text: `Removable source ${runId}`, confidence: 'not_assessed' }, 'id');
+  await assertCannotDelete(clientB, 'project_references', 'id', removableReference.id, 'User B must not delete user A reference');
+  for (const [table, row] of [['project_references', removableReference], ['sources', removableSource]]) {
+    const removed = await clientA.from(table).delete().eq('id', row.id).select('id');
+    if (removed.error) throw removed.error;
+    assert.equal(removed.data.length, 1, `Owner must still delete their own ${table} row`);
+  }
+
   // Integrity (not confidentiality): the owner must not forge or rewrite the
   // server-owned research state of their own project.
   for (const type of ['journey:verify', 'idea_verification']) {
@@ -379,6 +425,7 @@ async function run() {
   console.log('PASS 5 server-managed datasets reject direct browser mutation');
   console.log('PASS verification and usage audit records cannot be forged by browser clients');
   console.log('PASS server-owned journey documents and AI generation logs cannot be forged, rewritten or deleted by their owner');
+  console.log('PASS reference provenance and source citations cannot be forged or rewritten by their owner, who can still delete them');
   console.log('PASS production rate limiter accepts then blocks atomically and rejects direct browser RPC calls');
 }
 

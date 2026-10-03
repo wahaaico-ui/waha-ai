@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ownedSource, ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { CiteAsService } from '@/lib/language/CiteAsService';
 import { normaliseDoi } from '@/lib/academic/integrations/normalization';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // Bibliographic citations are never written by a language model. A citation is
 // produced only when the source text contains a DOI that an external citation
@@ -40,12 +41,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, citation: null, doi, status: 'formatter_unavailable', message: 'تعذر الحصول على توثيق لهذا المعرّف الآن، ولم يُنشأ توثيق بديل.' });
     }
 
+    // sources is written only by the server (migration 20261004000000). The
+    // source or project was verified as the caller's above; the write is scoped
+    // to that source and its project.
+    const serverWriter = createServiceClient();
     let resolvedSourceId = source?.id || null;
-    if (resolvedSourceId) {
-      const { error } = await access.supabase.from('sources').update({ parsed_citation_apa: apa, parsed_citation_ieee: ieee, confidence: CITATION_CONFIDENCE }).eq('id', resolvedSourceId);
+    if (source) {
+      const { error } = await serverWriter.from('sources').update({ parsed_citation_apa: apa, parsed_citation_ieee: ieee, confidence: CITATION_CONFIDENCE }).eq('id', source.id).eq('project_id', source.project_id);
       if (error) return NextResponse.json({ error: 'Unable to save source' }, { status: 500 });
     } else {
-      const { data, error } = await access.supabase.from('sources').insert({ project_id: projectId, raw_text: reference || doi, parsed_citation_apa: apa, parsed_citation_ieee: ieee, confidence: CITATION_CONFIDENCE }).select('id').single();
+      const { data, error } = await serverWriter.from('sources').insert({ project_id: projectId, raw_text: reference || doi, parsed_citation_apa: apa, parsed_citation_ieee: ieee, confidence: CITATION_CONFIDENCE }).select('id').single();
       if (error) return NextResponse.json({ error: 'Unable to save source' }, { status: 500 });
       resolvedSourceId = data.id;
     }

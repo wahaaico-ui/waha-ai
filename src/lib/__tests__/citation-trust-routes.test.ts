@@ -6,6 +6,10 @@ jest.mock('@/lib/supabase/authorization', () => ({
 }));
 const citeAs = jest.fn();
 jest.mock('@/lib/language/CiteAsService', () => ({ CiteAsService: { citations: (...args: unknown[]) => citeAs(...args) } }));
+// sources is written only with the server client; each test's table double
+// installs itself here.
+let mockServerFrom: jest.Mock = jest.fn();
+jest.mock('@/lib/supabase/service', () => ({ createServiceClient: () => ({ from: (...args: unknown[]) => mockServerFrom(...args) }) }));
 const generateStructured = jest.fn();
 jest.mock('@/lib/ai/geminiClient', () => ({ generateStructured: (...args: unknown[]) => generateStructured(...args) }));
 
@@ -49,11 +53,17 @@ describe('research/citations does not accept client verification state', () => {
 });
 
 describe('academic/citations never asks a language model for a citation', () => {
+  // The session client may only read sources; writes go to the server client.
   function sourcesTable(rawText: string) {
-    const update = jest.fn(() => ({ eq: jest.fn().mockResolvedValue({ error: null }) }));
+    const updateFilters: Array<[string, unknown]> = [];
+    type UpdateQuery = { eq: (column: string, value: unknown) => UpdateQuery; then: (resolve: (value: unknown) => unknown) => Promise<unknown> };
+    const updateQuery: UpdateQuery = { eq: (column, value) => { updateFilters.push([column, value]); return updateQuery; }, then: (resolve) => Promise.resolve({ error: null }).then(resolve) };
+    const update = jest.fn(() => updateQuery);
     const insert = jest.fn(() => ({ select: () => ({ single: jest.fn().mockResolvedValue({ data: { id: 'new-source' }, error: null }) }) }));
     const select = jest.fn(() => ({ eq: () => ({ maybeSingle: jest.fn().mockResolvedValue({ data: { raw_text: rawText } }) }) }));
-    return { from: jest.fn(() => ({ update, insert, select })), update, insert };
+    const sessionWrite = jest.fn();
+    mockServerFrom = jest.fn(() => ({ update, insert }));
+    return { from: jest.fn(() => ({ select, update: sessionWrite, insert: sessionWrite })), update, insert, updateFilters, sessionWrite };
   }
 
   test('text without a DOI (the workspace upload case) stores no citation and calls no model', async () => {
@@ -105,8 +115,33 @@ describe('academic/citations never asks a language model for a citation', () => 
     const body = await response.json();
 
     expect(body).toEqual(expect.objectContaining({ verificationStatus: 'unverified', status: 'formatted_from_doi' }));
-    expect(table.insert).toHaveBeenCalledWith(expect.objectContaining({ confidence: 'unverified_external_formatter', parsed_citation_apa: 'Author, A. (2020). Real study. Journal.' }));
+    expect(table.insert).toHaveBeenCalledWith(expect.objectContaining({ project_id: 'project-a', confidence: 'unverified_external_formatter', parsed_citation_apa: 'Author, A. (2020). Real study. Journal.' }));
+    expect(table.sessionWrite).not.toHaveBeenCalled();
     expect(generateStructured).not.toHaveBeenCalled();
+  });
+
+  test('a citation for an uploaded source is written by the server, scoped to that source and its project', async () => {
+    const table = sourcesTable('PLOS ONE https://doi.org/10.1371/journal.pone.0298037 body');
+    citeAs.mockResolvedValue([{ style: 'apa', styleName: 'APA', citation: 'Real, A. (2024). Study. PLOS ONE.' }]);
+    auth.mockResolvedValue({ user: { id: 'user-a' }, supabase: { from: table.from } }); ownsSource.mockResolvedValue({ id: 'source-1', project_id: 'project-a' });
+
+    const body = await (await academicCitations(json('http://localhost/api/academic/citations', { sourceId: 'source-1' }))).json();
+
+    expect(body.status).toBe('formatted_from_doi');
+    expect(table.update).toHaveBeenCalledWith({ parsed_citation_apa: 'Real, A. (2024). Study. PLOS ONE.', parsed_citation_ieee: null, confidence: 'unverified_external_formatter' });
+    expect(table.updateFilters).toEqual([['id', 'source-1'], ['project_id', 'project-a']]);
+    expect(table.sessionWrite).not.toHaveBeenCalled();
+  });
+
+  test('a source the caller does not own is refused before any write', async () => {
+    const table = sourcesTable('doi 10.1000/real.1');
+    auth.mockResolvedValue({ user: { id: 'user-a' }, supabase: { from: table.from } }); ownsSource.mockResolvedValue(null);
+
+    const response = await academicCitations(json('http://localhost/api/academic/citations', { sourceId: 'user-b-source' }));
+
+    expect(response.status).toBe(404);
+    expect(mockServerFrom).not.toHaveBeenCalled();
+    expect(citeAs).not.toHaveBeenCalled();
   });
 
   test('only the opening of an uploaded PDF is searched for its DOI', async () => {

@@ -165,17 +165,19 @@ function libraryRequest(body: Record<string, unknown>) {
 }
 
 function libraryUser(userId: string) {
-  const captured: { insert?: Record<string, unknown> } = {};
-  let call = 0;
-  signIn(userId, jest.fn(() => {
-    call += 1;
-    // First call: existing-reference lookup (none). Second: the insert.
-    if (call === 1) return chain({ data: null, error: null });
+  const captured: { insert?: Record<string, unknown>; sessionInsert?: unknown } = {};
+  // The session client only reads (existing-reference lookup) and must never
+  // insert: project_references is written by the server client.
+  const sessionLookup = chain({ data: null, error: null });
+  sessionLookup.insert = jest.fn((row: unknown) => { captured.sessionInsert = row; return sessionLookup; });
+  signIn(userId, jest.fn(() => sessionLookup));
+  mockServiceFrom.mockImplementation((table: string) => {
+    if (table !== 'project_references') throw new Error(`unexpected server write to ${table}`);
     const insert = chain({ data: null, error: null }, captured);
     // The saved row echoes what was inserted.
     insert.single = jest.fn(async () => ({ data: { id: 'ref-1', ...(captured.insert || {}) }, error: null }));
     return insert;
-  }));
+  });
   return captured;
 }
 
@@ -192,6 +194,7 @@ describe('project library', () => {
     expect(inserted.citation_data).toEqual(expect.objectContaining({ verificationStatus: 'unverified', confidenceScore: 0, metadataOrigin: 'server_discovered', discovery: expect.objectContaining({ resultId: row.id }) }));
     expect(JSON.stringify(inserted)).not.toMatch(/Forged|10\.9999|zotero/);
     expect(body.item.origin).toBe('server_discovered');
+    expect(captured.sessionInsert).toBeUndefined();
   });
 
   test.each([
@@ -214,6 +217,7 @@ describe('project library', () => {
     expect(captured.insert).toEqual(expect.objectContaining({ provider: 'user_asserted', title: 'Manually entered study' }));
     expect((captured.insert as Record<string, unknown>).citation_data).toEqual(expect.objectContaining({ metadataOrigin: 'user_asserted', verificationStatus: 'unverified', provenance: [] }));
     expect(body.item.origin).toBe('user_asserted');
+    expect(captured.sessionInsert).toBeUndefined();
   });
 
   test('sending both a result id and a reference is refused', async () => {
