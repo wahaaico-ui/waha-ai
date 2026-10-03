@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     // never supplies their metadata when saving (src/lib/research-search-results.ts).
     let resultIds: string[];
     try {
-      resultIds = await storeSearchResults({ userId: access.user.id, projectId, context: 'literature', query: title, papers: relevantPapers });
+      resultIds = await storeSearchResults({ userId: access.user.id, projectId, context: 'literature', query: title, papers: relevantPapers, scope: { domain: result.domain, providers: result.providers, candidateCount: result.papers.length } });
     } catch {
       return respond({ success: false, error: 'تعذر حفظ نتائج البحث لاختيارها. أعد المحاولة بعد قليل.' }, 503, 'search_results_not_stored');
     }

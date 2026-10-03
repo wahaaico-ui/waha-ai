@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { AcademicPaper } from '@/lib/academic/integrations/types';
+import type { AcademicPaper, ProviderSearchResult } from '@/lib/academic/integrations/types';
 import { normaliseDoi } from '@/lib/academic/integrations/normalization';
 import type { CitationItem } from '@/lib/citations/types';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -133,14 +133,51 @@ async function recordObservations(service: ServiceClient, papers: AcademicPaper[
   }
 }
 
+/** What the providers returned for one search, recorded as its scope (Slice 6). */
+export type SearchScope = { domain: string | null; providers: ProviderSearchResult[]; candidateCount: number };
+
+/** Limitations stated with every recorded search: what it could and could not cover. */
+export function searchLimitations(scope: SearchScope | undefined, storedCount: number) {
+  const limitations = ['Covers only the providers and query recorded here; not an exhaustive review of the literature.'];
+  if (!scope) return [...limitations, 'Provider coverage for this search was not recorded.'];
+  const unavailable = scope.providers.filter((provider) => !provider.available).map((provider) => provider.provider);
+  if (unavailable.length) limitations.push(`Unavailable during this search: ${unavailable.join(', ')}.`);
+  if (!scope.providers.some((provider) => provider.available)) limitations.push('No provider was available; the absence of results says nothing about the literature.');
+  if (scope.candidateCount > storedCount) limitations.push(`${scope.candidateCount - storedCount} retrieved record(s) were not kept after relevance filtering.`);
+  limitations.push('Each provider returns a limited number of top-ranked records per query.');
+  return limitations;
+}
+
+/**
+ * Records the scope of one search (Slice 6) so later gap assessments can say
+ * exactly what was searched. A failure is logged and does not affect the search.
+ */
+async function recordSearchRun(service: ServiceClient, input: { searchRunId: string; userId: string; projectId: string; context: SearchContext; query: string; scope?: SearchScope; storedCount: number; executedAt: string }) {
+  const providers = (input.scope?.providers || []).map((provider) => ({ provider: provider.provider, available: provider.available, returned: provider.papers.length, ...(provider.error ? { error: String(provider.error).slice(0, 200) } : {}) }));
+  try {
+    const { error } = await service.from('research_search_runs').insert({
+      id: input.searchRunId, user_id: input.userId, project_id: input.projectId, context: input.context,
+      query: input.query.slice(0, 1_000), domain: input.scope?.domain?.slice(0, 64) || null, providers,
+      providers_attempted: providers.length, providers_available: providers.filter((provider) => provider.available).length,
+      candidate_count: input.scope ? input.scope.candidateCount : null, result_count: input.storedCount,
+      limitations: searchLimitations(input.scope, input.storedCount), executed_at: input.executedAt,
+    });
+    if (error) throw error;
+  } catch {
+    logOperationalEvent('warn', { event: 'research.search_run.not_recorded', route: 'storeSearchResults', outcome: 'fallback', errorCode: 'search_run_not_recorded' });
+  }
+}
+
 /** Stores one search's results and returns their server-issued ids, in order. */
-export async function storeSearchResults(input: { userId: string; projectId: string; context: SearchContext; query: string; papers: AcademicPaper[] }) {
+export async function storeSearchResults(input: { userId: string; projectId: string; context: SearchContext; query: string; papers: AcademicPaper[]; scope?: SearchScope }) {
   const service = createServiceClient();
   const now = new Date().toISOString();
   // Expired results are no longer selectable; remove this user's old ones.
   await service.from('research_search_results').delete().eq('user_id', input.userId).lt('expires_at', now);
-  if (!input.papers.length) return [] as string[];
   const searchRunId = randomUUID();
+  // A search that found nothing is recorded too: its scope matters.
+  await recordSearchRun(service, { searchRunId, userId: input.userId, projectId: input.projectId, context: input.context, query: input.query, scope: input.scope, storedCount: input.papers.length, executedAt: now });
+  if (!input.papers.length) return [] as string[];
   const workIds = await resolveCanonicalWorks(service, input.papers, now);
   await recordObservations(service, input.papers, workIds, now, searchRunId);
   const rows = input.papers.map((paper, position) => ({

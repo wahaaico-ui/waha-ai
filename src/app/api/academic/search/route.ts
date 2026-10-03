@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     // Results are held on the server for this user and project, so a project is required.
     if (!projectId || !(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ success: false, error: 'المشروع غير موجود.' }, { status: 404 });
     const result = await UnifiedResearchEngine.searchDetailed({ query, specialty, limit: 25 });
-    const resultIds = await storeSearchResults({ userId: access.user.id, projectId, context: 'evidence_panel', query, papers: result.papers });
+    const resultIds = await storeSearchResults({ userId: access.user.id, projectId, context: 'evidence_panel', query, papers: result.papers, scope: { domain: result.domain, providers: result.providers, candidateCount: result.papers.length } });
     return NextResponse.json({
       success: true,
       data: result.papers.map((paper, index) => ({

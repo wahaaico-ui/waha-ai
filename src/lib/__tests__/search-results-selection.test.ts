@@ -4,7 +4,7 @@
 jest.mock('@/lib/supabase/authorization', () => ({ requireAuthenticatedUser: jest.fn(), ownsProject: jest.fn() }));
 jest.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => ({
-    from: (table: string) => table === 'research_search_results' || table === 'scholarly_work_observations' ? mockResults.client.from(table) : mockServiceFrom(table),
+    from: (table: string) => ['research_search_results', 'scholarly_work_observations', 'research_search_runs'].includes(table) ? mockResults.client.from(table) : mockServiceFrom(table),
     rpc: (name: string, args: Record<string, unknown>) => mockResults.client.rpc(name, args),
   }),
 }));
@@ -55,6 +55,7 @@ beforeEach(() => {
   mockResults.rows.splice(0);
   mockResults.rpcCalls.splice(0);
   mockResults.observations.splice(0);
+  mockResults.searchRuns.splice(0);
   mockResults.setResolve(null);
 });
 
