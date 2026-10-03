@@ -5,17 +5,17 @@
 -- each search result can point to the work it describes (research_search_results
 -- .work_id). Identity is decided only by resolve_scholarly_works below, which
 -- applies the rules in src/lib/academic/identity.ts:
---   * a different publisher DOI, PMID, PMCID or base arXiv ID is a different work;
+--   * a different publisher DOI, PMID, PMCID or base arXiv ID is a different work
 --   * the same DOI, PMID, PMCID, base arXiv ID or provider record ID is the same
---     work;
+--     work
 --   * an arXiv ID belongs only to a work without a publisher DOI: a preprint and
 --     its version of record stay separate works, even when a provider lists the
---     arXiv ID on the published record;
+--     arXiv ID on the published record
 --   * without any identifier, only an exact fingerprint (normalised title of at
---     least four words, year and first-author family name) matches;
---   * if a record's identifiers lead to more than one conflict-free existing
+--     least four words, year and first-author family name) matches
+--   * if the identifiers of a record lead to more than one conflict-free existing
 --     work, it is ambiguous: no work is chosen, changed or created, and the
---     search result is stored without one (work_id null);
+--     search result is stored without one (work_id null)
 --   * anything uncertain stays separate.
 --
 -- Abstracts are deliberately not stored here: provider terms for permanent
@@ -24,17 +24,23 @@
 --
 -- Additive only: two new tables, one function, one nullable column. Existing
 -- rows are not changed and code that ignores work_id keeps working. There is no
--- browser access to the tables or the function; the server (service role)
+-- browser access to the tables or the function, the server (service role)
 -- calls the function when it stores search results.
 --
 -- Rollout: apply this migration BEFORE deploying the code that uses it. Old code
 -- does not use any of it.
 --
--- Rollback (after rolling back the code):
---   drop function if exists public.resolve_scholarly_works(jsonb);
---   alter table public.research_search_results drop column if exists work_id;
---   drop table if exists public.scholarly_work_identifiers;
---   drop table if exists public.scholarly_works;
+-- Apply the file exactly as committed (for example from the raw file on
+-- GitHub), not text copied from a rendered chat or document. The file avoids
+-- constructs that some SQL tools split incorrectly (apostrophes or semicolons
+-- in comments, unlabeled dollar quotes, dollar signs in string literals) and
+-- verifies its own result at the end.
+--
+-- Rollback (after rolling back the code), one statement per line:
+--   drop function if exists public.resolve_scholarly_works(jsonb)
+--   alter table public.research_search_results drop column if exists work_id
+--   drop table if exists public.scholarly_work_identifiers
+--   drop table if exists public.scholarly_works
 
 create table if not exists public.scholarly_works (
   id uuid primary key default gen_random_uuid(),
@@ -80,13 +86,13 @@ create table if not exists public.scholarly_work_identifiers (
   -- Each identifier belongs to exactly one work.
   primary key (scheme, value),
   constraint scholarly_work_identifier_format check (
-    (scheme = 'doi' and value ~ '^10\.[0-9]{4,9}/\S+$' and value = lower(value) and value not like '10.48550/arxiv.%')
-    or (scheme = 'arxiv' and value ~ '^([0-9]{4}\.[0-9]{4,5}|[a-z-]+(\.[a-z]{2})?/[0-9]{7})$')
-    or (scheme = 'pmid' and value ~ '^[1-9][0-9]{0,8}$')
-    or (scheme = 'pmcid' and value ~ '^PMC[0-9]+$')
-    or (scheme = 'openalex' and value ~ '^W[0-9]+$')
-    or (scheme = 'semantic_scholar' and value ~ '^[0-9a-f]{40}$')
-    or (scheme = 'core' and value ~ '^[1-9][0-9]{0,11}$')
+    (scheme = 'doi' and value ~ '^10\.[0-9]{4,9}/\S+\Z' and value = lower(value) and value not like '10.48550/arxiv.%')
+    or (scheme = 'arxiv' and value ~ '^([0-9]{4}\.[0-9]{4,5}|[a-z-]+(\.[a-z]{2})?/[0-9]{7})\Z')
+    or (scheme = 'pmid' and value ~ '^[1-9][0-9]{0,8}\Z')
+    or (scheme = 'pmcid' and value ~ '^PMC[0-9]+\Z')
+    or (scheme = 'openalex' and value ~ '^W[0-9]+\Z')
+    or (scheme = 'semantic_scholar' and value ~ '^[0-9a-f]{40}\Z')
+    or (scheme = 'core' and value ~ '^[1-9][0-9]{0,11}\Z')
   )
 );
 create index if not exists scholarly_work_identifiers_work_idx on public.scholarly_work_identifiers (work_id);
@@ -115,7 +121,7 @@ create or replace function public.resolve_scholarly_works(p_records jsonb)
 returns jsonb
 language plpgsql
 set search_path = public, pg_temp
-as $$
+as $resolve_scholarly_works$
 declare
   v_record jsonb;
   v_ids jsonb;
@@ -161,7 +167,7 @@ begin
     v_doi := v_ids->>'doi';
     v_work := null; v_outcome := null; v_match := null; v_candidates := null;
 
-    -- Ambiguity: when the record's identifiers lead to more than one
+    -- Ambiguity: when the identifiers of the record lead to more than one
     -- conflict-free existing work, no work is chosen, none is changed and no
     -- new work is created. The result is stored without a work (work_id null)
     -- and stays usable through its server-held result id.
@@ -211,7 +217,7 @@ begin
       v_outcome := 'unidentified';
     end if;
 
-    -- A new work needs at least one identifier it can own; if every identifier
+    -- A new work needs at least one identifier it can own, if every identifier
     -- of this record already belongs to works it conflicts with, it stays
     -- unlinked rather than becoming an identifier-less duplicate.
     if v_outcome is null and v_ids <> '{}'::jsonb and not exists (
@@ -257,7 +263,7 @@ begin
         , identity_basis = case when v_doi is not null then 'doi' else w.identity_basis end
       where w.id = v_work;
       -- Identity fields are replaced only by a higher-priority source that
-      -- shares the work's DOI, PMID or PMCID; the change is versioned.
+      -- shares the DOI, PMID or PMCID of the work, the change is versioned.
       if v_match in ('doi', 'registry') then
         update scholarly_works w set
           identity_source = v_record->>'identitySource',
@@ -276,7 +282,7 @@ begin
       end if;
     end if;
 
-    -- Attach the record's identifiers to its work. An identifier owned by
+    -- Attach the identifiers of the record to its work. An identifier owned by
     -- another work is left there, and an exclusive identifier is never added
     -- to a work that already has a different value of that scheme.
     if v_work is not null and v_outcome in ('created', 'matched') then
@@ -309,7 +315,50 @@ begin
   end loop;
   return v_results;
 end;
-$$;
+$resolve_scholarly_works$;
 
-revoke all on function public.resolve_scholarly_works(jsonb) from public, anon, authenticated;
-grant execute on function public.resolve_scholarly_works(jsonb) to service_role;
+-- Privileges on the resolver are applied to the function object found by
+-- to_regprocedure, and the migration aborts (rolling everything back) if the
+-- function does not exist at this point, for example because the statement
+-- above did not reach the database intact.
+do $privileges$
+declare
+  v_resolver regprocedure := to_regprocedure('public.resolve_scholarly_works(jsonb)');
+begin
+  if v_resolver is null then
+    raise exception 'Slice 2A migration incomplete: public.resolve_scholarly_works(jsonb) was not created. Apply the migration file exactly as committed.';
+  end if;
+  execute format('revoke all on function %s from public, anon, authenticated', v_resolver);
+  execute format('grant execute on function %s to service_role', v_resolver);
+end
+$privileges$;
+
+-- Final self-check: every object of this migration exists with the intended
+-- access, or the whole migration is rolled back.
+do $verify$
+declare
+  v_resolver regprocedure := to_regprocedure('public.resolve_scholarly_works(jsonb)');
+begin
+  if to_regclass('public.scholarly_works') is null or to_regclass('public.scholarly_work_identifiers') is null then
+    raise exception 'Slice 2A verification failed: canonical tables are missing';
+  end if;
+  if not exists (select 1 from information_schema.columns
+                  where table_schema = 'public' and table_name = 'research_search_results' and column_name = 'work_id') then
+    raise exception 'Slice 2A verification failed: research_search_results.work_id is missing';
+  end if;
+  if v_resolver is null or (select prorettype from pg_proc where oid = v_resolver) <> 'jsonb'::regtype then
+    raise exception 'Slice 2A verification failed: public.resolve_scholarly_works(jsonb) returning jsonb is missing';
+  end if;
+  if has_function_privilege('anon', v_resolver, 'execute') or has_function_privilege('authenticated', v_resolver, 'execute')
+     or not has_function_privilege('service_role', v_resolver, 'execute') then
+    raise exception 'Slice 2A verification failed: resolver privileges are not service-role only';
+  end if;
+  if exists (select 1 from aclexplode((select proacl from pg_proc where oid = v_resolver)) a where a.grantee = 0) then
+    raise exception 'Slice 2A verification failed: PUBLIC can execute the resolver';
+  end if;
+  if has_table_privilege('anon', 'public.scholarly_works', 'select') or has_table_privilege('authenticated', 'public.scholarly_works', 'select')
+     or has_table_privilege('anon', 'public.scholarly_work_identifiers', 'select') or has_table_privilege('authenticated', 'public.scholarly_work_identifiers', 'select') then
+    raise exception 'Slice 2A verification failed: browser roles can read canonical tables';
+  end if;
+end
+$verify$;
