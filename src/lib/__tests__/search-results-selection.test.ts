@@ -380,3 +380,43 @@ describe('canonical scholarly works', () => {
     }
   });
 });
+
+// ---- Slice 2B: references linked to canonical works ---------------------------
+
+describe('project references linked to canonical works', () => {
+  const WORK = '7d1c7a52-2d1e-4c0b-9a51-0b7f1f1f2a10';
+  const FORGED = '9e2d8b63-3e2f-4d1c-8b62-1c8f2f2f3b21';
+
+  test('a reference saved from a search result is linked to that result\'s canonical work', async () => {
+    const row = seed({ work_id: WORK });
+    const captured = libraryUser('user-a');
+    const response = await libraryRequest({ projectId: 'project-a', resultId: row.id });
+    expect(response.status).toBe(200);
+    expect(captured.insert).toEqual(expect.objectContaining({ work_id: WORK, provider: 'waha_discovery' }));
+  });
+
+  test('a work id sent by the browser is ignored; the server-held result decides', async () => {
+    const row = seed({ work_id: WORK });
+    const captured = libraryUser('user-a');
+    const response = await libraryRequest({ projectId: 'project-a', resultId: row.id, work_id: FORGED, workId: FORGED });
+    expect(response.status).toBe(200);
+    expect((captured.insert as Record<string, unknown>).work_id).toBe(WORK);
+    expect(JSON.stringify(captured.insert)).not.toContain(FORGED);
+  });
+
+  test('a result without a canonical work saves a reference without one', async () => {
+    const row = seed({ work_id: null });
+    const captured = libraryUser('user-a');
+    expect((await libraryRequest({ projectId: 'project-a', resultId: row.id })).status).toBe(200);
+    expect(captured.insert).not.toHaveProperty('work_id');
+  });
+
+  test('a manual source is not linked to a canonical work or trusted, even with a work id in the request', async () => {
+    const captured = libraryUser('user-a');
+    const response = await libraryRequest({ projectId: 'project-a', item: { title: 'Manually entered study', doi: '10.1000/manual', work_id: FORGED }, workId: FORGED });
+    expect(response.status).toBe(200);
+    expect(captured.insert).not.toHaveProperty('work_id');
+    expect(captured.insert).toEqual(expect.objectContaining({ provider: 'user_asserted' }));
+    expect(JSON.stringify(captured.insert)).not.toContain(FORGED);
+  });
+});

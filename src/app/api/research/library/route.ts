@@ -88,12 +88,16 @@ export async function POST(request: Request) {
     let candidate: CitationItem | null;
     let provider: string;
     let origin: Record<string, unknown>;
+    // The canonical work comes only from the server-held search result
+    // (Slice 2B); a work id in the request is never read.
+    let workId: string | null = null;
     if (resultId !== undefined) {
       // A discovered source: metadata is rehydrated from the server-held search
       // result for this user and project; the request only names the result.
       const { resolved } = await resolveSearchResults({ userId: access.user.id, projectId, resultIds: [String(resultId)] });
       if (!resolved.length) return NextResponse.json({ error: 'Search result not found or expired' }, { status: 404 });
       const [result] = resolved;
+      workId = result.workId;
       candidate = citationItemFromDiscovered(result.paper);
       provider = DISCOVERY_PROVIDER;
       origin = { metadataOrigin: SERVER_DISCOVERED_METADATA, discovery: { resultId: result.resultId, searchRunId: result.searchRunId, providers: result.paper.providers, retrievedAt: result.retrievedAt } };
@@ -109,15 +113,27 @@ export async function POST(request: Request) {
 
     // An existing reference (for example a Zotero import) is never overwritten;
     // saving the same work again returns it unchanged.
-    const existing = await access.supabase.from('project_references').select(SELECT_COLUMNS).eq('project_id', projectId).eq('user_id', access.user.id).eq('external_item_key', externalKey).limit(1).maybeSingle();
-    if (existing.error) throw existing.error;
-    if (existing.data) return NextResponse.json({ success: true, item: toLibraryItem(existing.data as ReferenceRow), existing: true });
+    // A project holds one reference per canonical work, so the same work saved
+    // from another search returns the existing reference.
+    const findExisting = async () => {
+      if (workId) {
+        const byWork = await access.supabase.from('project_references').select(SELECT_COLUMNS).eq('project_id', projectId).eq('user_id', access.user.id).eq('work_id', workId).limit(1).maybeSingle();
+        if (byWork.error) throw byWork.error;
+        if (byWork.data) return byWork.data;
+      }
+      const byKey = await access.supabase.from('project_references').select(SELECT_COLUMNS).eq('project_id', projectId).eq('user_id', access.user.id).eq('external_item_key', externalKey).limit(1).maybeSingle();
+      if (byKey.error) throw byKey.error;
+      return byKey.data;
+    };
+    const existing = await findExisting();
+    if (existing) return NextResponse.json({ success: true, item: toLibraryItem(existing as ReferenceRow), existing: true });
 
     const row = {
       project_id: projectId, user_id: access.user.id, provider, external_item_key: externalKey,
       doi: candidate.doi, title: candidate.title, authors: candidate.authors.map((name) => ({ type: 'author', name })),
       publication_year: candidate.year, publication_title: candidate.journal, url: candidate.url,
       citation_data: { ...candidate, id: externalKey, ...origin }, synced_at: new Date().toISOString(),
+      ...(workId ? { work_id: workId } : {}),
     };
     // project_references is written only by the server (migration
     // 20261004000000). The project was verified as the caller's above, and
@@ -125,9 +141,9 @@ export async function POST(request: Request) {
     const { data, error } = await createServiceClient().from('project_references').insert(row).select(SELECT_COLUMNS).single();
     if (error?.code === '23505') {
       // A concurrent save created the same reference first; return that row.
-      const saved = await access.supabase.from('project_references').select(SELECT_COLUMNS).eq('project_id', projectId).eq('user_id', access.user.id).eq('external_item_key', externalKey).limit(1).maybeSingle();
-      if (saved.error || !saved.data) throw saved.error || error;
-      return NextResponse.json({ success: true, item: toLibraryItem(saved.data as ReferenceRow), existing: true });
+      const saved = await findExisting();
+      if (!saved) throw error;
+      return NextResponse.json({ success: true, item: toLibraryItem(saved as ReferenceRow), existing: true });
     }
     if (error) throw error;
     return NextResponse.json({ success: true, item: toLibraryItem(data as ReferenceRow) });
