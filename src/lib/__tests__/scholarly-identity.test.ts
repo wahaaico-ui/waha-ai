@@ -150,6 +150,24 @@ describe('identity decisions', () => {
     expect(deduplicatePapers([paper({ pmid: '1' }), paper({ pmid: '2' })])).toHaveLength(2);
   });
 
+  test('a record matching two different kept records is ambiguous and merged into neither', () => {
+    const byPmid = paper({ pmid: '11111111', title: 'First work found by PMID only here' });
+    const byOpenAlex = paper({ providerIds: { openalex: 'W5000' }, title: 'Second work found by OpenAlex only' });
+    const both = paper({ pmid: '11111111', providerIds: { openalex: 'W5000' }, title: 'Record claiming both identifiers' });
+    const records = deduplicatePapers([byPmid, byOpenAlex, both]);
+    expect(records).toHaveLength(3);
+    expect(records.map((record) => record.title)).toEqual([byPmid.title, byOpenAlex.title, both.title]);
+  });
+
+  test('a record whose identifiers all point to one kept record merges normally', () => {
+    const records = deduplicatePapers([
+      paper({ pmid: '11111111', providerIds: { openalex: 'W5000' } }),
+      paper({ pmid: '11111111', providerIds: { openalex: 'W5000', core: '9' }, source: 'core', sources: ['core'] }),
+    ]);
+    expect(records).toHaveLength(1);
+    expect(identifiersOf(records[0])).toEqual({ pmid: '11111111', openalex: 'W5000', core: '9' });
+  });
+
   test('deduplication merges records sharing a PMID and keeps both provider record IDs', () => {
     const merged = deduplicatePapers([
       paper({ pmid: '38012345', providerIds: { openalex: 'W1' } }),

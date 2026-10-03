@@ -93,13 +93,15 @@ export function mergePaper(first: AcademicPaper, second: AcademicPaper): Academi
 
 /**
  * Collapses records of the same work, judged only by compareIdentity. When
- * identity is uncertain the records are kept as separate results.
+ * identity is uncertain the records are kept as separate results, including
+ * when a record matches more than one kept record: no record is chosen
+ * arbitrarily.
  */
 export function deduplicatePapers(papers: AcademicPaper[]) {
   const records: AcademicPaper[] = [];
   for (const paper of papers) {
-    const index = records.findIndex((candidate) => compareIdentity(candidate, paper).same);
-    if (index >= 0) records[index] = mergePaper(records[index], paper);
+    const matches = records.flatMap((candidate, index) => compareIdentity(candidate, paper).same ? [index] : []);
+    if (matches.length === 1) records[matches[0]] = mergePaper(records[matches[0]], paper);
     else records.push(paper);
   }
   return records;

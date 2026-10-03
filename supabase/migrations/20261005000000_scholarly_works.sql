@@ -13,6 +13,9 @@
 --     arXiv ID on the published record;
 --   * without any identifier, only an exact fingerprint (normalised title of at
 --     least four words, year and first-author family name) matches;
+--   * if a record's identifiers lead to more than one conflict-free existing
+--     work, it is ambiguous: no work is chosen, changed or created, and the
+--     search result is stored without one (work_id null);
 --   * anything uncertain stays separate.
 --
 -- Abstracts are deliberately not stored here: provider terms for permanent
@@ -158,22 +161,33 @@ begin
     v_doi := v_ids->>'doi';
     v_work := null; v_outcome := null; v_match := null; v_candidates := null;
 
+    -- Ambiguity: when the record's identifiers lead to more than one
+    -- conflict-free existing work, no work is chosen, none is changed and no
+    -- new work is created. The result is stored without a work (work_id null)
+    -- and stays usable through its server-held result id.
     if v_doi is not null then
       select work_id into v_work from scholarly_work_identifiers where scheme = 'doi' and value = v_doi;
       if v_work is not null then
         v_outcome := 'matched'; v_match := 'doi';
       else
-        -- A work without a DOI may gain this one only when a PMID, PMCID or
-        -- provider record ID identifies it unambiguously and nothing conflicts.
-        -- A preprint work (one with an arXiv ID) never gains a publisher DOI.
+        -- A work without a DOI may gain this one only when its PMID, PMCID or
+        -- provider record IDs lead to exactly one conflict-free work. A work
+        -- that already has a (different) DOI, or a differing PMID, PMCID or
+        -- arXiv ID, is provably another work and is not a candidate.
         select array_agg(distinct i.work_id) into v_candidates
           from scholarly_work_identifiers i join jsonb_each_text(v_ids) e on i.scheme = e.key and i.value = e.value
-         where e.key in ('pmid', 'pmcid', 'openalex', 'semantic_scholar', 'core');
-        if cardinality(v_candidates) = 1
-           and not exists (select 1 from scholarly_work_identifiers c where c.work_id = v_candidates[1] and c.scheme in ('doi', 'arxiv'))
-           and not exists (select 1 from scholarly_work_identifiers c join jsonb_each_text(v_ids) e on c.scheme = e.key
-                            where c.work_id = v_candidates[1] and c.scheme in ('pmid', 'pmcid', 'arxiv') and c.value <> e.value) then
-          v_work := v_candidates[1]; v_outcome := 'matched'; v_match := 'identifier';
+         where e.key in ('pmid', 'pmcid', 'openalex', 'semantic_scholar', 'core')
+           and not exists (select 1 from scholarly_work_identifiers d where d.work_id = i.work_id and d.scheme = 'doi')
+           and not exists (select 1 from scholarly_work_identifiers c join jsonb_each_text(v_ids) x on c.scheme = x.key
+                            where c.work_id = i.work_id and c.scheme in ('pmid', 'pmcid', 'arxiv') and c.value <> x.value);
+        if cardinality(v_candidates) = 1 then
+          -- A preprint work (one with an arXiv ID) never gains a publisher DOI:
+          -- the record is its version of record, a separate work.
+          if not exists (select 1 from scholarly_work_identifiers c where c.work_id = v_candidates[1] and c.scheme = 'arxiv') then
+            v_work := v_candidates[1]; v_outcome := 'matched'; v_match := 'identifier';
+          end if;
+        elsif cardinality(v_candidates) > 1 then
+          v_outcome := 'ambiguous';
         end if;
       end if;
     elsif v_ids <> '{}'::jsonb then
@@ -188,13 +202,6 @@ begin
         v_work := v_candidates[1]; v_outcome := 'matched';
         v_match := case when v_ids ? 'pmid' or v_ids ? 'pmcid' then 'registry' else 'identifier' end;
       elsif cardinality(v_candidates) > 1 then
-        -- Several works claim this record's identifiers: link to the one found
-        -- by the strongest identifier and change nothing.
-        select i.work_id into v_work
-          from scholarly_work_identifiers i join jsonb_each_text(v_ids) e on i.scheme = e.key and i.value = e.value
-         where i.work_id = any (v_candidates)
-         order by array_position(array['pmid', 'pmcid', 'arxiv', 'openalex', 'semantic_scholar', 'core'], i.scheme)
-         limit 1;
         v_outcome := 'ambiguous';
       end if;
     elsif v_record->>'fingerprint' is not null then
@@ -271,8 +278,7 @@ begin
 
     -- Attach the record's identifiers to its work. An identifier owned by
     -- another work is left there, and an exclusive identifier is never added
-    -- to a work that already has a different value of that scheme. An
-    -- ambiguous link changes nothing.
+    -- to a work that already has a different value of that scheme.
     if v_work is not null and v_outcome in ('created', 'matched') then
       for v_scheme, v_value in select key, value from jsonb_each_text(v_ids) loop
         -- arXiv IDs stay with the preprint work, never a work with a DOI.
@@ -294,7 +300,12 @@ begin
       end loop;
     end if;
 
-    v_results := v_results || jsonb_build_array(jsonb_build_object('workId', v_work, 'outcome', v_outcome, 'match', v_match));
+    -- Diagnostics for unresolved records: candidate work ids and the
+    -- identifier schemes involved (no titles, queries or users).
+    v_results := v_results || jsonb_build_array(jsonb_build_object(
+      'workId', v_work, 'outcome', v_outcome, 'match', v_match,
+      'candidateWorkIds', case when v_outcome = 'ambiguous' then to_jsonb(v_candidates) else '[]'::jsonb end,
+      'identifierSchemes', (select coalesce(jsonb_agg(key order by key), '[]'::jsonb) from jsonb_object_keys(v_ids) key)));
   end loop;
   return v_results;
 end;

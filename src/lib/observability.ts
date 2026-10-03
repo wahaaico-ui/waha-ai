@@ -14,6 +14,8 @@ export interface OperationalEvent {
   stage?: string;
   outcome?: 'success' | 'fallback' | 'rejected' | 'failed';
   errorCode?: string;
+  /** Non-sensitive identifiers for investigation (never user content, queries or credentials). */
+  diagnostics?: Record<string, string | number | string[]>;
 }
 
 export interface OperationalRequestContext {

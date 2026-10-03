@@ -85,6 +85,43 @@ select pg_temp.check((select work_id from t_results where label = 'meta-b') <> (
 select pg_temp.resolve('unidentified', pg_temp.rec('{}'));
 select pg_temp.check((select work_id is null and outcome = 'unidentified' from t_results where label = 'unidentified'), 'a record without identifiers or fingerprint is not linked');
 
+-- Ambiguity: identifiers that lead to more than one conflict-free work
+select pg_temp.resolve('amb-w1', pg_temp.rec('{"pmid":"11111111"}', 'Ambiguity work one', 'pubmed', 60));
+select pg_temp.resolve('amb-w2', pg_temp.rec('{"openalex":"W5000"}', 'Ambiguity work two'));
+create temporary table t_snapshot on commit drop as
+  select 'work' as kind, to_jsonb(w) as row from scholarly_works w where w.id in (select work_id from t_results where label in ('amb-w1', 'amb-w2'))
+  union all
+  select 'identifier', to_jsonb(i) from scholarly_work_identifiers i where i.work_id in (select work_id from t_results where label in ('amb-w1', 'amb-w2'));
+create temporary table t_counts on commit drop as
+  select (select count(*) from scholarly_works) as works, (select count(*) from scholarly_work_identifiers) as identifiers;
+
+select pg_temp.resolve('amb-1', pg_temp.rec('{"pmid":"11111111","openalex":"W5000","core":"5001"}'));
+select pg_temp.check((select work_id is null and outcome = 'ambiguous' from t_results where label = 'amb-1'), 'identifiers pointing to two existing works resolve to no work');
+select pg_temp.check((select public.resolve_scholarly_works(jsonb_build_array(pg_temp.rec('{"pmid":"11111111","openalex":"W5000"}')))->0->'candidateWorkIds' @> to_jsonb(array[(select work_id from t_results where label = 'amb-w1'), (select work_id from t_results where label = 'amb-w2')])), 'the ambiguous outcome reports both candidate works for investigation');
+select pg_temp.resolve('amb-doi', pg_temp.rec('{"doi":"10.1000/ambiguous-new","pmid":"11111111","openalex":"W5000"}'));
+select pg_temp.check((select work_id is null and outcome = 'ambiguous' from t_results where label = 'amb-doi'), 'a new DOI whose other identifiers point to two works is also ambiguous');
+select pg_temp.resolve('amb-repeat', pg_temp.rec('{"pmid":"11111111","openalex":"W5000","core":"5001"}'));
+select pg_temp.check((select work_id is null and outcome = 'ambiguous' from t_results where label = 'amb-repeat'), 'repeating the ambiguous resolution gives the same result');
+select pg_temp.check(not exists (
+    (select kind, row from t_snapshot)
+    except
+    (select 'work', to_jsonb(w) from scholarly_works w where w.id in (select work_id from t_results where label in ('amb-w1', 'amb-w2'))
+     union all
+     select 'identifier', to_jsonb(i) from scholarly_work_identifiers i where i.work_id in (select work_id from t_results where label in ('amb-w1', 'amb-w2')))),
+  'neither existing work nor its identifiers was modified');
+select pg_temp.check((select works = (select count(*) from scholarly_works) and identifiers = (select count(*) from scholarly_work_identifiers) from t_counts), 'no third work and no new identifier was created');
+select pg_temp.check(not exists (select 1 from scholarly_work_identifiers where (scheme, value) in (('core', '5001'), ('doi', '10.1000/ambiguous-new'))), 'the ambiguous record attached no identifier anywhere');
+
+-- Not ambiguous: all identifiers lead to one work, or every other candidate provably conflicts
+select pg_temp.resolve('amb-w1-openalex', pg_temp.rec('{"pmid":"11111111","openalex":"W5100"}'));
+select pg_temp.check((select work_id from t_results where label = 'amb-w1-openalex') = (select work_id from t_results where label = 'amb-w1'), 'a record whose identifiers lead to one work resolves to it');
+select pg_temp.resolve('consistent', pg_temp.rec('{"pmid":"11111111","openalex":"W5100","core":"5200"}'));
+select pg_temp.check((select work_id from t_results where label = 'consistent') = (select work_id from t_results where label = 'amb-w1') and (select outcome from t_results where label = 'consistent') = 'matched', 'several identifiers that all point to one work resolve normally');
+select pg_temp.check((select work_id from scholarly_work_identifiers where scheme = 'core' and value = '5200') = (select work_id from t_results where label = 'amb-w1'), 'and its new identifier is attached to that work');
+select pg_temp.resolve('amb-w3', pg_temp.rec('{"pmid":"22222222","openalex":"W5300"}', 'A third work'));
+select pg_temp.resolve('conflict-free-one', pg_temp.rec('{"pmid":"11111111","openalex":"W5300"}'));
+select pg_temp.check((select work_id from t_results where label = 'conflict-free-one') = (select work_id from t_results where label = 'amb-w1'), 'a candidate with a conflicting PMID is not ambiguity: the one conflict-free work is chosen');
+
 -- Constraints
 do $$ begin
   begin

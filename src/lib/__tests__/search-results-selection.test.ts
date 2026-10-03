@@ -331,6 +331,31 @@ describe('canonical scholarly works', () => {
     expect(mockResults.rows[0]).toEqual(expect.objectContaining({ work_id: null, user_id: 'user-a' }));
   });
 
+  test('an ambiguous identity leaves the result without a work, logs it, and the result stays usable by its id', async () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const candidates = ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222'];
+    // Even if a work id came back with an ambiguous outcome, it is not used.
+    mockResults.setResolve(() => ({ data: [{ workId: candidates[0], outcome: 'ambiguous', candidateWorkIds: candidates, identifierSchemes: ['openalex', 'pmid'] }], error: null }));
+    signIn('user-a');
+
+    for (const attempt of [1, 2]) {
+      const response = await runSearch();
+      expect(response.status).toBe(200);
+      expect(mockResults.rows[attempt - 1].work_id).toBeNull();
+    }
+    const logged = warn.mock.calls.map(([line]) => JSON.parse(String(line))).filter((entry) => entry.event === 'research.scholarly_identity.ambiguous');
+    expect(logged).toHaveLength(2);
+    expect(logged[0]).toEqual(expect.objectContaining({ errorCode: 'identity_ambiguous', diagnostics: { position: 0, provider: 'openalex', identifierSchemes: ['openalex', 'pmid'], candidateWorkIds: candidates } }));
+    expect(JSON.stringify(logged)).not.toMatch(/canonical identity study|user-a|project-a/);
+
+    // The stored result is still selected and saved through its result id.
+    const captured = libraryUser('user-a');
+    const saved = await libraryRequest({ projectId: 'project-a', resultId: mockResults.rows[0].id });
+    expect(saved.status).toBe(200);
+    expect(captured.insert).toEqual(expect.objectContaining({ provider: 'waha_discovery', doi: '10.1000/found' }));
+    warn.mockRestore();
+  });
+
   test('a work id sent by the browser is not accepted in place of a result id', async () => {
     const captured = libraryUser('user-a');
     const response = await libraryRequest({ projectId: 'project-a', workId: '6f1c7a52-2d1e-4c0b-9a51-0b7f1f1f2a10' });

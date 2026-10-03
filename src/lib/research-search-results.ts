@@ -98,10 +98,19 @@ async function resolveCanonicalWorks(service: ServiceClient, papers: AcademicPap
   try {
     const { data, error } = await service.rpc('resolve_scholarly_works', { p_records: papers.map((paper) => canonicalRecordFrom(paper, observedAt)) });
     if (error || !Array.isArray(data) || data.length !== papers.length) throw new Error('SCHOLARLY_WORKS_NOT_RESOLVED');
-    const outcomes = data as Array<{ workId?: unknown; outcome?: unknown }>;
-    const conflicts = outcomes.filter((entry) => entry.outcome === 'conflict' || entry.outcome === 'ambiguous').length;
-    if (conflicts) logOperationalEvent('warn', { event: 'research.scholarly_identity.unresolved', route: 'storeSearchResults', outcome: 'fallback', errorCode: `identity_conflict:${conflicts}` });
-    return outcomes.map((entry) => typeof entry.workId === 'string' ? entry.workId : null);
+    const outcomes = data as Array<{ workId?: unknown; outcome?: unknown; candidateWorkIds?: unknown; identifierSchemes?: unknown }>;
+    const strings = (value: unknown) => Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+    outcomes.forEach((entry, position) => {
+      // Ambiguous or conflicting identity is not asserted: the result is kept
+      // without a work and the case is logged for investigation.
+      if (entry.outcome !== 'ambiguous' && entry.outcome !== 'conflict') return;
+      logOperationalEvent('warn', {
+        event: entry.outcome === 'ambiguous' ? 'research.scholarly_identity.ambiguous' : 'research.scholarly_identity.conflict',
+        route: 'storeSearchResults', outcome: 'fallback', errorCode: `identity_${entry.outcome}`,
+        diagnostics: { position, provider: papers[position].source, identifierSchemes: strings(entry.identifierSchemes), candidateWorkIds: strings(entry.candidateWorkIds) },
+      });
+    });
+    return outcomes.map((entry) => entry.outcome === 'ambiguous' || typeof entry.workId !== 'string' ? null : entry.workId);
   } catch {
     logOperationalEvent('warn', { event: 'research.scholarly_identity.unavailable', route: 'storeSearchResults', outcome: 'fallback', errorCode: 'scholarly_works_not_resolved' });
     return papers.map(() => null);
