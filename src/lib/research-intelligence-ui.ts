@@ -27,6 +27,23 @@ export function sourceOriginLabel(origin: string | null | undefined) {
   return SOURCE_ORIGIN_LABELS[(origin as ReferenceOrigin) in SOURCE_ORIGIN_LABELS ? origin as ReferenceOrigin : 'legacy_client_submitted'];
 }
 
+/**
+ * What a discovered record's internal status means, in provenance terms. The
+ * status counts which indexes returned the record and whether it carries a
+ * persistent identifier. It says nothing about the content of the work, so it
+ * is never shown as verification or as a confidence percentage.
+ */
+export const DISCOVERY_RECORD_LABELS: Record<string, { label: string; tone: Tone }> = {
+  verified: { label: 'ورد في أكثر من فهرس مع معرّف ثابت', tone: 'info' },
+  'cross-checked': { label: 'ورد في أكثر من فهرس', tone: 'info' },
+  'partially-verified': { label: 'ورد في فهرس واحد مع معرّف ثابت', tone: 'neutral' },
+  unverified: { label: 'ورد في فهرس واحد دون معرّف ثابت', tone: 'caution' },
+};
+
+export function discoveryRecordLabel(status: string | null | undefined) {
+  return DISCOVERY_RECORD_LABELS[status || ''] || DISCOVERY_RECORD_LABELS.unverified;
+}
+
 export const CANONICAL_LINK_LABEL = 'مرتبط بسجل علمي موحّد';
 
 // ---- Evidence -------------------------------------------------------------------
