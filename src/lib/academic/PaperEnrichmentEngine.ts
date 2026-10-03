@@ -12,8 +12,17 @@ export class PaperEnrichmentEngine {
         paper.doi ? OpenCitationsService.citationCount(paper.doi) : Promise.resolve(null),
       ]);
       const pdfUrl = access.status === 'fulfilled' ? access.value || paper.pdfUrl : paper.pdfUrl;
-      const citationCount = citations.status === 'fulfilled' && citations.value !== null ? Math.max(paper.citationCount, citations.value) : paper.citationCount;
-      const candidate: AcademicPaper = { ...paper, pdfUrl, openAccess: paper.openAccess || Boolean(pdfUrl), citationCount };
+      const openCitations = citations.status === 'fulfilled' && citations.value !== null ? citations.value : null;
+      const citationCount = openCitations !== null ? Math.max(paper.citationCount, openCitations) : paper.citationCount;
+      // Enriched values keep their source: an open-access link found by
+      // Unpaywall and OpenCitations' count are recorded as such, not merged
+      // into a provider's values.
+      const unpaywallLink = !paper.pdfUrl && Boolean(pdfUrl);
+      const candidate: AcademicPaper = {
+        ...paper, pdfUrl, openAccess: paper.openAccess || Boolean(pdfUrl), citationCount,
+        citationCounts: { ...(paper.citationCounts || { [paper.source]: paper.citationCount }), ...(openCitations !== null ? { opencitations: openCitations } : {}) },
+        fieldProvenance: { ...(paper.fieldProvenance || {}), ...(unpaywallLink ? { pdfUrl: ['unpaywall'] } : {}) },
+      };
       const verification = CitationVerifier.evaluate(candidate);
       return { ...candidate, verificationStatus: verification.status, confidenceScore: verification.confidenceScore };
     });

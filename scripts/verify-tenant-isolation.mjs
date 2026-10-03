@@ -312,6 +312,21 @@ async function run() {
   }).select('id');
   assertMutationBlocked(forgedResult, 'Browser owner must not insert a server-held search result');
 
+  // Slice 2A: canonical scholarly works are server-only. No fixture is created
+  // (they are global records); every browser operation must be refused outright.
+  for (const [label, client] of [['Browser owner', clientA], ['Anonymous client', anonymousClient]]) {
+    for (const table of ['scholarly_works', 'scholarly_work_identifiers']) {
+      const read = await client.from(table).select('*').limit(1);
+      assert.ok(read.error && acceptableDenial(read.error), `${label} must be refused reading ${table}`);
+    }
+    const forgedWork = await client.from('scholarly_works').insert({ identity_basis: 'doi', identity_source: 'browser', title: 'Forged canonical work', normalized_title: 'forged canonical work' }).select('id');
+    assertMutationBlocked(forgedWork, `${label} must not create a canonical work`);
+    const forgedIdentifier = await client.from('scholarly_work_identifiers').insert({ scheme: 'doi', value: `10.9999/forged-${runId}`, work_id: crypto.randomUUID() }).select('scheme');
+    assertMutationBlocked(forgedIdentifier, `${label} must not attach a canonical identifier`);
+    const resolved = await client.rpc('resolve_scholarly_works', { p_records: [] });
+    assert.ok(resolved.error && (acceptableDenial(resolved.error) || resolved.error.code === 'PGRST202'), `${label} must not call resolve_scholarly_works`);
+  }
+
   // Integrity: the owner must not forge or rewrite reference provenance or a
   // source's parsed citation and confidence, but may still remove their rows.
   const forgedReference = await clientA.from('project_references').insert({
@@ -426,6 +441,7 @@ async function run() {
   console.log('PASS verification and usage audit records cannot be forged by browser clients');
   console.log('PASS server-owned journey documents and AI generation logs cannot be forged, rewritten or deleted by their owner');
   console.log('PASS reference provenance and source citations cannot be forged or rewritten by their owner, who can still delete them');
+  console.log('PASS canonical scholarly works and identifiers cannot be read, created or resolved by browser clients');
   console.log('PASS production rate limiter accepts then blocks atomically and rejects direct browser RPC calls');
 }
 

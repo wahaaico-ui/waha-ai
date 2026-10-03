@@ -4,6 +4,8 @@ import { normaliseDoi } from '@/lib/academic/integrations/normalization';
 import type { CitationItem } from '@/lib/citations/types';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sanitizeLiteraturePapers } from '@/lib/research-trust';
+import { canonicalRecordFrom } from '@/lib/academic/canonical-record';
+import { logOperationalEvent } from '@/lib/observability';
 
 // Server-held search results (Slice 1).
 //
@@ -47,12 +49,14 @@ export type DiscoveredPaper = {
 export type ResolvedSearchResult = {
   resultId: string;
   searchRunId: string;
+  /** The canonical scholarly work, when one was resolved; server-side only. */
+  workId: string | null;
   query: string;
   retrievedAt: string;
   paper: DiscoveredPaper;
 };
 
-type ResultRow = { id: string; search_run_id: string; query: string; created_at: string; metadata: DiscoveredPaper };
+type ResultRow = { id: string; search_run_id: string; query: string; created_at: string; metadata: DiscoveredPaper; work_id: string | null };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -82,6 +86,28 @@ export function discoveredPaperFrom(paper: AcademicPaper): DiscoveredPaper {
   };
 }
 
+type ServiceClient = ReturnType<typeof createServiceClient>;
+
+/**
+ * Resolves each record to its canonical scholarly work (Slice 2A). Identity is
+ * decided on the server by resolve_scholarly_works; the browser never supplies
+ * or chooses a work. If resolution fails the results are still stored, without
+ * a work, so a search never fails because of it.
+ */
+async function resolveCanonicalWorks(service: ServiceClient, papers: AcademicPaper[], observedAt: string): Promise<Array<string | null>> {
+  try {
+    const { data, error } = await service.rpc('resolve_scholarly_works', { p_records: papers.map((paper) => canonicalRecordFrom(paper, observedAt)) });
+    if (error || !Array.isArray(data) || data.length !== papers.length) throw new Error('SCHOLARLY_WORKS_NOT_RESOLVED');
+    const outcomes = data as Array<{ workId?: unknown; outcome?: unknown }>;
+    const conflicts = outcomes.filter((entry) => entry.outcome === 'conflict' || entry.outcome === 'ambiguous').length;
+    if (conflicts) logOperationalEvent('warn', { event: 'research.scholarly_identity.unresolved', route: 'storeSearchResults', outcome: 'fallback', errorCode: `identity_conflict:${conflicts}` });
+    return outcomes.map((entry) => typeof entry.workId === 'string' ? entry.workId : null);
+  } catch {
+    logOperationalEvent('warn', { event: 'research.scholarly_identity.unavailable', route: 'storeSearchResults', outcome: 'fallback', errorCode: 'scholarly_works_not_resolved' });
+    return papers.map(() => null);
+  }
+}
+
 /** Stores one search's results and returns their server-issued ids, in order. */
 export async function storeSearchResults(input: { userId: string; projectId: string; context: SearchContext; query: string; papers: AcademicPaper[] }) {
   const service = createServiceClient();
@@ -90,6 +116,7 @@ export async function storeSearchResults(input: { userId: string; projectId: str
   await service.from('research_search_results').delete().eq('user_id', input.userId).lt('expires_at', now);
   if (!input.papers.length) return [] as string[];
   const searchRunId = randomUUID();
+  const workIds = await resolveCanonicalWorks(service, input.papers, now);
   const rows = input.papers.map((paper, position) => ({
     search_run_id: searchRunId,
     user_id: input.userId,
@@ -98,6 +125,7 @@ export async function storeSearchResults(input: { userId: string; projectId: str
     query: input.query.slice(0, 1_000),
     position,
     metadata: discoveredPaperFrom(paper),
+    work_id: workIds[position],
   }));
   const { data, error } = await service.from('research_search_results').insert(rows).select('id, position');
   if (error || !data || data.length !== rows.length) throw new Error('SEARCH_RESULTS_NOT_STORED');
@@ -117,7 +145,7 @@ export async function resolveSearchResults(input: { userId: string; projectId: s
   if (wellFormed.length) {
     const { data, error } = await createServiceClient()
       .from('research_search_results')
-      .select('id, search_run_id, query, created_at, metadata')
+      .select('id, search_run_id, query, created_at, metadata, work_id')
       .in('id', wellFormed)
       .eq('user_id', input.userId)
       .eq('project_id', input.projectId)
@@ -131,7 +159,7 @@ export async function resolveSearchResults(input: { userId: string; projectId: s
   for (const id of requested) {
     const row = byId.get(id);
     if (!row) missing.push(id);
-    else resolved.push({ resultId: row.id, searchRunId: row.search_run_id, query: row.query, retrievedAt: row.created_at, paper: row.metadata });
+    else resolved.push({ resultId: row.id, searchRunId: row.search_run_id, workId: row.work_id ?? null, query: row.query, retrievedAt: row.created_at, paper: row.metadata });
   }
   return { resolved, missing };
 }

@@ -1,6 +1,8 @@
 // In-memory stand-in for the research_search_results table, for tests that mock
 // createServiceClient. Supports the queries src/lib/research-search-results.ts
-// issues: insert().select(), delete().eq().lt(), select().in().eq().gt().
+// issues: insert().select(), delete().eq().lt(), select().in().eq().gt(), and
+// rpc('resolve_scholarly_works'), which by default links each record to a work
+// keyed by its DOI (or a new work per record without one).
 import { randomUUID } from 'node:crypto';
 
 export type FakeResultRow = {
@@ -12,14 +14,29 @@ export type FakeResultRow = {
   query: string;
   position: number;
   metadata: Record<string, unknown>;
+  work_id?: string | null;
   created_at: string;
   expires_at: string;
 };
 
 type Filter = (row: FakeResultRow) => boolean;
 
+type ResolveImpl = (records: Array<{ identifiers?: Record<string, string> }>) => { data: unknown; error: unknown };
+
 export function createSearchResultsFake() {
   const rows: FakeResultRow[] = [];
+  const worksByDoi = new Map<string, string>();
+  const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const defaultResolve: ResolveImpl = (records) => ({
+    data: records.map((record) => {
+      const doi = record.identifiers?.doi;
+      if (!doi) return { workId: randomUUID(), outcome: 'created' };
+      if (!worksByDoi.has(doi)) worksByDoi.set(doi, randomUUID());
+      return { workId: worksByDoi.get(doi), outcome: 'matched' };
+    }),
+    error: null,
+  });
+  const state = { resolve: defaultResolve };
 
   function query(mode: 'select' | 'delete', columns?: string) {
     const filters: Filter[] = [];
@@ -55,7 +72,17 @@ export function createSearchResultsFake() {
 
   return {
     rows,
-    client: { from: (name: string) => { if (name !== 'research_search_results') throw new Error(`unexpected table ${name}`); return table; } },
+    rpcCalls,
+    /** Replaces the resolve_scholarly_works behaviour (for example, to fail). */
+    setResolve(impl: ResolveImpl | null) { state.resolve = impl || defaultResolve; },
+    client: {
+      from: (name: string) => { if (name !== 'research_search_results') throw new Error(`unexpected table ${name}`); return table; },
+      rpc: async (name: string, args: Record<string, unknown>) => {
+        rpcCalls.push({ name, args });
+        if (name !== 'resolve_scholarly_works') throw new Error(`unexpected rpc ${name}`);
+        return state.resolve(args.p_records as Array<{ identifiers?: Record<string, string> }>);
+      },
+    },
     /** Adds a stored result directly, as a search would have. */
     seed(row: Partial<FakeResultRow> & Pick<FakeResultRow, 'user_id' | 'project_id' | 'metadata'>) {
       const now = Date.now();

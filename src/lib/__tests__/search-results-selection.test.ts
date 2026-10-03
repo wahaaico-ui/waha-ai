@@ -5,6 +5,7 @@ jest.mock('@/lib/supabase/authorization', () => ({ requireAuthenticatedUser: jes
 jest.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => ({
     from: (table: string) => table === 'research_search_results' ? mockResults.client.from(table) : mockServiceFrom(table),
+    rpc: (name: string, args: Record<string, unknown>) => mockResults.client.rpc(name, args),
   }),
 }));
 jest.mock('@/lib/academic/services/UnifiedResearchEngine', () => ({ UnifiedResearchEngine: { searchDetailed: jest.fn() } }));
@@ -52,6 +53,8 @@ const seed = (overrides: Partial<Parameters<typeof mockResults.seed>[0]> = {}) =
 beforeEach(() => {
   jest.clearAllMocks();
   mockResults.rows.splice(0);
+  mockResults.rpcCalls.splice(0);
+  mockResults.setResolve(null);
 });
 
 // ---- Journey literature stage -------------------------------------------------
@@ -292,5 +295,63 @@ describe('evidence-panel search', () => {
     expect(response.status).toBe(404);
     expect(search).not.toHaveBeenCalled();
     expect(mockResults.rows).toHaveLength(0);
+  });
+});
+
+// ---- Slice 2A: canonical works ------------------------------------------------
+
+describe('canonical scholarly works', () => {
+  const found = { id: 'https://openalex.org/W77', title: 'Discovered study about canonical identity', abstract: 'Provider abstract text', year: 2024, citationCount: 2, authors: ['A. Author'], doi: '10.1000/found', pdfUrl: null, url: 'https://doi.org/10.1000/found', source: 'openalex', sources: ['openalex'], subjects: [], publicationType: 'article', openAccess: true, relevanceScore: 70, providerIds: { openalex: 'https://openalex.org/W77' } };
+
+  function runSearch() {
+    search.mockResolvedValue({ domain: 'general', providers: [{ provider: 'openalex', available: true, papers: [found], durationMs: 5 }], papers: [found] });
+    return searchPost(new Request('http://localhost/api/academic/search', { method: 'POST', body: JSON.stringify({ query: 'canonical identity study', projectId: 'project-a' }) }));
+  }
+
+  test('a search links each stored result to a canonical work resolved on the server, without storing the abstract canonically', async () => {
+    signIn('user-a');
+    const response = await runSearch();
+
+    expect(response.status).toBe(200);
+    expect(mockResults.rows[0].work_id).toEqual(expect.any(String));
+    const [call] = mockResults.rpcCalls;
+    expect(call.name).toBe('resolve_scholarly_works');
+    expect(call.args.p_records).toEqual([expect.objectContaining({ identifiers: { doi: '10.1000/found', openalex: 'W77' } })]);
+    expect(JSON.stringify(call.args)).not.toContain('Provider abstract text');
+    // The browser receives the result id, not the work id.
+    expect(JSON.stringify(await response.json())).not.toContain(String(mockResults.rows[0].work_id));
+  });
+
+  test('if canonical resolution fails the search still succeeds and results have no work', async () => {
+    signIn('user-a');
+    mockResults.setResolve(() => ({ data: null, error: { message: 'unavailable' } }));
+    const response = await runSearch();
+
+    expect(response.status).toBe(200);
+    expect(mockResults.rows[0]).toEqual(expect.objectContaining({ work_id: null, user_id: 'user-a' }));
+  });
+
+  test('a work id sent by the browser is not accepted in place of a result id', async () => {
+    const captured = libraryUser('user-a');
+    const response = await libraryRequest({ projectId: 'project-a', workId: '6f1c7a52-2d1e-4c0b-9a51-0b7f1f1f2a10' });
+    expect(response.status).toBe(400);
+    expect(captured.insert).toBeUndefined();
+  });
+
+  test('a work id sent with a literature selection is ignored', async () => {
+    const rows = [seed({ work_id: 'work-a' }), seed({ metadata: discoveredMetadata({ id: '10.1000/two', doi: '10.1000/two', title: 'Second server study' }) })];
+    const { response, stored } = journey('user-a', { resultIds: rows.map((row) => row.id), workIds: ['forged-work'] });
+    expect((await response).status).toBe(200);
+    expect(JSON.stringify(stored())).not.toContain('forged-work');
+  });
+
+  test('a result linked to the same canonical work is still isolated to its own user and project', async () => {
+    const otherUser = seed({ user_id: 'user-b', work_id: 'shared-work' });
+    const otherProject = seed({ project_id: 'project-b', work_id: 'shared-work' });
+    seed({ work_id: 'shared-work' });
+    for (const row of [otherUser, otherProject]) {
+      libraryUser('user-a');
+      expect((await libraryRequest({ projectId: 'project-a', resultId: row.id })).status).toBe(404);
+    }
   });
 });

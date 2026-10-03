@@ -1,9 +1,13 @@
 import { APPLICATION_EMAIL, fetchJson } from '../integrations/http';
 import { normaliseDoi, safeUrl } from '../integrations/normalization';
 import type { AcademicPaper, AcademicSearchProvider, SearchOptions } from '../integrations/types';
+import { normalisePmcid, normalisePmid } from '../identity';
 
 export interface OpenAlexPaper {
   id: string;
+  openalexId: string | null;
+  pmid: string | null;
+  pmcid: string | null;
   title: string;
   doi: string | null;
   publicationYear: number;
@@ -48,9 +52,14 @@ export class OpenAlexService implements AcademicSearchProvider {
       const topics = Array.isArray(work.topics) ? work.topics as Array<{ display_name?: string }> : [];
       const openAccess = work.open_access && typeof work.open_access === 'object' ? work.open_access as { oa_url?: string } : {};
       const primary = work.primary_location && typeof work.primary_location === 'object' ? work.primary_location as { landing_page_url?: string; pdf_url?: string; source?: { display_name?: string; host_organization_name?: string } } : {};
+      const ids = work.ids && typeof work.ids === 'object' ? work.ids as { pmid?: string; pmcid?: string } : {};
       const biblio = work.biblio && typeof work.biblio === 'object' ? work.biblio as { volume?: string; issue?: string; first_page?: string; last_page?: string } : {};
       return [{
         id: typeof work.id === 'string' ? work.id : title,
+        // The OpenAlex work ID only when OpenAlex supplied one; never the title.
+        openalexId: typeof work.id === 'string' ? work.id : null,
+        pmid: typeof ids.pmid === 'string' ? ids.pmid : null,
+        pmcid: typeof ids.pmcid === 'string' ? ids.pmcid : null,
         title,
         doi: normaliseDoi(typeof work.doi === 'string' ? work.doi : null),
         publicationYear: typeof work.publication_year === 'number' ? work.publication_year : 0,
@@ -81,6 +90,8 @@ export class OpenAlexService implements AcademicSearchProvider {
       journal: paper.journal, containerTitle: paper.journal, publisher: paper.publisher,
       volume: paper.volume, issue: paper.issue, pages: paper.pages, orcidIds: paper.orcidIds,
       referencedWorksCount: paper.referencedWorksCount,
+      pmid: normalisePmid(paper.pmid), pmcid: normalisePmcid(paper.pmcid),
+      providerIds: paper.openalexId ? { openalex: paper.openalexId } : undefined,
       fieldProvenance: { title: [this.id], doi: [this.id], authors: [this.id], year: [this.id], journal: [this.id], citationCount: [this.id], orcidIds: [this.id] },
     }));
   }
