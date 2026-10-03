@@ -7,6 +7,7 @@ import QuestionsMethodologyConsistencyPanel from '@/components/QuestionsMethodol
 import type { ConsistencyPanelStatus } from '@/components/ProblemObjectivesConsistencyPanel';
 import SiteHeader from '@/components/SiteHeader';
 import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
+import ResearchWorkspaceLinks from '@/components/ResearchWorkspaceLinks';
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import type { QuestionsMethodologyConsistencyReport, ResearchObjectViewWarning } from '@/lib/research-objects/types';
@@ -192,7 +193,8 @@ export default function ResearchMethodologyPage() {
     : !questionsReady || questions.length < 2 ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">أسئلتك تحتاج مراجعة قصيرة</h2><p className="mt-3 text-sm leading-7 text-amber-900">وضّح أسئلة البحث واربطها بالأهداف أولاً، ثم سنساعدك في اختيار المنهج المناسب لها.</p><Link href={`/research/questions?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">مراجعة أسئلة البحث</Link></section>
     : !hypothesesReady ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">حدّد دور الفرضيات في دراستك</h2><p className="mt-3 text-sm leading-7 text-amber-900">أخبرنا إن كانت أسئلتك تحتاج فرضيات قابلة للاختبار أو وثّق سبب عدم استخدامها، كي لا نقترح طريقاً بحثياً غير مناسب.</p><Link href={`/research/hypotheses?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">تحديد قرار الفرضيات</Link></section>
     : <><details className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><summary className="cursor-pointer text-sm font-black text-emerald-900">عرض الأسئلة والأساس الذي سنبني عليه</summary><ol className="mt-3 space-y-2 text-sm leading-7 text-emerald-950">{questions.map((question, index) => <li className="break-words [overflow-wrap:anywhere]" key={`${index}-${question}`}><strong>{index + 1}.</strong> {question}{hypothesesDecision?.mode === 'required' && hypothesesDecision.hypotheses[index] ? <span className="mt-1 block text-xs text-emerald-800">الفرضية: {hypothesesDecision.hypotheses[index]}</span> : null}</li>)}</ol>{hypothesesDecision?.mode === 'not_applicable' ? <p className="mt-4 rounded-xl border border-emerald-200 bg-white/70 p-3 text-xs leading-6 text-emerald-900"><strong>قرار موثق:</strong> لا تتطلب الدراسة فرضيات — {hypothesesDecision.rationale}</p> : null}</details>
-      <ResearchDraftAssistant projectId={projectId} stage="methodology" onDraft={(draft) => {
+      <ResearchWorkspaceLinks projectId={projectId} />
+      <ResearchDraftAssistant projectId={projectId} stage="methodology" showTools={false} onDraft={(draft) => {
         setMethodology((current) => ({
           approach: typeof draft.approach === 'string' && APPROACHES.some((item) => item.value === draft.approach) ? draft.approach : current.approach,
           population: typeof draft.population === 'string' ? draft.population : current.population,

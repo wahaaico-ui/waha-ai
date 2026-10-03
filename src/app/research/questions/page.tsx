@@ -7,6 +7,7 @@ import ObjectivesQuestionsConsistencyPanel from '@/components/ObjectivesQuestion
 import type { ConsistencyPanelStatus } from '@/components/ProblemObjectivesConsistencyPanel';
 import SiteHeader from '@/components/SiteHeader';
 import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
+import ResearchWorkspaceLinks from '@/components/ResearchWorkspaceLinks';
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import { firstAcademicTextIssue } from '@/lib/academic-content-quality';
@@ -143,7 +144,8 @@ export default function ResearchQuestionsPage() {
     : loadError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{loadError}</section>
     : !objectivesReady || objectives.length < 2 ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">لنوضح وجهة البحث أولاً</h2><p className="mt-3 text-sm leading-7 text-amber-900">نحتاج هدفين واضحين على الأقل حتى تكون الأسئلة مرتبطة بما تريد الوصول إليه.</p><Link href={`/research/objectives?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">تطوير أهداف البحث</Link></section>
     : <><section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">نبني على وجهة بحثك المحفوظة</div><p className="mt-2 text-sm text-emerald-950">لديك <strong>{objectives.length}</strong> أهداف؛ سنصوغ سؤالاً واضحاً لكل هدف.</p></section>
-      <ResearchDraftAssistant projectId={projectId} stage="questions" onDraft={(draft) => {
+      <ResearchWorkspaceLinks projectId={projectId} />
+      <ResearchDraftAssistant projectId={projectId} stage="questions" showTools={false} onDraft={(draft) => {
         if (Array.isArray(draft.questions)) {
           const suggested = draft.questions.filter((item): item is string => typeof item === 'string');
           if (suggested.length === objectives.length) {

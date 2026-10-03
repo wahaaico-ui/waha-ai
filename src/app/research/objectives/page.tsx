@@ -6,6 +6,7 @@ import JourneyProgress from '@/components/JourneyProgress';
 import ProblemObjectivesConsistencyPanel, { type ConsistencyPanelStatus } from '@/components/ProblemObjectivesConsistencyPanel';
 import SiteHeader from '@/components/SiteHeader';
 import ResearchDraftAssistant from '@/components/ResearchDraftAssistant';
+import ResearchWorkspaceLinks from '@/components/ResearchWorkspaceLinks';
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import { stageComplete } from '@/lib/research-workflow';
 import { firstAcademicTextIssue } from '@/lib/academic-content-quality';
@@ -152,7 +153,8 @@ export default function ResearchObjectivesPage() {
     : loadError ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{loadError}</section>
     : !problemReady || !problem ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">لنوضح المشكلة أولاً</h2><p className="mt-3 text-sm leading-7 text-amber-900">نحتاج صياغة أوضح للمشكلة والفجوة حتى نبني أهدافاً مرتبطة بهما. راجع صياغتك، ثم نكمل من هنا.</p><Link href={`/research/problem?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">مراجعة المشكلة والفجوة</Link></section>
     : <><section className="overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><div className="text-xs font-bold text-emerald-700">الفكرة التي نبني عليها</div><p className="mt-2 break-words text-sm leading-7 text-emerald-950 [overflow-wrap:anywhere]"><strong>المشكلة:</strong> {problem.problemStatement}</p><p className="mt-2 break-words text-sm leading-7 text-emerald-950 [overflow-wrap:anywhere]"><strong>الفجوة المحتملة:</strong> {problem.researchGap}</p></section>
-      <ResearchDraftAssistant projectId={projectId} stage="objectives" onDraft={(draft) => {
+      <ResearchWorkspaceLinks projectId={projectId} />
+      <ResearchDraftAssistant projectId={projectId} stage="objectives" showTools={false} onDraft={(draft) => {
         if (Array.isArray(draft.objectives)) {
           const suggested = draft.objectives.filter((item): item is string => typeof item === 'string');
           if (suggested.length >= 2) {
