@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { authoriseProject, type ProjectRouteContext } from '@/lib/research-project-access';
 import { createServiceClient } from '@/lib/supabase/service';
 import { referenceOrigin } from '@/lib/research-references';
 import { recordIntegrityEvent } from '@/lib/research-audit';
@@ -10,16 +10,9 @@ import { initialEvidenceState, isUuid, parseEvidenceInput, researcherStateChange
 // project is verified as the caller's; project, author, source, canonical work,
 // origin and state are set here, never taken from the request.
 
-type Context = { params: Promise<{ projectId: string }> };
+type Context = ProjectRouteContext;
 const COLUMNS = 'id, project_id, project_reference_id, work_id, source_kind, evidence_type, content, locator, origin, state, state_set_by, state_set_at, created_at, updated_at';
-
-async function authorise(context: Context) {
-  const { projectId } = await context.params;
-  const access = await requireAuthenticatedUser();
-  if (!access) return { ok: false as const, response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
-  if (!isUuid(projectId) || !(await ownsProject(projectId, access.user.id, access.supabase))) return { ok: false as const, response: NextResponse.json({ error: 'Project not found' }, { status: 404 }) };
-  return { ok: true as const, access, projectId };
-}
+const authorise = authoriseProject;
 
 export async function GET(_request: Request, context: Context) {
   try {
