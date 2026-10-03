@@ -57,7 +57,7 @@ export async function GET(request: Request) {
   } catch { return NextResponse.json({ error: 'Unable to load project library' }, { status: 500 }); }
 }
 
-const SELECT_COLUMNS = 'id, project_id, provider, external_item_key, doi, title, authors, publication_year, publication_title, url, citation_data';
+const SELECT_COLUMNS = 'id, project_id, provider, external_item_key, doi, title, authors, publication_year, publication_title, url, citation_data, work_id';
 
 export async function POST(request: Request) {
   try {

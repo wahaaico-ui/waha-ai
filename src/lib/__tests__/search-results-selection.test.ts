@@ -16,7 +16,7 @@ jest.mock('@/lib/research-workflow', () => {
 
 import { randomUUID } from 'node:crypto';
 import { POST as journeyPost } from '@/app/api/projects/[projectId]/journey/route';
-import { POST as libraryPost } from '@/app/api/research/library/route';
+import { GET as libraryGet, POST as libraryPost } from '@/app/api/research/library/route';
 import { POST as citationPost } from '@/app/api/research/citations/route';
 import { POST as searchPost } from '@/app/api/academic/search/route';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
@@ -309,6 +309,66 @@ describe('canonical scholarly works', () => {
     search.mockResolvedValue({ domain: 'general', providers: [{ provider: 'openalex', available: true, papers: [found], durationMs: 5 }], papers: [found] });
     return searchPost(new Request('http://localhost/api/academic/search', { method: 'POST', body: JSON.stringify({ query: 'canonical identity study', projectId: 'project-a' }) }));
   }
+
+  test('canonical resultId save reports the same server-derived linkage in POST, GET and repeat saves', async () => {
+    let stored: Record<string, unknown> | null = null;
+    // Honour SELECT projections: an echo-only mock would hide the omitted work_id defect.
+    const referenceQuery = () => {
+      let columns = '';
+      const projected = () => stored ? Object.fromEntries(columns.split(',').map((key) => key.trim()).map((key) => [key, stored?.[key]])) : null;
+      const query: Record<string, unknown> = {
+        select: (value: string) => { columns = value; return query; },
+        eq: jest.fn(() => query),
+        limit: () => query,
+        order: async () => ({ data: stored ? [projected()] : [], error: null }),
+        maybeSingle: async () => ({ data: projected(), error: null }),
+        insert: (row: Record<string, unknown>) => { stored = { id: 'ref-canonical', ...row }; return query; },
+        single: async () => ({ data: projected(), error: null }),
+      };
+      return query;
+    };
+    const sessionFrom = jest.fn(() => referenceQuery());
+    signIn('user-a', sessionFrom);
+    mockServiceFrom.mockImplementation((table: string) => {
+      expect(table).toBe('project_references');
+      return referenceQuery();
+    });
+    const searchResponse = await runSearch();
+    expect(searchResponse.status).toBe(200);
+    const searchBody = await searchResponse.json();
+    expect(mockResults.rpcCalls[0].name).toBe('resolve_scholarly_works');
+    const workId = mockResults.rows[0].work_id;
+    expect(workId).toEqual(expect.any(String));
+    const payload = { projectId: 'project-a', resultId: searchBody.data[0].resultId, work_id: 'client-forged-work', canonicalLinked: false };
+    const post = await libraryRequest(payload);
+    expect(post.status).toBe(200);
+    const postBody = await post.json();
+    expect(stored).toEqual(expect.objectContaining({ work_id: workId, user_id: 'user-a', project_id: 'project-a' }));
+    expect(postBody.item.canonicalLinked).toBe(true);
+    expect(postBody.item).not.toHaveProperty('work_id');
+    const get = await libraryGet(new Request('http://localhost/api/research/library?projectId=project-a'));
+    expect(get.status).toBe(200);
+    const getBody = await get.json();
+    expect(getBody.items[0].canonicalLinked).toBe(postBody.item.canonicalLinked);
+    expect(getBody.items[0]).not.toHaveProperty('work_id');
+    const repeated = await (await libraryRequest(payload)).json();
+    expect(repeated.existing).toBe(true);
+    expect(repeated.item.canonicalLinked).toBe(true);
+    expect(mockServiceFrom).toHaveBeenCalledTimes(1);
+  });
+
+  test('client linkage fields cannot manufacture a link for an unresolved discovered result or a manual reference', async () => {
+    const unresolved = seed({ work_id: null });
+    const captured = libraryUser('user-a');
+    const result = await libraryRequest({ projectId: 'project-a', resultId: unresolved.id, work_id: 'forged', canonicalLinked: true });
+    expect(result.status).toBe(200);
+    expect((await result.json()).item.canonicalLinked).toBe(false);
+    expect(captured.insert).not.toHaveProperty('work_id');
+    const manual = await libraryRequest({ projectId: 'project-a', work_id: 'forged', canonicalLinked: true, item: { title: 'Researcher reference', work_id: 'forged', canonicalLinked: true } });
+    expect(manual.status).toBe(200);
+    expect((await manual.json()).item.canonicalLinked).toBe(false);
+    expect(captured.insert).not.toHaveProperty('work_id');
+  });
 
   test('a search links each stored result to a canonical work resolved on the server, without storing the abstract canonically', async () => {
     signIn('user-a');
