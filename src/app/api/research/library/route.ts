@@ -16,10 +16,12 @@ import {
 } from '@/lib/research-search-results';
 
 function toLibraryItem(row: ReferenceRow) {
-  return { ...toItem(row), origin: referenceOrigin(row) };
+  // canonicalLinked says only whether the server linked the reference to a
+  // canonical work (Slice 2B); the work id itself is not sent to the browser.
+  return { ...toItem(row), origin: referenceOrigin(row), canonicalLinked: Boolean(row.work_id) };
 }
 
-type ReferenceRow = { id: string; project_id: string; provider: string; external_item_key: string; doi: string | null; title: string; authors: unknown; publication_year: number | null; publication_title: string | null; url: string | null; citation_data: unknown };
+type ReferenceRow = { id: string; project_id: string; provider: string; external_item_key: string; doi: string | null; title: string; authors: unknown; publication_year: number | null; publication_title: string | null; url: string | null; citation_data: unknown; work_id?: string | null };
 
 function authors(value: unknown) {
   if (!Array.isArray(value)) return [];
@@ -47,7 +49,7 @@ export async function GET(request: Request) {
     if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const projectId = new URL(request.url).searchParams.get('projectId')?.trim() || '';
     if (!projectId || !(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    const { data, error } = await access.supabase.from('project_references').select('id, project_id, provider, external_item_key, doi, title, authors, publication_year, publication_title, url, citation_data').eq('project_id', projectId).eq('user_id', access.user.id).order('created_at', { ascending: false });
+    const { data, error } = await access.supabase.from('project_references').select('id, project_id, provider, external_item_key, doi, title, authors, publication_year, publication_title, url, citation_data, work_id').eq('project_id', projectId).eq('user_id', access.user.id).order('created_at', { ascending: false });
     if (error) throw error;
     const items = ((data || []) as ReferenceRow[]).map(toLibraryItem);
     const bibliographies = Object.fromEntries(CITATION_STYLES.map((style) => [style, BibliographyEngine.build(items, style)]));
