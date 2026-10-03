@@ -278,6 +278,22 @@ describe('citations', () => {
 describe('evidence-panel search', () => {
   const paper = { id: 'openalex:W1', title: 'Discovered study', abstract: 'Abstract', year: 2024, citationCount: 2, authors: ['A. Author'], doi: '10.1000/found', pdfUrl: null, url: 'https://doi.org/10.1000/found', source: 'openalex', sources: ['openalex', 'crossref'], subjects: [], publicationType: 'article', openAccess: true, relevanceScore: 70 };
 
+  test('contains enrichment verification without altering identity, metadata or resultId', async () => {
+    signIn('user-a');
+    const enriched = { ...paper, verificationStatus: 'verified', confidenceScore: 99, providerIds: { openalex: 'W1' }, fieldProvenance: { doi: ['openalex'] }, providerObservations: { openalex: { title: paper.title, doi: paper.doi } }, enrichmentOutcomes: { unpaywall: { status: 'not_reported' } } };
+    search.mockResolvedValue({ domain: 'general', providers: [], papers: [enriched] });
+    const response = await searchPost(new Request('http://localhost/api/academic/search', { method: 'POST', body: JSON.stringify({ query: 'discovered study', projectId: 'project-a' }) }));
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.data[0]).not.toHaveProperty('verificationStatus');
+    expect(body.data[0]).not.toHaveProperty('confidenceScore');
+    expect(body.data[0]).toEqual(expect.objectContaining({ resultId: mockResults.rows[0].id, doi: paper.doi, sources: paper.sources, providerIds: enriched.providerIds, relevanceScore: 70 }));
+    expect(body.data[0].item).toEqual(expect.objectContaining({ verificationStatus: 'unverified', confidenceScore: 0 }));
+    expect(body.data[0]).toEqual(expect.objectContaining({ fieldProvenance: enriched.fieldProvenance, providerObservations: enriched.providerObservations, enrichmentOutcomes: enriched.enrichmentOutcomes }));
+    expect(enriched.verificationStatus).toBe('verified');
+    expect(mockResults.rpcCalls[0].name).toBe('resolve_scholarly_works');
+  });
+
   test('returns server-issued result ids for rows held for this user and project, with unverified items', async () => {
     signIn('user-a');
     search.mockResolvedValue({ domain: 'social-humanities', providers: [{ provider: 'openalex', available: true, papers: [paper], durationMs: 5 }], papers: [paper] });

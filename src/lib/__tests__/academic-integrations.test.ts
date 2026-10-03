@@ -113,6 +113,11 @@ describe('academic provider adapters', () => {
 });
 
 describe('routing and cross-source deduplication', () => {
+  beforeEach(() => {
+    // Routing can select providers beyond each test's explicit spies. Keep
+    // these unit regressions offline, deterministic and independent of quotas.
+    global.fetch = jest.fn(async () => json({ data: [], results: [], message: { items: [] } }));
+  });
   test('honours a long Retry-After by failing gracefully instead of retrying too early', async () => {
     global.fetch = jest.fn().mockResolvedValue(new Response('', { status: 429, headers: { 'retry-after': '30' } }));
     await expect(resilientFetch('https://example.org')).rejects.toThrow('retry after 30 seconds');

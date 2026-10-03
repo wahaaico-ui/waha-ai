@@ -25,13 +25,19 @@ const report: QuestionsMethodologyConsistencyReport = {
   checkedAt: '2026-08-27T12:00:00.000Z',
 };
 
-test('renders question-methodology dimensions and corrective action', () => {
+test('shows an advisory review without heuristic conclusions or numerical precision', () => {
   const html = renderToStaticMarkup(<QuestionsMethodologyConsistencyPanel status="ready" report={report} warnings={[]} error="" onRetry={() => undefined} />);
   expect(html).toContain('الأسئلة ↔ المنهجية');
-  expect(html).toContain('66/100');
-  expect(html).toContain('ملاءمة الأداة');
-  expect(html).toContain('حدّد مجتمع الدراسة المذكور في السؤال');
-  expect(html).toContain('فحص استدلالي مساعد');
+  expect(html).toContain('مراجعة أولية للعلاقات البحثية');
+  expect(html).toContain('هذه مراجعة آلية أولية، وليست قياساً لجودة البحث أو إثباتاً لصلاحية تصميمه.');
+  expect(html).not.toContain('/100');
+  expect(html).not.toContain('progressbar');
+  expect(html).not.toContain(report.summary);
+  for (const issue of report.issues) expect(html).not.toContain(issue);
+  for (const result of report.results) {
+    expect(html).not.toContain(result.suggestedAction);
+    for (const gap of result.gapsFound) expect(html).not.toContain(gap);
+  }
 });
 
 test('marks the saved report stale after methodology editing', () => {

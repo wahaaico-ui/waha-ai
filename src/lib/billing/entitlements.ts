@@ -2,9 +2,14 @@ import { createServiceClient } from '@/lib/supabase/service';
 
 export type Entitlement = 'zotero_sync' | 'academic_language_tools';
 
+// Explicit server-only free launch: no subscription rows or billing changes.
+const FREE_LAUNCH_ENTITLEMENTS: readonly Entitlement[] = ['academic_language_tools', 'zotero_sync'];
+
 const ACTIVE_STATUSES = ['active', 'trialing'];
 
 export async function hasEntitlement(userId: string, entitlement: Entitlement) {
+  if (!userId.trim()) return false;
+  if ((process.env.WAHA_CORE_FREE_LAUNCH ?? 'true') === 'true' && FREE_LAUNCH_ENTITLEMENTS.includes(entitlement)) return true;
   if (process.env.NODE_ENV !== 'production' && process.env.ALLOW_DEV_ENTITLEMENTS === 'true') {
     return true;
   }

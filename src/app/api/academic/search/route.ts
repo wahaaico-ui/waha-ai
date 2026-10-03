@@ -19,17 +19,24 @@ export async function POST(request: Request) {
     const resultIds = await storeSearchResults({ userId: access.user.id, projectId, context: 'evidence_panel', query, papers: result.papers, scope: { domain: result.domain, providers: result.providers, candidateCount: result.papers.length } });
     return NextResponse.json({
       success: true,
-      data: result.papers.map((paper, index) => ({
-        ...paper,
-        resultId: resultIds[index],
-        id: discoveredPaperFrom(paper).id,
-        // Discovery is not verification: display items stay unverified.
-        item: citationItemFromDiscovered(discoveredPaperFrom(paper)),
-        authorsLabel: paper.authors.join('، ') || 'بيانات المؤلفين غير متاحة',
-        year: paper.year || 'د.ت', citationCount: paper.citationCount, abstract: paper.abstract,
-        sourceLabel: paper.sources.length > 1 ? 'ظهر في أكثر من فهرس' : 'ظهر في فهرس أكاديمي',
-        pdfUrl: paper.pdfUrl || paper.url, doi: paper.doi, relevanceScore: paper.relevanceScore,
-      })),
+      data: result.papers.map((paper, index) => {
+        // Legacy enrichment scores are not server-authoritative verification.
+        // Keep the server-held record intact; contain only the public projection.
+        const discovery = { ...paper };
+        delete discovery.verificationStatus;
+        delete discovery.confidenceScore;
+        return {
+          ...discovery,
+          resultId: resultIds[index],
+          id: discoveredPaperFrom(paper).id,
+          // Discovery is not verification: display items stay unverified.
+          item: citationItemFromDiscovered(discoveredPaperFrom(paper)),
+          authorsLabel: paper.authors.join('، ') || 'بيانات المؤلفين غير متاحة',
+          year: paper.year || 'د.ت', citationCount: paper.citationCount, abstract: paper.abstract,
+          sourceLabel: paper.sources.length > 1 ? 'ظهر في أكثر من فهرس' : 'ظهر في فهرس أكاديمي',
+          pdfUrl: paper.pdfUrl || paper.url, doi: paper.doi, relevanceScore: paper.relevanceScore,
+        };
+      }),
       coverage: { domain: result.domain, availableSources: result.providers.filter((provider) => provider.available).length, attemptedSources: result.providers.length },
     });
   } catch {

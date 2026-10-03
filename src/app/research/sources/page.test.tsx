@@ -10,7 +10,7 @@ import { join } from 'node:path';
 test('discovery is project scoped and links to the unchanged library and intelligence routes', () => {
   (useProjectId as jest.Mock).mockReturnValue('project-a');
   const html = renderToStaticMarkup(<ResearchSourcesPage />);
-  expect(html).toContain('مساعد الأدلة والاستشهادات');
+  expect(html).toContain('البحث عن المصادر والاستشهادات');
   expect(html).toContain('/research/library?projectId=project-a');
   expect(html).toContain('/research/intelligence?projectId=project-a');
   expect(html).toContain('dir="rtl"');

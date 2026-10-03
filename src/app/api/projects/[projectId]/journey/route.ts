@@ -304,20 +304,8 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       ? evaluateConsistencyCandidate(projectId, documents, stage, serialized, version)
       : null;
 
-    if (consistency?.report.status === 'failed') {
-      const consistencyGate = {
-        status: 'needs_improvement' as const,
-        stage,
-        reason: consistency.report.summary,
-        nextStage: stage,
-      };
-      return respond({
-        error: consistency.report.summary,
-        gate: consistencyGate,
-        consistency: consistency.report,
-        consistencyWarnings: consistency.warnings,
-      }, 422, 'consistency_rejected');
-    }
+    // Lexical consistency is advisory, not a scientific approval gate.
+    // Required fields, structural gates and integrity checks above still apply.
 
     // journey:* documents are server-owned (see migration 20260927000000). The
     // project was verified as the caller's above, so the write uses the server
@@ -331,6 +319,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       recordedAt: new Date().toISOString(),
       ...(consistency ? {
         consistency: {
+          advisory: true,
           checkType: consistency.report.checkType,
           formulaVersion: consistency.report.formulaVersion,
           status: consistency.report.status,
