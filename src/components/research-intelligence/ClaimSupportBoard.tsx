@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import StatusBadge from './StatusBadge';
 import type { ClaimRecord, EvidenceRecord } from './types';
-import { RELATIONS, RELATION_LABELS, supportOriginLabel, TONE_CLASSES } from '@/lib/research-intelligence-ui';
+import { NOT_QUALIFYING_EVIDENCE_LABEL, QUALIFYING_EVIDENCE_LABEL, QUALIFYING_EVIDENCE_STATE, RELATIONS, RELATION_LABELS, supportOriginLabel, TONE_CLASSES } from '@/lib/research-intelligence-ui';
 
 /**
  * How the evidence relates to one claim, grouped by relation. Supporting and
@@ -27,7 +27,8 @@ export default function ClaimSupportBoard({ claim, evidenceById, renderLinkActio
             return <li key={support.id} data-confirmation={support.confirmation} className={`rounded-lg bg-white p-2.5 text-xs leading-6 text-slate-800 ${support.confirmation === 'suggested' ? 'border border-dashed border-amber-300' : support.confirmation === 'rejected' ? 'opacity-60' : ''}`}>
               <p className="break-words [overflow-wrap:anywhere]">{evidence ? evidence.content : 'دليل غير متاح'}</p>
               {support.rationale && <p className="mt-1 text-[11px] text-slate-500">المبرر: {support.rationale}</p>}
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5"><StatusBadge label={origin.label} tone={origin.tone} />{renderLinkActions?.(support.id, support.confirmation)}</div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5"><StatusBadge label={origin.label} tone={origin.tone} />
+                {evidence && relation === 'supports' && <StatusBadge label={evidence.state === QUALIFYING_EVIDENCE_STATE ? QUALIFYING_EVIDENCE_LABEL : NOT_QUALIFYING_EVIDENCE_LABEL} tone={evidence.state === QUALIFYING_EVIDENCE_STATE ? 'positive' : 'caution'} hint="يُحتسب في تقييم الفجوة كدليل مؤهل فقط ما أكدتَ وروده في مصدره من قسم الأدلة." />}{renderLinkActions?.(support.id, support.confirmation)}</div>
             </li>;
           })}
         </ul>}

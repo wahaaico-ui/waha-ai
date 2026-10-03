@@ -1,5 +1,7 @@
 import type { SearchRunRecord } from './types';
 import { formatDateTime } from '@/lib/research-intelligence-ui';
+import { SystemText } from './GapAssessmentCard';
+import { providerDisplayName } from '@/lib/research-system-text';
 
 const CONTEXT_LABELS: Record<string, string> = { literature: 'مرحلة الأدبيات', evidence_panel: 'لوحة الأدلة' };
 
@@ -15,9 +17,9 @@ export default function SearchScopePanel({ runs }: { runs: SearchRunRecord[] }) 
         return <li key={run.id} className="rounded-xl border border-slate-200 p-3 text-sm">
           <p className="break-words font-bold text-slate-900 [overflow-wrap:anywhere]" dir="auto">{run.query}</p>
           <p className="mt-1 text-xs leading-6 text-slate-500">{CONTEXT_LABELS[run.context] || run.context} · {formatDateTime(run.executed_at)} · {run.result_count} نتيجة محفوظة{typeof run.candidate_count === 'number' ? ` من ${run.candidate_count} مسترجعة` : ''}</p>
-          <p className="mt-1 text-xs leading-6 text-slate-600">المصادر المتاحة: {run.providers_available} من {run.providers_attempted}{providers.length ? ` (${providers.filter((provider) => provider?.available).map((provider) => provider.provider).filter(Boolean).join('، ') || 'لا شيء'})` : ' · تفاصيل المزوّدين غير مسجلة'}</p>
-          {unavailable.length > 0 && <p className="mt-1 text-xs leading-6 text-amber-800">تعذّر الوصول إلى: {unavailable.map((provider) => provider.provider || 'مصدر غير معروف').join('، ')}</p>}
-          {Array.isArray(run.limitations) && run.limitations.length > 0 && <details className="mt-1 text-xs text-slate-500"><summary className="cursor-pointer">حدود هذا البحث</summary><ul className="mt-1 list-disc space-y-1 pe-4 ps-4">{run.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul></details>}
+          <p className="mt-1 text-xs leading-6 text-slate-600">المصادر المتاحة: {run.providers_available} من {run.providers_attempted}{providers.length ? ` (${providers.filter((provider) => provider?.available).map((provider) => provider.provider).filter((name): name is string => Boolean(name)).map(providerDisplayName).join('، ') || 'لا شيء'})` : ' · تفاصيل المزوّدين غير مسجلة'}</p>
+          {unavailable.length > 0 && <p className="mt-1 text-xs leading-6 text-amber-800">تعذّر الوصول إلى: {unavailable.map((provider) => provider.provider ? providerDisplayName(provider.provider) : 'مصدر غير معروف').join('، ')}</p>}
+          {Array.isArray(run.limitations) && run.limitations.length > 0 && <details className="mt-1 text-xs text-slate-500"><summary className="cursor-pointer">حدود هذا البحث</summary><ul className="mt-1 list-disc space-y-1 pe-4 ps-4">{run.limitations.map((limitation) => <li key={limitation}><SystemText text={limitation} /></li>)}</ul></details>}
         </li>;
       })}</ul>}
   </section>;

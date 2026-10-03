@@ -48,19 +48,43 @@ describe('gap rules', () => {
     expect(assessGap([link('supports'), link('supports')], [{ ...run, providers_available: 0 }]).classification).toBe('POTENTIAL_GAP');
   });
 
-  test('two grounded items from two sources within a recorded scope are evidence-backed within that scope only', () => {
-    const result = assessGap([link('supports'), link('supports', { state: 'source_supported' })], [run]);
+  test('two researcher-confirmed source-supported items from two sources within a recorded scope are evidence-backed within that scope only', () => {
+    const result = assessGap([link('supports', { state: 'source_supported' }), link('supports', { state: 'source_supported' })], [run]);
     expect(result.classification).toBe('EVIDENCE_BACKED_GAP_WITHIN_RECORDED_SCOPE');
+    expect(result.basis.qualifyingSupportingEvidence).toHaveLength(2);
     expect(result.searchRunIds).toEqual(['run-1']);
     expect(result.limitations[0]).toMatch(/not an exhaustive review/);
     expect(result.limitations).toContain('Unavailable during this search: core.');
+  });
+
+  test('evidence the researcher has not confirmed as present in its source never qualifies, however many links there are', () => {
+    // A confirmed link (claim_supports.confirmation) is not enough: the evidence item itself must be source_supported.
+    for (const state of ['recorded', 'needs_review', 'user_asserted']) {
+      const many = assessGap(Array.from({ length: 6 }, () => link('supports', { state })), [run]);
+      expect(many.classification).toBe('POTENTIAL_GAP');
+      expect(many.basis.groundedSupportingEvidence).toBe(0);
+      expect(many.basis.qualifyingSupportingEvidence).toEqual([]);
+      expect(many.basis.supportingEvidence).toHaveLength(6);
+      expect(many.limitations.join(' ')).toMatch(/6 supporting item\(s\) have not been confirmed by the researcher as present in their source/);
+    }
+    const single = assessGap([link('supports')], [run]);
+    expect(single.classification).toBe('POTENTIAL_GAP');
+    expect(single.rationale[0]).toMatch(/^Supporting evidence is limited: 0 item\(s\) confirmed by the researcher as source-supported/);
+  });
+
+  test('one confirmed item plus unconfirmed ones from other sources is still not evidence-backed', () => {
+    const confirmed = link('supports', { state: 'source_supported' });
+    const result = assessGap([confirmed, link('supports'), link('supports', { state: 'needs_review' })], [run]);
+    expect(result.classification).toBe('POTENTIAL_GAP');
+    expect(result.basis.qualifyingSupportingEvidence).toEqual([confirmed.evidence?.id]);
+    expect(result.basis.distinctSupportingSources).toBe(1);
   });
 
   test('contradicting evidence is retained, and dominant contradiction means more evidence is needed', () => {
     const contested = assessGap([link('supports'), link('contradicts'), link('contradicts')], [run]);
     expect(contested.classification).toBe('NEEDS_MORE_EVIDENCE');
     expect(contested.basis.contradictingEvidence).toHaveLength(2);
-    const outweighed = assessGap([link('supports'), link('supports', { state: 'source_supported' }), link('supports'), link('contradicts')], [run]);
+    const outweighed = assessGap([link('supports', { state: 'source_supported' }), link('supports', { state: 'source_supported' }), link('supports'), link('contradicts')], [run]);
     expect(outweighed.classification).toBe('EVIDENCE_BACKED_GAP_WITHIN_RECORDED_SCOPE');
     expect(outweighed.basis.contradictingEvidence).toHaveLength(1);
     expect(outweighed.limitations.join(' ')).toMatch(/1 contradicting evidence item/);
@@ -84,13 +108,14 @@ describe('gap rules', () => {
 
 describe('gap assessment route', () => {
   let claim: Record<string, unknown>;
+  let one: Record<string, unknown>;
   beforeEach(() => {
     jest.clearAllMocks();
     mockDb.reset();
     auth.mockResolvedValue({ user: { id: 'user-a' }, supabase: mockDb.session });
     owns.mockImplementation(async (projectId: string) => projectId === PROJECT_A);
     claim = mockDb.seed('claims', { project_id: PROJECT_A, claim_type: 'gap', status: 'active' });
-    const one = mockDb.seed('evidence_items', { project_id: PROJECT_A, state: 'recorded', project_reference_id: 'r1', work_id: 'w1', source_kind: 'server_discovered' });
+    one = mockDb.seed('evidence_items', { project_id: PROJECT_A, state: 'recorded', project_reference_id: 'r1', work_id: 'w1', source_kind: 'server_discovered' });
     const two = mockDb.seed('evidence_items', { project_id: PROJECT_A, state: 'source_supported', project_reference_id: 'r2', work_id: 'w2', source_kind: 'server_discovered' });
     const against = mockDb.seed('evidence_items', { project_id: PROJECT_A, state: 'recorded', project_reference_id: 'r3', work_id: 'w3', source_kind: 'server_discovered' });
     for (const [evidence, relation] of [[one, 'supports'], [two, 'supports'], [against, 'contradicts']] as const) {
@@ -103,8 +128,16 @@ describe('gap assessment route', () => {
     expect(withoutScope.assessment).toEqual(expect.objectContaining({ classification: 'POTENTIAL_GAP', origin: 'system', researcher_confirmation: 'unreviewed', search_run_ids: [] }));
 
     mockDb.seed('research_search_runs', { project_id: PROJECT_A, query: 'q', executed_at: '2026-10-06T00:00:00.000Z', providers_attempted: 2, providers_available: 1, result_count: 10, limitations: ['generic'] });
+    // One supporting item is only recorded from a discovered source, not confirmed by the researcher.
+    const unconfirmed = await (await POST(json('POST', { claimId: claim.id }), context())).json();
+    expect(unconfirmed.assessment.classification).toBe('POTENTIAL_GAP');
+    expect(unconfirmed.assessment.basis.qualifyingSupportingEvidence).toEqual([expect.any(String)]);
+    expect(unconfirmed.assessment.method_version).toBe('gap-rules-v2');
+
+    one.state = 'source_supported';
     const withScope = await (await POST(json('POST', { claimId: claim.id }), context())).json();
     expect(withScope.assessment.classification).toBe('EVIDENCE_BACKED_GAP_WITHIN_RECORDED_SCOPE');
+    expect(withScope.assessment.basis.qualifyingSupportingEvidence).toHaveLength(2);
     expect(withScope.assessment.basis.contradictingEvidence).toHaveLength(1);
     expect(withScope.assessment.limitations.length).toBeGreaterThan(1);
     expect(mockDb.writes.filter((write) => write.table === 'gap_assessments').every((write) => write.client === 'service')).toBe(true);

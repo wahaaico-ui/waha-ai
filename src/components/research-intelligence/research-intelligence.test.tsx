@@ -14,6 +14,9 @@ import {
   claimCreateBody, EVIDENCE_STATE_LABELS, evidenceCreateBody, evidenceUpdateBody, GAP_CLASSIFICATION_LABELS, gapAssessBody,
   gapClassificationLabel, gapDecisionBody, SOURCE_ORIGIN_LABELS, supportCreateBody,
 } from '@/lib/research-intelligence-ui';
+import { assessGap, type GapLink } from '@/lib/research-gaps';
+import { searchLimitations } from '@/lib/research-search-results';
+import { providerDisplayName, systemTextArabic } from '@/lib/research-system-text';
 
 const OVERCLAIMING = /verified|proven|VERIFIED_GAP|موثّق|موثق|مثبت|ثبت أن|فجوة مؤكدة|novel/i;
 
@@ -46,7 +49,7 @@ describe('gap assessment card', () => {
   test('limitations and contradicting evidence are visible next to supporting evidence', () => {
     expect(html).toContain('حدود هذا التقييم');
     expect(html).toContain('Not an exhaustive review.');
-    expect(html).toContain('Unavailable during this search: core.');
+    expect(html).toContain('تعذر الوصول أثناء هذا البحث إلى: CORE.');
     expect(html).toContain('أدلة معارضة (1)');
     expect(html).toContain('Contradicting finding text');
     expect(html).toContain('Supporting finding text');
@@ -118,7 +121,7 @@ describe('recorded search scope', () => {
     expect(html).toContain('AI postgraduate learning');
     expect(html).toContain('10 نتيجة محفوظة من 20 مسترجعة');
     expect(html).toContain('المصادر المتاحة: 1 من 2');
-    expect(html).toContain('تعذّر الوصول إلى: core');
+    expect(html).toContain('تعذّر الوصول إلى: CORE');
   });
 
   test('missing provider details are handled and stated', () => {
@@ -171,5 +174,121 @@ describe('requests send only researcher-controlled fields', () => {
     const forbidden = ['work_id', 'workId', 'origin', 'classification', 'state_set_by', 'source_kind', 'confirmation', 'basis', 'search_run_ids', 'providers', 'project_id', 'created_by'];
     for (const body of bodies) for (const key of forbidden) expect(body).not.toHaveProperty(key);
     expect(evidenceCreateBody({ projectReferenceId: null, evidenceType: 'finding', content: ' text ', locator: ' p. 4 ' })).toEqual({ projectReferenceId: null, evidenceType: 'finding', content: 'text', locator: 'p. 4' });
+  });
+});
+
+// ---- Pre-production hardening: Arabic system texts and qualifying evidence ----------
+
+const ARABIC = /[؀-ۿ]/;
+const FORBIDDEN_UI = /VERIFIED_GAP|verified gap|proven gap|objective verification|فجوة موثقة|فجوة مثبتة|فجوة مؤكدة/i;
+
+function gapLink(relation: GapLink['relation'], state: string, source: string): GapLink {
+  return { id: `l-${source}-${state}-${relation}`, relation, origin: 'researcher', confirmation: 'confirmed', evidence: { id: `e-${source}-${state}`, state, project_reference_id: `ref-${source}`, work_id: `work-${source}`, source_kind: 'server_discovered' } };
+}
+
+describe('system texts render in Arabic', () => {
+  test('every rationale and limitation the classifier and search recording can produce has a fixed Arabic rendering', () => {
+    const run = { id: 'r', query: 'q', executed_at: '2026-10-06T00:00:00.000Z', providers_attempted: 3, providers_available: 1, result_count: 5,
+      limitations: searchLimitations({ domain: null, candidateCount: 9, providers: [{ provider: 'openalex', available: true, papers: [], durationMs: 1 }, { provider: 'crossref', available: false, papers: [], durationMs: 1 }, { provider: 'core', available: false, papers: [], durationMs: 1 }] }, 5) };
+    const scenarios: GapLink[][] = [
+      [],
+      [{ ...gapLink('supports', 'recorded', 'a'), origin: 'system', confirmation: 'suggested' }],
+      [gapLink('supports', 'recorded', 'a')],
+      [gapLink('supports', 'source_supported', 'a'), gapLink('supports', 'source_supported', 'b'), gapLink('contradicts', 'recorded', 'c'), gapLink('supports', 'insufficient_support', 'd')],
+      [gapLink('supports', 'recorded', 'a'), gapLink('contradicts', 'recorded', 'b'), gapLink('contradicts', 'recorded', 'c')],
+    ];
+    const texts = new Set<string>([
+      ...searchLimitations(undefined, 0),
+      ...searchLimitations({ domain: null, candidateCount: 0, providers: [{ provider: 'core', available: false, papers: [], durationMs: 1 }] }, 0),
+    ]);
+    for (const links of scenarios) for (const runs of [[run], []]) {
+      const result = assessGap(links, runs);
+      for (const text of [...result.rationale, ...result.limitations]) texts.add(text);
+    }
+    expect(texts.size).toBeGreaterThan(12);
+    for (const text of texts) {
+      const rendered = systemTextArabic(text);
+      expect({ text, translated: rendered.translated }).toEqual({ text, translated: true });
+      expect(rendered.text).toMatch(ARABIC);
+      expect(rendered.text).not.toMatch(FORBIDDEN_UI);
+    }
+  });
+
+  test('the observed browser texts read as conservative academic Arabic', () => {
+    expect(systemTextArabic('Supporting evidence is limited: 1 source-grounded item(s) from 1 distinct source(s); at least two of each are needed for an evidence-backed gap.').text)
+      .toContain('الأدلة الداعمة محدودة');
+    expect(systemTextArabic('This assessment covers only the recorded searches and the evidence linked to the claim. It is not an exhaustive review and does not establish that no study exists.').text)
+      .toBe('يغطي هذا التقييم عمليات البحث المسجلة والأدلة المرتبطة بالادعاء فقط. ولا يمثل مراجعة شاملة للأدبيات، ولا يثبت عدم وجود دراسات أخرى.');
+    expect(systemTextArabic('Each provider returns a limited number of top-ranked records per query.').text).toBe('يعيد كل مزود عدداً محدوداً من النتائج الأعلى ترتيباً لكل استعلام.');
+  });
+
+  test('provider names are kept intact', () => {
+    expect(systemTextArabic('Unavailable during this search: crossref, core.').text).toBe('تعذر الوصول أثناء هذا البحث إلى: Crossref، CORE.');
+    expect(systemTextArabic('Unavailable during this search: some_new_index.').text).toBe('تعذر الوصول أثناء هذا البحث إلى: some_new_index.');
+    expect(providerDisplayName('openalex')).toBe('OpenAlex');
+  });
+
+  test('an unknown stored text is shown as stored, not hidden or rewritten', () => {
+    expect(systemTextArabic('A new limitation the mapping does not know.')).toEqual({ text: 'A new limitation the mapping does not know.', translated: false });
+    const html = renderToStaticMarkup(<GapAssessmentCard assessment={{ ...assessment, limitations: ['A new limitation the mapping does not know.'] }} evidenceById={evidenceById} />);
+    expect(html).toContain('A new limitation the mapping does not know.');
+  });
+});
+
+describe('linked evidence versus qualifying evidence', () => {
+  const unconfirmed = evidence('e-unconfirmed', 'Linked but not confirmed', { state: 'recorded' });
+  const confirmed = evidence('e-confirmed', 'Confirmed in its source', { state: 'source_supported', state_set_by: 'researcher' });
+  const byId = new Map([...evidenceById, ['e-unconfirmed', unconfirmed], ['e-confirmed', confirmed]]);
+  const real = assessGap([gapLink('supports', 'recorded', 'x')], [{ id: 'run-1', query: 'q', executed_at: '2026-10-06T00:00:00.000Z', providers_attempted: 3, providers_available: 1, result_count: 4, limitations: searchLimitations({ domain: null, candidateCount: 4, providers: [{ provider: 'openalex', available: true, papers: [], durationMs: 1 }, { provider: 'crossref', available: false, papers: [], durationMs: 1 }, { provider: 'core', available: false, papers: [], durationMs: 1 }] }, 4) }]);
+  const browserCase: GapRecord = {
+    ...assessment, classification: real.classification, rationale: real.rationale, limitations: real.limitations, method_version: 'gap-rules-v2', search_run_ids: real.searchRunIds,
+    basis: { ...real.basis, supportingEvidence: ['e-unconfirmed', 'e-confirmed'], qualifyingSupportingEvidence: ['e-confirmed'], contradictingEvidence: ['e-against'] },
+  };
+  const html = renderToStaticMarkup(<GapAssessmentCard assessment={browserCase} evidenceById={byId} />);
+
+  test('the gap card separates linked supporting evidence from qualifying confirmed evidence', () => {
+    expect(real.classification).toBe('POTENTIAL_GAP');
+    expect(html).toContain('فجوة محتملة');
+    expect(html).toContain('أدلة داعمة مرتبطة (2)');
+    expect(html).toContain('أدلة مؤكدة مؤهلة للتقييم: 1 من 2');
+    expect(html).toMatch(/data-qualifying="false"[^>]*>[\s\S]*?Linked but not confirmed[\s\S]*?يحتاج تأكيد وروده في المصدر/);
+    expect(html).toMatch(/data-qualifying="true"[^>]*>[\s\S]*?Confirmed in its source[\s\S]*?مؤهل للتقييم/);
+  });
+
+  test('rationale, limitations and providers render in Arabic; contradictions and scope limits stay visible', () => {
+    expect(html).toContain('الأدلة الداعمة محدودة');
+    expect(html).toContain('يغطي هذا التقييم عمليات البحث المسجلة والأدلة المرتبطة بالادعاء فقط');
+    expect(html).toContain('تعذر الوصول أثناء هذا البحث إلى: Crossref، CORE.');
+    expect(html).toContain('يعيد كل مزود عدداً محدوداً من النتائج الأعلى ترتيباً لكل استعلام.');
+    expect(html).not.toMatch(/Supporting evidence is limited|This assessment covers only|Unavailable during this search|Each provider returns/);
+    expect(html).toContain('أدلة معارضة (1)');
+    expect(html).toContain('Contradicting finding text');
+    expect(html).toContain('حدود هذا التقييم');
+    expect(html).toContain('لم يُراجع بعد');
+  });
+
+  test('an assessment made under the earlier rules says so and asks for a new assessment', () => {
+    const legacy = renderToStaticMarkup(<GapAssessmentCard assessment={{ ...browserCase, method_version: 'gap-rules-v1', basis: { supportingEvidence: ['e-unconfirmed', 'e-confirmed'], contradictingEvidence: [] } }} evidenceById={byId} />);
+    expect(legacy).toContain('وفق قواعد سابقة');
+    expect(legacy).toContain('أدلة مؤكدة مؤهلة للتقييم: 1 من 2');
+  });
+
+  test('the claim board marks a supporting link whose evidence is not yet confirmed in its source', () => {
+    const claim: ClaimRecord = { id: 'c', statement: 's', claim_type: 'gap', origin: 'researcher', status: 'active', created_at: '', supports: [
+      { id: 's1', claim_id: 'c', evidence_item_id: 'e-unconfirmed', relation: 'supports', origin: 'researcher', confirmation: 'confirmed', rationale: null, created_at: '' },
+      { id: 's2', claim_id: 'c', evidence_item_id: 'e-confirmed', relation: 'supports', origin: 'researcher', confirmation: 'confirmed', rationale: null, created_at: '' },
+    ] };
+    const board = renderToStaticMarkup(<ClaimSupportBoard claim={claim} evidenceById={byId} />);
+    expect(board).toMatch(/Linked but not confirmed[\s\S]*?يحتاج تأكيد وروده في المصدر · غير مؤهل للتصنيف الأعلى/);
+    expect(board).toMatch(/Confirmed in its source[\s\S]*?أكّد الباحث وروده في المصدر · مؤهل للتقييم/);
+  });
+
+  test('no gap, scope or claim view uses verified-gap wording', () => {
+    const views = [
+      html,
+      renderToStaticMarkup(<GapAssessmentCard assessment={{ ...browserCase, classification: 'EVIDENCE_BACKED_GAP_WITHIN_RECORDED_SCOPE', researcher_confirmation: 'accepted', confirmed_at: '2026-10-06T12:00:00.000Z' }} evidenceById={byId} />),
+      renderToStaticMarkup(<SearchScopePanel runs={[]} />),
+    ];
+    for (const view of views) expect(view).not.toMatch(FORBIDDEN_UI);
   });
 });

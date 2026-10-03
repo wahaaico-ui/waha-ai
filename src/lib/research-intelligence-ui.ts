@@ -87,8 +87,8 @@ export function supportOriginLabel(origin: string, confirmation: string) {
 export const GAP_CLASSIFICATION_LABELS: Record<string, { label: string; tone: Tone; explanation: string }> = {
   SIGNAL: { label: 'إشارة بحثية', tone: 'neutral', explanation: 'لا توجد بعد أدلة أكدتها تدعم هذه الفجوة؛ هي مؤشر يستحق البحث.' },
   NEEDS_MORE_EVIDENCE: { label: 'تحتاج أدلة إضافية', tone: 'caution', explanation: 'الأدلة المعارضة تعادل الداعمة أو تزيد عليها؛ الفجوة موضع خلاف.' },
-  POTENTIAL_GAP: { label: 'فجوة محتملة', tone: 'info', explanation: 'توجد أدلة داعمة، لكنها دون الحد المطلوب أو بلا نطاق بحث مسجل.' },
-  EVIDENCE_BACKED_GAP_WITHIN_RECORDED_SCOPE: { label: 'فجوة مدعومة بالأدلة ضمن نطاق البحث المسجل', tone: 'positive', explanation: 'دليلان على الأقل مستندان إلى مصدرين مختلفين، ضمن عمليات البحث المسجلة في هذا المشروع فقط.' },
+  POTENTIAL_GAP: { label: 'فجوة محتملة', tone: 'info', explanation: 'توجد أدلة داعمة مرتبطة، لكن الأدلة التي أكد الباحث ورودها في مصادرها دون الحد المطلوب، أو لا يوجد نطاق بحث مسجل.' },
+  EVIDENCE_BACKED_GAP_WITHIN_RECORDED_SCOPE: { label: 'فجوة مدعومة بالأدلة ضمن نطاق البحث المسجل', tone: 'positive', explanation: 'دليلان على الأقل أكد الباحث ورودهما في مصدرين مختلفين، ضمن عمليات البحث المسجلة في هذا المشروع فقط.' },
 };
 
 export function gapClassificationLabel(classification: string) {
@@ -96,6 +96,11 @@ export function gapClassificationLabel(classification: string) {
 }
 
 export const RESEARCHER_DECISION_LABELS: Record<string, string> = { unreviewed: 'لم يُراجع بعد', accepted: 'قبله الباحث لمشروعه', rejected: 'رفضه الباحث' };
+
+/** Whether linked evidence qualifies toward an evidence-backed gap: only the researcher-confirmed state does. */
+export const QUALIFYING_EVIDENCE_STATE = 'source_supported';
+export const QUALIFYING_EVIDENCE_LABEL = 'أكّد الباحث وروده في المصدر · مؤهل للتقييم';
+export const NOT_QUALIFYING_EVIDENCE_LABEL = 'يحتاج تأكيد وروده في المصدر · غير مؤهل للتصنيف الأعلى';
 
 export const GAP_SCOPE_NOTE = 'التقييم مبني على عمليات البحث المسجلة في هذا المشروع والأدلة المرتبطة بالادعاء فقط. لا يعني أن الموضوع لم يُدرس في أي مكان، وقبولك له قرار بحثي منك وليس تحققاً موضوعياً من الواحة.';
 

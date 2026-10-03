@@ -6,7 +6,7 @@ export type ClaimRecord = { id: string; statement: string; claim_type: string; o
 export type SearchRunRecord = { id: string; context: string; query: string; domain: string | null; providers: Array<{ provider?: string; available?: boolean; returned?: number; error?: string }> | null; providers_attempted: number; providers_available: number; candidate_count: number | null; result_count: number; limitations: string[] | null; executed_at: string };
 export type GapRecord = {
   id: string; claim_id: string; classification: string; rationale: string[]; limitations: string[];
-  basis: { supportingEvidence?: string[]; contradictingEvidence?: string[]; contextualEvidence?: string[]; unclearEvidence?: string[]; excludedSuggestions?: number } | null;
+  basis: { supportingEvidence?: string[]; qualifyingSupportingEvidence?: string[]; contradictingEvidence?: string[]; contextualEvidence?: string[]; unclearEvidence?: string[]; excludedSuggestions?: number } | null;
   search_run_ids: string[]; scope: { searches?: Array<{ id: string; query: string; executedAt: string; providersAvailable: number; providersAttempted: number; resultCount: number }> } | null;
   origin: string; method_version: string; researcher_confirmation: string; confirmed_at: string | null; generated_at: string;
 };
