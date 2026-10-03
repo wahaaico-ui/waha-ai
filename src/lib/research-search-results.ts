@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { sanitizeLiteraturePapers } from '@/lib/research-trust';
 import { canonicalRecordFrom } from '@/lib/academic/canonical-record';
 import { logOperationalEvent } from '@/lib/observability';
+import { observationRowsFrom } from '@/lib/academic/observations';
 
 // Server-held search results (Slice 1).
 //
@@ -117,6 +118,21 @@ async function resolveCanonicalWorks(service: ServiceClient, papers: AcademicPap
   }
 }
 
+/**
+ * Appends what each source reported about each resolved work (Slice 3). A
+ * failure is logged and does not affect the search.
+ */
+async function recordObservations(service: ServiceClient, papers: AcademicPaper[], workIds: Array<string | null>, observedAt: string, searchRunId: string) {
+  const rows = papers.flatMap((paper, index) => workIds[index] ? observationRowsFrom(workIds[index] as string, paper, observedAt, searchRunId) : []);
+  if (!rows.length) return;
+  try {
+    const { error } = await service.from('scholarly_work_observations').insert(rows);
+    if (error) throw error;
+  } catch {
+    logOperationalEvent('warn', { event: 'research.scholarly_observations.not_recorded', route: 'storeSearchResults', outcome: 'fallback', errorCode: 'observations_not_recorded', diagnostics: { rows: rows.length } });
+  }
+}
+
 /** Stores one search's results and returns their server-issued ids, in order. */
 export async function storeSearchResults(input: { userId: string; projectId: string; context: SearchContext; query: string; papers: AcademicPaper[] }) {
   const service = createServiceClient();
@@ -126,6 +142,7 @@ export async function storeSearchResults(input: { userId: string; projectId: str
   if (!input.papers.length) return [] as string[];
   const searchRunId = randomUUID();
   const workIds = await resolveCanonicalWorks(service, input.papers, now);
+  await recordObservations(service, input.papers, workIds, now, searchRunId);
   const rows = input.papers.map((paper, position) => ({
     search_run_id: searchRunId,
     user_id: input.userId,

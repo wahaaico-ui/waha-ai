@@ -1,5 +1,6 @@
 import { withAcademicCache } from './integrations/cache';
 import type { AcademicPaper } from './integrations/types';
+import { providerObservationsOf } from './integrations/normalization';
 import { CitationVerifier } from './CitationVerifier';
 import { OpenCitationsService } from './services/OpenCitationsService';
 import { UnpaywallService } from './services/UnpaywallService';
@@ -18,10 +19,25 @@ export class PaperEnrichmentEngine {
       // Unpaywall and OpenCitations' count are recorded as such, not merged
       // into a provider's values.
       const unpaywallLink = !paper.pdfUrl && Boolean(pdfUrl);
+      // A failed request is an error; an empty answer is "not reported", never
+      // a finding that the work is closed or uncited.
+      const outcome = (result: PromiseSettledResult<unknown>, value: unknown) => result.status === 'rejected'
+        ? { status: 'error' as const, errorCode: result.reason instanceof Error ? result.reason.message.slice(0, 100) : 'request_failed' }
+        : { status: value === null || value === undefined ? 'not_reported' as const : 'reported' as const };
       const candidate: AcademicPaper = {
         ...paper, pdfUrl, openAccess: paper.openAccess || Boolean(pdfUrl), citationCount,
         citationCounts: { ...(paper.citationCounts || { [paper.source]: paper.citationCount }), ...(openCitations !== null ? { opencitations: openCitations } : {}) },
         fieldProvenance: { ...(paper.fieldProvenance || {}), ...(unpaywallLink ? { pdfUrl: ['unpaywall'] } : {}) },
+        providerObservations: {
+          ...providerObservationsOf(paper),
+          ...(!paper.pdfUrl && access.status === 'fulfilled' && access.value ? { unpaywall: { oaUrl: access.value } } : {}),
+          ...(openCitations !== null ? { opencitations: { citationCount: openCitations } } : {}),
+        },
+        enrichmentOutcomes: {
+          // Unpaywall is asked only when the record has no link and a DOI.
+          ...(!paper.pdfUrl && paper.doi ? { unpaywall: outcome(access, access.status === 'fulfilled' ? access.value : null) } : {}),
+          ...(paper.doi ? { opencitations: outcome(citations, openCitations) } : {}),
+        },
       };
       const verification = CitationVerifier.evaluate(candidate);
       return { ...candidate, verificationStatus: verification.status, confidenceScore: verification.confidenceScore };

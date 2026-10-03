@@ -27,6 +27,8 @@ export function createSearchResultsFake() {
   const rows: FakeResultRow[] = [];
   const worksByDoi = new Map<string, string>();
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
+  const observations: Array<Record<string, unknown>> = [];
+  const observationsTable = { insert: async (input: Array<Record<string, unknown>>) => { observations.push(...input); return { error: null }; } };
   const defaultResolve: ResolveImpl = (records) => ({
     data: records.map((record) => {
       const doi = record.identifiers?.doi;
@@ -73,10 +75,16 @@ export function createSearchResultsFake() {
   return {
     rows,
     rpcCalls,
+    /** Rows appended to scholarly_work_observations. */
+    observations,
     /** Replaces the resolve_scholarly_works behaviour (for example, to fail). */
     setResolve(impl: ResolveImpl | null) { state.resolve = impl || defaultResolve; },
     client: {
-      from: (name: string) => { if (name !== 'research_search_results') throw new Error(`unexpected table ${name}`); return table; },
+      from: (name: string) => {
+        if (name === 'scholarly_work_observations') return observationsTable;
+        if (name !== 'research_search_results') throw new Error(`unexpected table ${name}`);
+        return table;
+      },
       rpc: async (name: string, args: Record<string, unknown>) => {
         rpcCalls.push({ name, args });
         if (name !== 'resolve_scholarly_works') throw new Error(`unexpected rpc ${name}`);

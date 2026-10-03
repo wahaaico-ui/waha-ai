@@ -4,7 +4,7 @@
 jest.mock('@/lib/supabase/authorization', () => ({ requireAuthenticatedUser: jest.fn(), ownsProject: jest.fn() }));
 jest.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => ({
-    from: (table: string) => table === 'research_search_results' ? mockResults.client.from(table) : mockServiceFrom(table),
+    from: (table: string) => table === 'research_search_results' || table === 'scholarly_work_observations' ? mockResults.client.from(table) : mockServiceFrom(table),
     rpc: (name: string, args: Record<string, unknown>) => mockResults.client.rpc(name, args),
   }),
 }));
@@ -54,6 +54,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockResults.rows.splice(0);
   mockResults.rpcCalls.splice(0);
+  mockResults.observations.splice(0);
   mockResults.setResolve(null);
 });
 
@@ -419,4 +420,20 @@ describe('project references linked to canonical works', () => {
     expect(captured.insert).toEqual(expect.objectContaining({ provider: 'user_asserted' }));
     expect(JSON.stringify(captured.insert)).not.toContain(FORGED);
   });
+});
+
+// ---- Slice 3: enrichment observations on search ------------------------------
+
+test('a search appends per-source observations for each resolved work, linked to the search run', async () => {
+  signIn('user-a');
+  const found = { id: 'https://openalex.org/W77', title: 'Observed study title for slice three', abstract: 'Abstract not stored', year: 2024, citationCount: 5, authors: ['A. Author'], doi: '10.1000/observed', pdfUrl: null, url: null, source: 'openalex', sources: ['openalex'], subjects: [], publicationType: 'article', openAccess: false, relevanceScore: 70, providerIds: { openalex: 'W77' } };
+  search.mockResolvedValue({ domain: 'general', providers: [{ provider: 'openalex', available: true, papers: [found], durationMs: 5 }], papers: [found] });
+  const response = await searchPost(new Request('http://localhost/api/academic/search', { method: 'POST', body: JSON.stringify({ query: 'observed study', projectId: 'project-a' }) }));
+
+  expect(response.status).toBe(200);
+  const workId = mockResults.rows[0].work_id;
+  expect(mockResults.observations.length).toBeGreaterThan(0);
+  expect(mockResults.observations.every((row) => row.work_id === workId && row.search_run_id === mockResults.rows[0].search_run_id && row.source === 'openalex')).toBe(true);
+  expect(mockResults.observations).toEqual(expect.arrayContaining([expect.objectContaining({ facet: 'registry_assertion', field: 'doi', status: 'reported', value: '10.1000/observed' })]));
+  expect(JSON.stringify(mockResults.observations)).not.toContain('Abstract not stored');
 });

@@ -47,7 +47,24 @@ export type AcademicPaper = {
   providerIds?: ProviderRecordIds;
   /** Citation counts as each source reported them; citationCount stays the display value. */
   citationCounts?: Partial<Record<ProvenanceSource, number>>;
+  /** What each source reported, kept separately through merges (Slice 3). */
+  providerObservations?: Partial<Record<ProvenanceSource, ProviderObservation>>;
+  /** Outcome of each enrichment request; null results are not negative findings. */
+  enrichmentOutcomes?: Partial<Record<'unpaywall' | 'opencitations', EnrichmentOutcome>>;
 };
+
+/** One source's own values for a record, before any merge. */
+export type ProviderObservation = {
+  title?: string | null;
+  year?: number | null;
+  venue?: string | null;
+  doi?: string | null;
+  citationCount?: number | null;
+  oaUrl?: string | null;
+  isOpenAccess?: boolean | null;
+};
+
+export type EnrichmentOutcome = { status: 'reported' | 'not_reported' | 'error'; errorCode?: string };
 
 export type UnifiedResearchItem = AcademicPaper;
 

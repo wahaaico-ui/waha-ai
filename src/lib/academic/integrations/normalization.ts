@@ -27,6 +27,22 @@ function normalisedAuthors(paper: AcademicPaper) {
   return paper.authors.map(normaliseTitle).join('|');
 }
 
+/** This record's own values per source; a merged record carries every source's. */
+export function providerObservationsOf(paper: AcademicPaper) {
+  return paper.providerObservations || {
+    [paper.source]: {
+      title: paper.title || null,
+      year: paper.year || null,
+      venue: paper.journal || paper.containerTitle || null,
+      doi: normaliseDoi(paper.doi),
+      citationCount: paper.citationCount,
+      oaUrl: paper.pdfUrl,
+      // A provider without a link has not asserted the work is closed access.
+      isOpenAccess: paper.openAccess ? true : null,
+    },
+  };
+}
+
 function citationCountsOf(paper: AcademicPaper) {
   return paper.citationCounts || { [paper.source]: paper.citationCount };
 }
@@ -68,6 +84,8 @@ export function mergePaper(first: AcademicPaper, second: AcademicPaper): Academi
     abstract: anchor.abstract || other.abstract,
     citationCount: Math.max(first.citationCount, second.citationCount),
     citationCounts: { ...citationCountsOf(other), ...citationCountsOf(anchor) },
+    // Every source's own values are kept, so disagreement is not lost.
+    providerObservations: { ...providerObservationsOf(other), ...providerObservationsOf(anchor) },
     pdfUrl: anchor.pdfUrl || other.pdfUrl,
     url: anchor.url || other.url,
     sources: [...new Set([...first.sources, ...second.sources, first.source, second.source])],
