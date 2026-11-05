@@ -1,0 +1,5 @@
+Amiri Regular 1.002
+Source: https://github.com/google/fonts/blob/main/ofl/amiri/Amiri-Regular.ttf
+License: SIL Open Font License 1.1; see Amiri-OFL.txt
+SHA256: ab391c4147d054c48976e98322ad0eefe1427aa0e0502a12a4c75d80a70cfcd7
+Used for searchable Arabic PDF exports. Noto Naskh Arabic retained for extended-script fallback.

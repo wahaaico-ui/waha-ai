@@ -1,9 +1,12 @@
 'use client';
 
+import { useUiTranslation } from '@/lib/use-ui-translation';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function StripeCheckoutButton({ label, className }: { label: string; className: string }) {
+  const { text: ui } = useUiTranslation();
+
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -21,5 +24,5 @@ export default function StripeCheckoutButton({ label, className }: { label: stri
     else window.alert(data.error || 'تعذر بدء الدفع');
   }
 
-  return <button type="button" onClick={checkout} disabled={loading} className={`${className} disabled:opacity-60`}>{loading ? 'جاري فتح الدفع...' : label}</button>;
+  return <button type="button" onClick={checkout} disabled={loading} className={`${className} disabled:opacity-60`}>{loading ? ui("جاري فتح الدفع...") : label}</button>;
 }

@@ -14,15 +14,19 @@ jest.mock('@/lib/email/resend', () => ({
 }));
 
 import { POST } from './route';
+import { createTableFake } from '@/lib/test-support/table-fake';
 
 const projectId = 'eb52bade-75cb-4bd0-a1d3-d5681650a00e';
 
 function terminalQuery(result: { data: unknown; error: unknown }) {
   const query: Record<string, jest.Mock> = {};
-  for (const method of ['select', 'eq', 'like', 'neq', 'order', 'limit']) {
+  let offset = 0;
+  for (const method of ['select', 'eq', 'in', 'like', 'neq', 'order', 'limit']) {
     query[method] = jest.fn().mockReturnValue(query);
   }
   query.maybeSingle = jest.fn().mockResolvedValue(result);
+  query.range = jest.fn((from: number) => { offset = from; return query; });
+  query.then = jest.fn(resolve => Promise.resolve({ ...result, data: offset === 0 && result.data ? [result.data] : [] }).then(resolve));
   return query;
 }
 
@@ -38,9 +42,9 @@ function authenticatedAccess(projectResult: QueryResult = { data: { id: projectI
   },
   error: null,
 }, draftResult: QueryResult = { data: null, error: null }) {
-  const projectQuery = terminalQuery(projectResult);
-  const documentQuery = terminalQuery(documentResult);
-  const draftQuery = terminalQuery(draftResult);
+  const projectQuery = terminalQuery({ ...projectResult, data: projectResult.data ? { created_at: '2026-08-01T00:00:00Z', status: 'draft', ...projectResult.data as object } : null });
+  const documentQuery = terminalQuery({ ...documentResult, data: documentResult.data ? { project_id: projectId, ...documentResult.data as object } : null });
+  const draftQuery = terminalQuery({ ...draftResult, data: draftResult.data ? { project_id: projectId, ...draftResult.data as object } : null });
   return {
     projectQuery,
     documentQuery,
@@ -119,8 +123,8 @@ describe('project snapshot email route', () => {
     expect(response.status).toBe(200);
     expect(body).toEqual({ success: true, sentTo: 'ow***@example.com' });
     expect(projectQuery.eq).toHaveBeenCalledWith('user_id', 'user-a');
-    expect(documentQuery.eq).toHaveBeenCalledWith('project_id', projectId);
-    expect(documentQuery.neq).toHaveBeenCalledWith('type', 'journey:decision');
+    expect(documentQuery.in).toHaveBeenCalledWith('project_id', [projectId]);
+    expect(documentQuery.in).toHaveBeenCalledWith('type', expect.arrayContaining(['evidence-writing:v1', 'journey:supervisor_review']));
     expect(sendProjectSnapshotEmail).toHaveBeenCalledWith(expect.objectContaining({
       to: 'owner@example.com',
       subject: expect.stringContaining('مشروع الباحث'),
@@ -180,4 +184,26 @@ describe('project snapshot email route', () => {
     }));
     expect(JSON.stringify(sendProjectSnapshotEmail.mock.calls)).not.toContain('نسخة معتمدة أقدم');
   });
+});
+
+test.each([
+  ['evidence-writing:v1', { text: 'Latest saved writing manuscript.', citations: [] }, 'Latest saved writing manuscript.'],
+  ['journey:supervisor_review', { originalText: 'Original academic paragraph before review.', revisedText: 'Latest saved supervisor revision.', notes: [] }, 'Latest saved supervisor revision.'],
+  ['journey:language_task', { operation: 'translate', text: 'Original academic paragraph.', output: 'Latest saved translation output.', targetLanguage: 'en', status: 'completed' }, 'Latest saved translation output.'],
+])('emails the same latest %s shown in the dashboard without sending a previous stage', async (type, content, expected) => {
+  jest.clearAllMocks();isProjectEmailConfigured.mockReturnValue(true);sendProjectSnapshotEmail.mockResolvedValue({ id: 'mock-only' });ownsProject.mockResolvedValue(true);
+  const db = createTableFake({ strictQuery: true, serverRowLimit: 2 });
+  db.seed('projects', { id: projectId, user_id: 'user-a', title: 'Research project', status: 'draft', created_at: '2026-08-01T00:00:00Z' });
+  db.seed('documents', { id: 'older', project_id: projectId, type: 'journey:title', version: 1, content: JSON.stringify({ title: 'Do not email this older research title' }), created_at: '2026-09-01T00:00:00Z' });
+  db.seed('documents', { id: 'newest', project_id: projectId, type, version: 1, content: JSON.stringify(content), created_at: '2026-10-20T00:00:00Z' });
+  requireAuthenticatedUser.mockResolvedValue({ user: { id: 'user-a', email: 'owner@example.com', user_metadata: {} }, supabase: db.session });
+  const response = await POST(request());
+  expect(response.status).toBe(200);
+  const message = sendProjectSnapshotEmail.mock.calls[0][0];
+  expect(message.text).toContain(expected);
+  expect(message.text).not.toContain('Do not email this older research title');
+  expect(message.text).not.toContain('مخرج معتمد');
+  expect(message.to).toBe('owner@example.com');
+  expect(message.idempotencyKey).toContain('newest');
+  expect(db.writes).toHaveLength(0);
 });

@@ -15,6 +15,15 @@ import type {
 } from '@/lib/research-objects/types';
 import { evaluateGate, isStage, nextAllowedStage, type WorkflowOutput, type WorkflowStage, WORKFLOW_STAGES } from '@/lib/research-workflow';
 import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
+import { createServiceClient } from '@/lib/supabase/service';
+import { buildLiteratureSelection } from '@/lib/research-search-results';
+import {
+  deriveAnalysisStageContent,
+  deriveVerifyStageContent,
+  SERVER_DERIVED_TRUST_MODEL,
+  withoutClientVerification,
+  type ServerVerificationDocument,
+} from '@/lib/research-trust';
 
 type StoredDocument = JourneyDocumentSnapshot;
 
@@ -47,6 +56,43 @@ async function readJourney(projectId: string, supabase: SupabaseClient) {
   const { data, error } = await supabase.from('documents').select('id, project_id, type, content, version, created_at').eq('project_id', projectId).like('type', 'journey:%').order('version', { ascending: false }).order('created_at', { ascending: false });
   if (error) throw error;
   return (data || []) as StoredDocument[];
+}
+
+async function readServerVerification(projectId: string, supabase: SupabaseClient): Promise<ServerVerificationDocument | null> {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('id, version, content')
+    .eq('project_id', projectId)
+    .eq('type', 'idea_verification')
+    .order('version', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data as ServerVerificationDocument | null) || null;
+}
+
+function derivedByServer(output: WorkflowOutput | undefined) {
+  const derivation = output?.serverDerivation;
+  return Boolean(derivation && typeof derivation === 'object' && (derivation as Record<string, unknown>).trustModel === SERVER_DERIVED_TRUST_MODEL);
+}
+
+function literatureTrust(papers: unknown) {
+  const origins = new Set((Array.isArray(papers) ? papers : []).map((paper) => paper && typeof paper === 'object' ? (paper as Record<string, unknown>).metadataOrigin : undefined));
+  if (origins.size === 1 && origins.has('server_discovered')) return 'server_discovered_unverified';
+  if (origins.size === 1 && origins.has('client_submitted')) return 'client_submitted_unverified';
+  if (!origins.has(undefined) && origins.size > 1) return 'mixed_unverified';
+  return 'legacy_client_submitted';
+}
+
+// Outputs saved before Slice 0 were accepted from the browser. They stay readable,
+// but are labelled so they are not mistaken for server-derived state.
+function outputTrust(outputs: Partial<Record<WorkflowStage, WorkflowOutput>>) {
+  return {
+    verify: outputs.verify ? (derivedByServer(outputs.verify) ? 'server_derived' : 'legacy_client_submitted') : null,
+    literature: outputs.literature ? literatureTrust(outputs.literature.papers) : null,
+    analysis: outputs.analysis ? (derivedByServer(outputs.analysis) ? 'server_validated' : 'legacy_client_submitted') : null,
+  };
 }
 
 type StoredDraft = {
@@ -129,9 +175,12 @@ export async function GET(request: Request, context: { params: Promise<{ project
     const latestStage = latestStageDocument?.type?.replace('journey:', '');
     const metadata = access.user.user_metadata || {};
     const metadataText = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
+    const trust = outputTrust(outputs);
+    if (outputs.literature) outputs.literature = { ...outputs.literature, papers: withoutClientVerification(outputs.literature.papers) };
     return respond({
       projectId,
       outputs,
+      trust,
       drafts,
       nextStage,
       gate: nextStage ? evaluateGate(nextStage, outputs) : null,
@@ -182,7 +231,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ proje
     const saved = Array.isArray(data) ? data[0] : data;
     if (!saved) {
       const drafts = await readDrafts(projectId, access.supabase);
-      return respond({ error: 'A newer draft is already saved', draft: drafts[stage] || null }, 409, 'stale_draft');
+      return respond({ success: false, error: 'A newer draft is already saved', draft: drafts[stage] || null }, 409, 'stale_draft');
     }
     return respond({
       success: true,
@@ -211,18 +260,40 @@ export async function POST(request: Request, context: { params: Promise<{ projec
     if (!(await ownsProject(projectId, access.user.id, access.supabase))) return respond({ error: 'Project not found' }, 404, 'project_not_found');
     const body: unknown = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') return respond({ error: 'Invalid request body' }, 400, 'invalid_request');
-    const { stage, content } = body as { stage?: unknown; content?: unknown };
-    if (!isStage(stage) || !content || typeof content !== 'object' || Array.isArray(content)) return respond({ error: 'A valid stage and content object are required' }, 400, 'invalid_stage_content');
-    const serialized = JSON.stringify(content);
-    if (serialized.length > 50_000) return respond({ error: 'Stage output is too large' }, 413, 'stage_output_too_large');
+    const { stage, content: clientContent } = body as { stage?: unknown; content?: unknown };
+    if (!isStage(stage) || !clientContent || typeof clientContent !== 'object' || Array.isArray(clientContent)) return respond({ error: 'A valid stage and content object are required' }, 400, 'invalid_stage_content');
+    if (JSON.stringify(clientContent).length > 50_000) return respond({ error: 'Stage output is too large' }, 413, 'stage_output_too_large');
 
     const documents = await readJourney(projectId, access.supabase);
     const outputs = extractOutputs(documents);
+
     const requestedIndex = WORKFLOW_STAGES.indexOf(stage);
     const missingPrevious = WORKFLOW_STAGES.slice(0, requestedIndex).find((previousStage) => !outputs[previousStage] || !evaluateGate(previousStage, outputs).status.includes('open'));
     if (missingPrevious) return respond({ error: 'Stage is locked', gate: evaluateGate(stage, outputs) }, 409, 'stage_locked');
 
-    const candidate = { ...outputs, [stage]: content as WorkflowOutput };
+    // System state is derived on the server; only researcher text, choices and
+    // IDs are taken from the request (see src/lib/research-trust.ts).
+    let content = clientContent as WorkflowOutput;
+    if (stage === 'verify') {
+      const derived = deriveVerifyStageContent(content, await readServerVerification(projectId, access.supabase));
+      if (!derived.ok) return respond({ error: derived.error }, derived.status, derived.code);
+      content = derived.content;
+    } else if (stage === 'literature') {
+      // Papers are rehydrated from server-held search results or copied from the
+      // saved stage by id; paper objects and search counts from the request are
+      // not stored (src/lib/research-search-results.ts).
+      const selection = await buildLiteratureSelection({ content, savedLiterature: outputs.literature, userId: access.user.id, projectId });
+      if (!selection.ok) return respond({ error: selection.error }, selection.status, selection.code);
+      content = selection.content;
+    } else if (stage === 'analysis') {
+      const derived = deriveAnalysisStageContent(content, outputs.literature);
+      if (!derived.ok) return respond({ error: derived.error }, 422, 'analysis_evidence_rejected');
+      content = derived.content;
+    }
+    const serialized = JSON.stringify(content);
+    if (serialized.length > 50_000) return respond({ error: 'Stage output is too large' }, 413, 'stage_output_too_large');
+
+    const candidate = { ...outputs, [stage]: content };
     const gate = evaluateGate(stage, candidate);
     if (gate.status !== 'open') {
       return respond({ error: gate.reason, gate }, 422, 'gate_rejected');
@@ -233,22 +304,14 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       ? evaluateConsistencyCandidate(projectId, documents, stage, serialized, version)
       : null;
 
-    if (consistency?.report.status === 'failed') {
-      const consistencyGate = {
-        status: 'needs_improvement' as const,
-        stage,
-        reason: consistency.report.summary,
-        nextStage: stage,
-      };
-      return respond({
-        error: consistency.report.summary,
-        gate: consistencyGate,
-        consistency: consistency.report,
-        consistencyWarnings: consistency.warnings,
-      }, 422, 'consistency_rejected');
-    }
+    // Lexical consistency is advisory, not a scientific approval gate.
+    // Required fields, structural gates and integrity checks above still apply.
 
-    const { error: insertError } = await access.supabase.from('documents').insert({ project_id: projectId, type: `journey:${stage}`, content: serialized, version });
+    // journey:* documents are server-owned (see migration 20260927000000). The
+    // project was verified as the caller's above, so the write uses the server
+    // client and is not open to the browser through the Data API.
+    const serverWriter = createServiceClient();
+    const { error: insertError } = await serverWriter.from('documents').insert({ project_id: projectId, type: `journey:${stage}`, content: serialized, version });
     if (insertError) throw insertError;
     const decisionVersion = Math.max(0, ...documents.filter((item) => item.type === 'journey:decision').map((item) => item.version || 0)) + 1;
     const decisionContent = {
@@ -256,6 +319,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
       recordedAt: new Date().toISOString(),
       ...(consistency ? {
         consistency: {
+          advisory: true,
           checkType: consistency.report.checkType,
           formulaVersion: consistency.report.formulaVersion,
           status: consistency.report.status,
@@ -265,7 +329,7 @@ export async function POST(request: Request, context: { params: Promise<{ projec
         },
       } : {}),
     };
-    const { error: decisionError } = await access.supabase.from('documents').insert({ project_id: projectId, type: 'journey:decision', content: JSON.stringify(decisionContent), version: decisionVersion });
+    const { error: decisionError } = await serverWriter.from('documents').insert({ project_id: projectId, type: 'journey:decision', content: JSON.stringify(decisionContent), version: decisionVersion });
     if (decisionError) throw decisionError;
     await access.supabase.from('projects').update({ status: gate.status === 'open' ? `${stage}_completed` : `${stage}_needs_improvement` }).eq('id', projectId).eq('user_id', access.user.id);
     try {

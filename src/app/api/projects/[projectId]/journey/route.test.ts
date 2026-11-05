@@ -6,6 +6,14 @@ jest.mock('@/lib/supabase/authorization', () => ({
   ownsProject: (...args: unknown[]) => ownsProject(...args),
 }));
 
+// Server-owned journey documents are written with the server client. The mock
+// delegates to the test's Supabase double so existing call sequences hold, and
+// records that the write went through the server client.
+const serviceFrom = jest.fn();
+jest.mock('@/lib/supabase/service', () => ({
+  createServiceClient: () => ({ from: (...args: unknown[]) => serviceFrom(...args) }),
+}));
+
 import { GET, PATCH, POST } from './route';
 import { buildProblemDraftFallback } from '@/lib/research-draft-fallback';
 
@@ -18,6 +26,7 @@ const accessForA = {
 describe('project journey authorization', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    serviceFrom.mockImplementation((...args: unknown[]) => accessForA.supabase.from(...args));
   });
 
   test('GET returns 401 without an authenticated Supabase user', async () => {
@@ -72,10 +81,10 @@ describe('project journey authorization', () => {
     expect(accessForA.supabase.from).not.toHaveBeenCalled();
   });
 
-  test('POST rejects structurally valid objectives that are inconsistent with the saved problem', async () => {
+  test('POST accepts structurally valid objectives despite failed lexical overlap', async () => {
     const documents = journeyDocuments();
     const readQuery = createJourneyReadQuery(documents);
-    accessForA.supabase.from.mockReturnValue(readQuery);
+    const inserts = allowStageWrites(readQuery);
     requireAuthenticatedUser.mockResolvedValue(accessForA);
     ownsProject.mockResolvedValue(true);
     const request = new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
@@ -95,11 +104,12 @@ describe('project journey authorization', () => {
     const response = await POST(request, context);
     const body = await response.json();
 
-    expect(response.status).toBe(422);
-    expect(body.gate.status).toBe('needs_improvement');
+    expect(response.status).toBe(200);
+    expect(body.gate.status).toBe('open');
     expect(body.consistency.status).toBe('failed');
     expect(body.consistency.checkType).toBe('problem_objective_consistency');
-    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+    expect(inserts).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(inserts.mock.calls[1][0].content).consistency.advisory).toBe(true);
   });
 
   test('POST refuses unchanged problem guidance before any database write', async () => {
@@ -253,10 +263,10 @@ describe('project journey authorization', () => {
     expect(decision.consistency.formulaVersion).toBe('problem-objective-consistency/v1');
   });
 
-  test('POST blocks inconsistent questions before inserting any document', async () => {
+  test('POST accepts structurally valid questions despite failed lexical overlap', async () => {
     const documents = journeyDocuments({ includeObjectives: true });
     const readQuery = createJourneyReadQuery(documents);
-    accessForA.supabase.from.mockReturnValue(readQuery);
+    const inserts = allowStageWrites(readQuery);
     requireAuthenticatedUser.mockResolvedValue(accessForA);
     ownsProject.mockResolvedValue(true);
     const request = new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
@@ -276,10 +286,11 @@ describe('project journey authorization', () => {
     const response = await POST(request, context);
     const body = await response.json();
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     expect(body.consistency.checkType).toBe('objective_question_consistency');
     expect(body.consistency.status).toBe('failed');
-    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+    expect(inserts).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(inserts.mock.calls[1][0].content).consistency.advisory).toBe(true);
   });
 
   test('POST saves questions with a warning and records the objective-question formula', async () => {
@@ -323,10 +334,10 @@ describe('project journey authorization', () => {
     expect(decision.consistency.formulaVersion).toBe('objective-question-consistency/v1');
   });
 
-  test('POST blocks hypotheses that do not test the saved questions', async () => {
+  test('POST accepts structurally valid hypotheses despite failed lexical overlap', async () => {
     const documents = journeyDocuments({ includeObjectives: true, includeQuestions: true });
     const readQuery = createJourneyReadQuery(documents);
-    accessForA.supabase.from.mockReturnValue(readQuery);
+    const inserts = allowStageWrites(readQuery);
     requireAuthenticatedUser.mockResolvedValue(accessForA);
     ownsProject.mockResolvedValue(true);
     const request = new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
@@ -348,10 +359,11 @@ describe('project journey authorization', () => {
     const response = await POST(request, context);
     const body = await response.json();
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     expect(body.consistency.checkType).toBe('question_hypothesis_consistency');
     expect(body.consistency.status).toBe('failed');
-    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+    expect(inserts).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(inserts.mock.calls[1][0].content).consistency.advisory).toBe(true);
   });
 
   test('POST saves aligned hypotheses and records their consistency formula', async () => {
@@ -400,10 +412,10 @@ describe('project journey authorization', () => {
     expect(decision.consistency.formulaVersion).toBe('question-hypothesis-consistency/v1');
   });
 
-  test('POST blocks a methodology that cannot answer the saved questions before inserting', async () => {
+  test('POST accepts structurally valid methodology despite failed lexical overlap', async () => {
     const documents = journeyDocuments({ includeObjectives: true, includeQuestions: true, qualitativeQuestions: true, includeHypotheses: true, hypothesesNotApplicable: true });
     const readQuery = createJourneyReadQuery(documents);
-    accessForA.supabase.from.mockReturnValue(readQuery);
+    const inserts = allowStageWrites(readQuery);
     requireAuthenticatedUser.mockResolvedValue(accessForA);
     ownsProject.mockResolvedValue(true);
     const request = new Request('https://waha.test/api/projects/project-owned-by-b/journey', {
@@ -423,10 +435,11 @@ describe('project journey authorization', () => {
     const response = await POST(request, context);
     const body = await response.json();
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(200);
     expect(body.consistency.checkType).toBe('question_methodology_consistency');
     expect(body.consistency.status).toBe('failed');
-    expect(accessForA.supabase.from).toHaveBeenCalledTimes(1);
+    expect(inserts).toHaveBeenCalledTimes(2);
+    expect(JSON.parse(inserts.mock.calls[1][0].content).consistency.advisory).toBe(true);
   });
 
   test('POST saves a methodology warning and records the question-methodology formula', async () => {
@@ -578,3 +591,70 @@ function journeyDocuments(options: {
     }] : []),
   ];
 }
+
+function allowStageWrites(readQuery: ReturnType<typeof createJourneyReadQuery>) {
+  const inserts = jest.fn().mockResolvedValue({ error: null });
+  const update = { update: jest.fn(), eq: jest.fn() };
+  update.update.mockReturnValue(update);
+  update.eq.mockReturnValueOnce(update).mockResolvedValueOnce({ error: null });
+  let reads = 0;
+  accessForA.supabase.from.mockImplementation((table: string) => {
+    if (table === 'documents') return ++reads === 1 ? readQuery : { insert: inserts };
+    return update;
+  });
+  return inserts;
+}
+
+test.each([
+  ['qualitative', 'لن نستخدم استبانة بل مقابلات شبه منظمة مع المشاركين.'],
+  ['qualitative', 'تحليل نصوص استبانات مفتوحة للإجابات باستخدام الترميز الموضوعي.'],
+  ['quantitative', 'لن نستخدم مقابلات بل مقياس كمي لقياس التحصيل.'],
+  ['quantitative', 'قياس التحصيل الأكاديمي مقابل مستوى الحضور لدى الطلاب.'],
+])('POST approves word matches as advisory: %s / %s', async (approach, instrument) => {
+  jest.clearAllMocks();
+  const inserts = allowStageWrites(createJourneyReadQuery(journeyDocuments({ includeObjectives: true, includeQuestions: true, includeHypotheses: true })));
+  serviceFrom.mockImplementation((...args: unknown[]) => accessForA.supabase.from(...args));
+  requireAuthenticatedUser.mockResolvedValue(accessForA);
+  ownsProject.mockResolvedValue(true);
+  const content = {
+    approach, instrument, population: 'طلبة التمريض في الجامعات المحلية من مستخدمي منصات التعلم الإلكتروني.',
+    sample: 'عينة طبقية عشوائية من طلبة التمريض وفق الجامعة والمستوى الدراسي.',
+  };
+  const response = await POST(new Request('https://waha.test/api/projects/p/journey', { method: 'POST', body: JSON.stringify({ stage: 'methodology', content }) }), context);
+  const body = await response.json();
+  expect(response.status).toBe(200);
+  expect(body.gate.status).toBe('open');
+  expect(body.gate.advisoryWarnings).toEqual([expect.stringContaining('لا يمنع الحفظ أو الاعتماد')]);
+  expect(inserts).toHaveBeenCalledTimes(2);
+});
+
+test.each([
+  ['population', 'أ ب ج د'], ['sample', 'المشاركون المختارون للدراسة'],
+  ['instrument', 'ااااااااااااااااااااا ااااااااا ااااااااا ااااااااا'],
+  ['population', []], ['sample', null], ['approach', {}],
+])('POST rejects invalid methodology %s without writing', async (field, value) => {
+  jest.clearAllMocks();
+  const inserts = allowStageWrites(createJourneyReadQuery(journeyDocuments({ includeObjectives: true, includeQuestions: true, includeHypotheses: true })));
+  serviceFrom.mockImplementation((...args: unknown[]) => accessForA.supabase.from(...args));
+  requireAuthenticatedUser.mockResolvedValue(accessForA);
+  ownsProject.mockResolvedValue(true);
+  const content = {
+    approach: 'quantitative', instrument: 'استبانة محكمة ومقياس كمي للتحصيل الأكاديمي والدافعية.',
+    population: 'طلبة التمريض في الجامعات المحلية من مستخدمي منصات التعلم الإلكتروني.',
+    sample: 'عينة طبقية عشوائية من طلبة التمريض وفق الجامعة والمستوى الدراسي.', [field]: value,
+  };
+  const response = await POST(new Request('https://waha.test/api/projects/p/journey', { method: 'POST', body: JSON.stringify({ stage: 'methodology', content }) }), context);
+  expect(response.status).toBe(422);
+  expect(inserts).not.toHaveBeenCalled();
+});
+
+test.each(['objectives', 'questions', 'hypotheses', 'methodology'])('invalid %s structure remains rejected', async (stage) => {
+  jest.clearAllMocks();
+  const inserts = allowStageWrites(createJourneyReadQuery(journeyDocuments({ includeObjectives: true, includeQuestions: true, includeHypotheses: true })));
+  serviceFrom.mockImplementation((...args: unknown[]) => accessForA.supabase.from(...args));
+  requireAuthenticatedUser.mockResolvedValue(accessForA);
+  ownsProject.mockResolvedValue(true);
+  const response = await POST(new Request('https://waha.test/api/projects/p/journey', { method: 'POST', body: JSON.stringify({ stage, content: {} }) }), context);
+  expect(response.status).toBe(422);
+  expect(inserts).not.toHaveBeenCalled();
+});

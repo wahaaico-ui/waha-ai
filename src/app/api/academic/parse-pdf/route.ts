@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import type { PDFParse } from 'pdf-parse';
-import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { createServiceClient } from '@/lib/supabase/service';
+import { createHash } from 'node:crypto';
 
 export const runtime = 'nodejs';
 
@@ -10,6 +12,30 @@ const MAX_TEXT_CHARS = 1_000_000;
 const MIN_TEXT_CHARS_BEFORE_OCR_FALLBACK = 50;
 const GEMINI_OCR_MODEL = 'gemini-3.6-flash';
 const OCR_TIMEOUT_MS = 30_000;
+const REPORT_TYPE = 'journey:pdf_extraction';
+
+export async function GET(request: Request) {
+  const access = await requireAuthenticatedUser();
+  if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const projectId = new URL(request.url).searchParams.get('projectId');
+  if (!projectId || projectId.length > 100) return NextResponse.json({ error: 'projectId required' }, { status: 400 });
+  if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+  const { data, error } = await access.supabase.from('documents').select('id, content').eq('project_id', projectId).eq('type', REPORT_TYPE).limit(50);
+  if (error) return NextResponse.json({ error: 'Unable to restore reading reports' }, { status: 500 });
+  const reports = (data || []).flatMap((row) => {
+    try {
+      const value = JSON.parse(row.content);
+      const r = value?.reading;
+      if (typeof value.fileName !== 'string' || !r || typeof r.complete !== 'boolean'
+        || !['text-layer', 'external-ocr'].includes(r.method)
+        || !Number.isInteger(r.totalPages) || r.totalPages < 1 || r.totalPages > MAX_PAGES
+        || !Number.isInteger(r.processedPages) || r.processedPages < 0 || r.processedPages > r.totalPages
+        || r.maxPages !== MAX_PAGES) return [];
+      return [{ id: row.id, fileName: value.fileName.slice(0, 255), reading: { totalPages: r.totalPages, processedPages: r.processedPages, maxPages: MAX_PAGES, method: r.method, complete: r.method === 'external-ocr' ? false : r.complete } }];
+    } catch { return []; }
+  });
+  return NextResponse.json({ reports }, { headers: { 'Cache-Control': 'private, no-store' } });
+}
 
 /**
  * Falls back to Gemini's document understanding when pdf-parse extracts
@@ -61,8 +87,14 @@ async function extractTextWithGeminiOcr(buffer: Buffer): Promise<string | null> 
 export async function POST(request: Request) {
   let parser: PDFParse | undefined;
   try {
-    if (!(await requireAuthenticatedUser())) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const access = await requireAuthenticatedUser();
+    if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const formData = await request.formData();
+    const projectId = formData.get('projectId');
+    // Legacy extraction-only callers remain supported. Project writes require
+    // explicit ownership before parsing or sending bytes to an OCR provider.
+    if (projectId !== null && (typeof projectId !== 'string' || !projectId || projectId.length > 100)) return NextResponse.json({ error: 'Invalid projectId' }, { status: 400 });
+    if (typeof projectId === 'string' && !(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     const file = formData.get('file');
     // OCR sends the full PDF to a third-party API (Google Gemini) — only ever
     // attempted when the caller explicitly opts in, never as a silent default.
@@ -81,20 +113,36 @@ export async function POST(request: Request) {
     if (info.total > MAX_PAGES) return NextResponse.json({ error: 'PDF exceeds the 50-page limit.' }, { status: 400 });
     const result = await parser.getText();
     if (result.text.length > MAX_TEXT_CHARS) return NextResponse.json({ error: 'Extracted document text is too large.' }, { status: 400 });
+    const reading = { totalPages: info.total, processedPages: result.pages.length, maxPages: MAX_PAGES, textCharacters: result.text.length, method: 'text-layer', complete: result.pages.length === info.total && result.pages.every((page) => page.text.trim().length > 0) && result.text.trim().length >= MIN_TEXT_CHARS_BEFORE_OCR_FALLBACK };
+    const respond = async (payload: { text: string; reading: typeof reading; message?: string; ocrAvailable?: boolean; extractedViaOcr?: boolean }) => {
+      if (typeof projectId !== 'string') return NextResponse.json(payload);
+      // Metadata only: never an abstract, canonical work, evidence or AI verdict.
+      // Different OCR/text-layer readings remain distinct; retries are idempotent.
+      const digest = createHash('sha256').update(projectId).update(buffer).update(payload.reading.method).digest('hex');
+      const id = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-5${digest.slice(13, 16)}-a${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+      try {
+        const { error } = await createServiceClient().from('documents').upsert({ id, project_id: projectId, type: REPORT_TYPE, version: 1, content: JSON.stringify({ fileName: file.name.slice(0, 255), reading: payload.reading }) }, { onConflict: 'id' });
+        if (error) throw new Error('storage unavailable');
+        return NextResponse.json({ ...payload, reportSaved: true });
+      } catch {
+        return NextResponse.json({ ...payload, error: 'اكتمل الاستخراج لكن تعذر حفظ تقرير القراءة؛ أعد المحاولة.' }, { status: 503 });
+      }
+    };
 
     if (result.text.trim().length < MIN_TEXT_CHARS_BEFORE_OCR_FALLBACK) {
       if (!allowExternalOcr) {
-        return NextResponse.json({
+        return await respond({
           text: result.text,
+          reading: { ...reading, complete: false },
           ocrAvailable: true,
           message: 'يبدو أن هذا الملف ممسوح ضوئياً بدون طبقة نص. يمكن استخراج نصه عبر معالجة خارجية (Google Gemini) بموافقتك.',
         });
       }
       const ocrText = await extractTextWithGeminiOcr(buffer);
-      if (ocrText) return NextResponse.json({ text: ocrText, extractedViaOcr: true });
+      if (ocrText) return await respond({ text: ocrText, extractedViaOcr: true, reading: { ...reading, textCharacters: ocrText.length, method: 'external-ocr', complete: false }, message: 'نص من معالجة خارجية؛ اكتمال النسخ ودقته يحتاجان مراجعتك.' });
     }
 
-    return NextResponse.json({ text: result.text });
+    return await respond({ text: result.text, reading });
   } catch {
     return NextResponse.json({ error: 'Unable to parse PDF.' }, { status: 400 });
   } finally { await parser?.destroy(); }

@@ -206,7 +206,7 @@ describe('research workflow quality gates', () => {
     expect(gate.nextStage).toBe('hypotheses');
   });
 
-  test('flags an incompatible qualitative method and questionnaire', () => {
+  test('advises without blocking a qualitative method mentioning a questionnaire', () => {
     const gate = evaluateGate('methodology', {
       verify: verified, title, problem,
       objectives: { objectives: ['قياس أثر الاستخدام الفعلي للذكاء الاصطناعي على تعلم الباحثين', 'تحديد العوامل التي تؤثر في تبني الذكاء الاصطناعي'] },
@@ -214,7 +214,7 @@ describe('research workflow quality gates', () => {
       hypotheses: { mode: 'required', hypotheses: ['يوجد أثر للاستخدام الفعلي للذكاء الاصطناعي على تعلم الباحثين', 'توجد علاقة بين العوامل المؤثرة وتبني الذكاء الاصطناعي لدى الباحثين'] },
       methodology: { approach: 'qualitative', population: 'طلبة الدراسات العليا المسجلون في الجامعة', sample: 'عينة قصدية متنوعة من طلبة الكليات المختلفة', instrument: 'استبانة محكمة من ثلاثين فقرة أكاديمية' },
     });
-    expect(gate.status).toBe('needs_improvement');
-    expect(gate.reason).toContain('تعارض');
+    expect(gate.status).toBe('open');
+    expect(gate.advisoryWarnings).toEqual([expect.stringContaining('لا يمنع الحفظ أو الاعتماد')]);
   });
 });

@@ -33,6 +33,26 @@ afterEach(() => {
 });
 
 describe('academic provider adapters', () => {
+  test('OpenAlex cursor paging retrieves another page and stops at the provider end', async () => {
+    global.fetch = jest.fn().mockResolvedValueOnce(json({ results: [{ id: 'https://openalex.org/W51', title: 'Page two study', publication_year: 2025 }], meta: { next_cursor: 'next-fixture-cursor' } })).mockResolvedValueOnce(json({ results: [], meta: { next_cursor: null } }));
+    const provider = new OpenAlexService();
+    const page = await provider.searchPage('bilingual learning', '*');
+    expect(page.papers[0].title).toBe('Page two study'); expect(page.nextCursor).toBe('next-fixture-cursor');
+    const firstUrl = new URL((global.fetch as jest.Mock).mock.calls[0][0]);
+    expect(firstUrl.searchParams.get('cursor')).toBe('*'); expect(firstUrl.searchParams.get('per-page')).toBe('50');
+    const last = await provider.searchPage('bilingual learning', page.nextCursor!);
+    expect(last).toEqual({ papers: [], nextCursor: null });
+    expect(new URL((global.fetch as jest.Mock).mock.calls[1][0]).searchParams.get('cursor')).toBe('next-fixture-cursor');
+  });
+  test('OpenAlex keeps an article number single instead of repeating it as a page range', async () => {
+    global.fetch = jest.fn().mockResolvedValue(json({ results: [
+      { id: 'https://openalex.org/W1', title: 'Article number study', biblio: { volume: '46', first_page: '100671', last_page: '100671' } },
+      { id: 'https://openalex.org/W2', title: 'Page range study', biblio: { first_page: '22', last_page: '36' } },
+      { id: 'https://openalex.org/W3', title: 'First page only study', biblio: { first_page: '301' } },
+    ], meta: { next_cursor: null } }));
+    const papers = await OpenAlexService.searchWorks('feedback', 3);
+    expect(papers.map((paper) => paper.pages)).toEqual(['100671', '22-36', '301']);
+  });
   test('normalises CORE metadata', async () => {
     global.fetch = jest.fn().mockResolvedValue(json({ results: [{ id: 1, title: 'Core paper', doi: '10.1000/CORE', yearPublished: 2025, authors: [{ name: 'A Author' }], downloadUrl: 'https://example.org/a.pdf' }] }));
     const [paper] = await new CoreService().search(options);
@@ -113,6 +133,11 @@ describe('academic provider adapters', () => {
 });
 
 describe('routing and cross-source deduplication', () => {
+  beforeEach(() => {
+    // Routing can select providers beyond each test's explicit spies. Keep
+    // these unit regressions offline, deterministic and independent of quotas.
+    global.fetch = jest.fn(async () => json({ data: [], results: [], message: { items: [] } }));
+  });
   test('honours a long Retry-After by failing gracefully instead of retrying too early', async () => {
     global.fetch = jest.fn().mockResolvedValue(new Response('', { status: 429, headers: { 'retry-after': '30' } }));
     await expect(resilientFetch('https://example.org')).rejects.toThrow('retry after 30 seconds');
@@ -153,8 +178,6 @@ describe('routing and cross-source deduplication', () => {
     const openAlex = jest.spyOn(OpenAlexService.prototype, 'search')
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([translatedPaper]);
-    jest.spyOn(ArxivService.prototype, 'search').mockResolvedValue([]);
-    jest.spyOn(DataCiteService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(SemanticScholarService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([]);
@@ -177,7 +200,6 @@ describe('routing and cross-source deduplication', () => {
     jest.spyOn(OpenAlexService.prototype, 'search')
       .mockRejectedValueOnce(new Error('Arabic index unavailable'))
       .mockResolvedValueOnce([recoveredPaper]);
-    jest.spyOn(DataCiteService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(SemanticScholarService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([]);

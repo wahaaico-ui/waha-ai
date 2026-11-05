@@ -1,10 +1,12 @@
-import { CitationFormatter } from './CitationFormatter';
+import { buildSourceBibliography } from './writing-citations';
+import { citationItemKey, citationItemSource } from './citation-item-source';
 import type { CitationItem, CitationStyle } from './types';
 
 export class BibliographyEngine {
   static build(items: CitationItem[], style: CitationStyle) {
-    const unique = [...new Map(items.map((item) => [item.doi || item.id, item])).values()];
-    const sorted = style === 'ieee' || style === 'vancouver' ? unique : unique.sort((a, b) => (a.authors[0] || a.title).localeCompare(b.authors[0] || b.title));
-    return sorted.map((item, index) => ({ itemId: item.id, number: index + 1, text: CitationFormatter.bibliography(item, style, index + 1) }));
+    const unique = new Map<string, CitationItem>();
+    for (const item of items) if (!unique.has(citationItemKey(item))) unique.set(citationItemKey(item), item);
+    const plan = buildSourceBibliography([...unique.values()].map(citationItemSource), style);
+    return plan.bibliography.map((entry, index) => ({ itemId: unique.get(entry.sourceKeys[0])!.id, number: index + 1, text: entry.text }));
   }
 }

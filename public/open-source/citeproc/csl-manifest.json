@@ -1,0 +1,37 @@
+{
+  "revisions": {
+    "citation-style-language/styles": "6ba2e9c6aa6e0dab87d3a20b833ed8ff6500f698",
+    "citation-style-language/locales": "a89adece41013402236e2c9020972d7e931fbab8",
+    "Juris-M/citeproc-js": "cc9153c45293af878de08cafddbefe6ea150c380"
+  },
+  "files": {
+    "apa.csl": {
+      "url": "https://raw.githubusercontent.com/citation-style-language/styles/6ba2e9c6aa6e0dab87d3a20b833ed8ff6500f698/apa.csl",
+      "sha256": "3917def5fc951b104d64216c3373096042368b9704ba269ca83c14ebaba889fc"
+    },
+    "ieee.csl": {
+      "url": "https://raw.githubusercontent.com/citation-style-language/styles/6ba2e9c6aa6e0dab87d3a20b833ed8ff6500f698/ieee.csl",
+      "sha256": "b4c7619fc16c45a31e4cc3271eab94ffe83192d3b4c7fc729470a3b459448de3"
+    },
+    "harvard-cite-them-right.csl": {
+      "url": "https://raw.githubusercontent.com/citation-style-language/styles/6ba2e9c6aa6e0dab87d3a20b833ed8ff6500f698/harvard-cite-them-right.csl",
+      "sha256": "0ca3d2c7c881cd98cdd81098b5349f5921edf430498aa9a5a41918621cf7cc45"
+    },
+    "vancouver.csl": {
+      "url": "https://raw.githubusercontent.com/citation-style-language/styles/5e762f49be0ff19290160a08bfe0202c7d5d729d/vancouver.csl",
+      "sha256": "3444eab9501a741cb0e265147caf01d2c00da16d9fe60201c546c5b9831178a6"
+    },
+    "chicago-author-date.csl": {
+      "url": "https://raw.githubusercontent.com/citation-style-language/styles/6ba2e9c6aa6e0dab87d3a20b833ed8ff6500f698/chicago-author-date.csl",
+      "sha256": "002fade78d7e4fe9d42936a16b43a8066b097013f6255df40b1bfba6631eff9b"
+    },
+    "modern-language-association.csl": {
+      "url": "https://raw.githubusercontent.com/citation-style-language/styles/6ba2e9c6aa6e0dab87d3a20b833ed8ff6500f698/modern-language-association.csl",
+      "sha256": "e1432698ef28938d044b06bd45ddcc57d6b974cec25f71007075646a11f99484"
+    },
+    "locales-en-US.xml": {
+      "url": "https://raw.githubusercontent.com/citation-style-language/locales/a89adece41013402236e2c9020972d7e931fbab8/locales-en-US.xml",
+      "sha256": "ac864c7c21166b4390d82c31792cdc509400727fa0060b43d8aa17e07f9cb079"
+    }
+  }
+}

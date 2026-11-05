@@ -72,7 +72,7 @@ export async function saveJourneyDraft(
   const data = await response.json().catch(() => ({}));
   if (response.status === 401) throw new Error('انتهت جلسة الدخول. سجّل الدخول مجدداً لحفظ المسودة.');
   if (response.status === 404) throw new Error('المشروع غير موجود أو لا تملك صلاحية الوصول إليه.');
-  if (response.status === 409) return data as { success: false; draft: JourneyDraft | null };
+  if (response.status === 409) return { success: false as const, draft: (data.draft ?? null) as JourneyDraft | null };
   if (!response.ok) throw new Error(data.error || 'تعذر حفظ المسودة تلقائياً.');
   return data as { success: true; stage: JourneyStage; draft: JourneyDraft };
 }

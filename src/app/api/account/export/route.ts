@@ -1,8 +1,12 @@
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { buildAccountArchive } from '@/lib/account-privacy';
+import { jsonDownloadStream } from '@/lib/json-download';
+
+export const runtime = 'nodejs';
+export const maxDuration = 300;
 
 const secureHeaders = {
-  'Cache-Control': 'private, no-store, max-age=0',
+  'Cache-Control': 'private, no-store, max-age=0, no-transform',
   'Content-Type': 'application/json; charset=utf-8',
   'X-Content-Type-Options': 'nosniff',
 };
@@ -14,7 +18,7 @@ export async function GET() {
   try {
     const archive = await buildAccountArchive(access.user);
     const date = new Date().toISOString().slice(0, 10);
-    return new Response(JSON.stringify(archive, null, 2), {
+    return new Response(jsonDownloadStream(archive), {
       status: 200,
       headers: {
         ...secureHeaders,

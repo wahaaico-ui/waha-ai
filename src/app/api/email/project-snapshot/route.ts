@@ -3,6 +3,8 @@ import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorizat
 import { buildProjectSnapshotEmail } from '@/lib/email/project-snapshot';
 import { isProjectEmailConfigured, sendProjectSnapshotEmail } from '@/lib/email/resend';
 import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
+import { buildDashboardProjects } from '@/lib/dashboard-resume';
+import { readDashboardWork } from '@/lib/dashboard-resume-server';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -29,52 +31,36 @@ export async function POST(request: Request) {
       return respond({ error: 'خدمة إرسال البريد غير مفعّلة حالياً', code: 'EMAIL_NOT_CONFIGURED' }, 503, 'email_not_configured');
     }
 
-    const [projectResult, documentResult, draftResult] = await Promise.all([
-      access.supabase
+    const projectResult = await access.supabase
         .from('projects')
-        .select('id, title')
+        .select('id, title, status, created_at')
         .eq('id', projectId)
         .eq('user_id', access.user.id)
-        .maybeSingle(),
-      access.supabase
-        .from('documents')
-        .select('id, type, content, version, created_at')
-        .eq('project_id', projectId)
-        .like('type', 'journey:%')
-        .neq('type', 'journey:decision')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      access.supabase
-        .from('research_stage_drafts')
-        .select('stage, content, client_updated_at, updated_at')
-        .eq('project_id', projectId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-    ]);
-
-    if (projectResult.error || documentResult.error || draftResult.error) throw new Error('PROJECT_SNAPSHOT_QUERY_FAILED');
+        .maybeSingle();
+    if (projectResult.error) throw new Error('PROJECT_SNAPSHOT_QUERY_FAILED');
     if (!projectResult.data) return respond({ error: 'المشروع غير موجود' }, 404, 'project_not_found');
-    const draft = draftResult.data;
-    const documentSavedAt = documentResult.data?.created_at ? new Date(documentResult.data.created_at).getTime() : 0;
-    const draftSavedAt = draft?.updated_at ? new Date(draft.updated_at).getTime() : 0;
-    const useDraft = Boolean(draft && draftSavedAt > documentSavedAt);
+    const work = await readDashboardWork(access.supabase, [projectId]);
+    const { resume } = buildDashboardProjects([projectResult.data], work.documents, work.drafts)[0];
+    const useDraft = resume.activity === 'draft';
+    const draft = useDraft ? work.drafts.find(row => row.stage === resume.lastStage && row.updated_at === resume.lastActivityAt) : null;
+    const type = resume.activity === 'writing' ? 'evidence-writing:v1' : resume.activity === 'supervisor' ? 'journey:supervisor_review'
+      : resume.activity === 'language' ? 'journey:language_task' : `journey:${resume.lastStage}`;
+    const document = work.documents.find(row => row.type === type && row.created_at === resume.lastActivityAt);
     const snapshot = useDraft && draft
       ? {
-          id: `draft-${draft.stage}-${draft.client_updated_at}`,
+          id: `draft-${draft.stage}-${draft.updated_at}`,
           type: `journey:${draft.stage}`,
           content: draft.content,
-          version: (documentResult.data?.version || 0) + 1,
+          version: (work.documents.find(row => row.type === `journey:${draft.stage}`)?.version || 0) + 1,
           savedAt: draft.updated_at,
         }
-      : documentResult.data
+      : document
         ? {
-            id: documentResult.data.id,
-            type: documentResult.data.type,
-            content: documentResult.data.content,
-            version: documentResult.data.version || 1,
-            savedAt: documentResult.data.created_at,
+            id: document.id,
+            type: document.type!,
+            content: document.content,
+            version: document.version || 1,
+            savedAt: document.created_at,
           }
         : null;
     if (!snapshot) return respond({ error: 'لا توجد نسخة محفوظة لإرسالها بعد' }, 409, 'snapshot_missing');

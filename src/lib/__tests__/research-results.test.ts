@@ -24,6 +24,11 @@ const analysisInput = {
 };
 
 describe('research results stage', () => {
+  test('rejects invented values in the overall summary, while allowing the recorded sample size', () => {
+    const draft = buildResultsDraft(analysisInput)!;
+    expect(researchResultsConsistencyIssue({ ...draft, overallSummary: draft.overallSummary + ' وبلغ التحسن 93%.' }, analysisInput)).toContain('93%');
+    expect(researchResultsConsistencyIssue({ ...draft, overallSummary: draft.overallSummary + ' وشملت العينة 214 استجابة.' }, analysisInput)).toBeNull();
+  });
   test('builds an honest draft from the approved external analysis without inventing values', () => {
     const draft = buildResultsDraft(analysisInput);
     expect(draft).not.toBeNull();

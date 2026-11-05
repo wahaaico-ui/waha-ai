@@ -6,6 +6,7 @@ import { researchConclusionsConsistencyIssue, researchConclusionsStructureIssue 
 import { researchRecommendationsConsistencyIssue, researchRecommendationsStructureIssue } from '@/lib/research-recommendations';
 import { researchPublicationConsistencyIssue, researchPublicationStructureIssue } from '@/lib/research-publication';
 import { isStudyInstrumentType } from '@/lib/research-instrument';
+import { methodologyAdvisories, methodologyStructureIssue } from '@/lib/research-methodology';
 
 export const WORKFLOW_STAGES = ['verify', 'title', 'problem', 'objectives', 'questions', 'hypotheses', 'methodology', 'design', 'instrument', 'literature', 'analysis', 'analysis_input', 'results', 'discussion', 'conclusions', 'recommendations', 'publication'] as const;
 
@@ -18,6 +19,7 @@ export type QualityGate = {
   stage: WorkflowStage;
   reason: string;
   nextStage: WorkflowStage | null;
+  advisoryWarnings?: string[];
 };
 
 const asText = (value: unknown) => typeof value === 'string' ? value.trim() : '';
@@ -56,10 +58,7 @@ export function stageComplete(stage: WorkflowStage, output: WorkflowOutput | und
       if (output.mode === 'not_applicable') return assessAcademicText(output.rationale, { minChars: 30, minWords: 5, label: 'مبرر عدم استخدام الفرضيات' }).valid;
       return output.mode === 'required' && !firstAcademicTextIssue(output.hypotheses, { minChars: 20, minWords: 5, label: 'الفرضية' }, 1);
     }
-    case 'methodology': {
-      const fields = { population: 'مجتمع الدراسة', sample: 'العينة', instrument: 'أداة جمع البيانات' } as const;
-      return Boolean(asText(output.approach)) && Object.entries(fields).every(([key, label]) => assessAcademicText(output[key], { minChars: 20, minWords: 4, label }).valid);
-    }
+    case 'methodology': return !methodologyStructureIssue(output);
     case 'design': {
       const variables = Array.isArray(output.variables) ? output.variables : [];
       const population = output.population && typeof output.population === 'object' ? output.population as Record<string, unknown> : {};
@@ -108,7 +107,8 @@ export function evaluateGate(stage: WorkflowStage, outputs: Partial<Record<Workf
   }
 
   if (!stageComplete(stage, outputs[stage])) {
-    const reason = stage === 'problem' ? consistencyIssueFor(stage, outputs) || requirementFor(stage) : requirementFor(stage);
+    const reason = stage === 'methodology' ? methodologyStructureIssue(outputs[stage]) || requirementFor(stage)
+      : stage === 'problem' ? consistencyIssueFor(stage, outputs) || requirementFor(stage) : requirementFor(stage);
     return { status: 'needs_improvement', stage, reason, nextStage: stage };
   }
 
@@ -116,6 +116,10 @@ export function evaluateGate(stage: WorkflowStage, outputs: Partial<Record<Workf
   if (consistencyIssue) return { status: 'needs_improvement', stage, reason: consistencyIssue, nextStage: stage };
 
   const nextStage = WORKFLOW_STAGES[currentIndex + 1] ?? null;
+  if (stage === 'methodology') return {
+    status: 'open', stage, reason: 'حُفظت خطة الإجابة.', nextStage,
+    advisoryWarnings: methodologyAdvisories(outputs.methodology),
+  };
   return { status: 'open', stage, reason: nextStage ? `تمت مراجعة المتطلبات الأساسية. يمكنك الانتقال إلى «${stageLabel(nextStage)}».` : 'اكتملت مخرجات هذه الرحلة الأساسية.', nextStage };
 }
 
@@ -146,12 +150,6 @@ function consistencyIssueFor(stage: WorkflowStage, outputs: Partial<Record<Workf
       if (hypotheses.length !== questions.length) return 'يجب أن تقابل كل سؤال فرضية واحدة، أو توثّق لماذا لا تتطلب طبيعة الدراسة فرضيات.';
       if (hypotheses.some((item) => /[؟?]\s*$/u.test(item))) return 'الفرضية عبارة تقريرية قابلة للاختبار وليست سؤالاً.';
     }
-  }
-  if (stage === 'methodology') {
-    const approach = asText(outputs.methodology?.approach).toLowerCase();
-    const instrument = asText(outputs.methodology?.instrument);
-    if (approach === 'qualitative' && /استبان|questionnaire|survey/i.test(instrument)) return 'هناك تعارض: اخترت منهجاً نوعياً لكن الأداة استبانة كمية. عدّل المنهج أو الأداة قبل المتابعة.';
-    if (approach === 'quantitative' && /مقابل|interview/i.test(instrument)) return 'هناك تعارض محتمل: المقابلات تتطلب منهجاً نوعياً أو مختلطاً، أو أداة كمية مناسبة.';
   }
   if (stage === 'design') {
     const approach = asText(outputs.methodology?.approach).toLowerCase();
@@ -219,7 +217,7 @@ function requirementFor(stage: WorkflowStage) {
     methodology: 'حدد المنهج ومجتمع الدراسة والعينة والأداة.',
     design: 'نظّم المتغيرات أو المفاهيم، وحدد مجتمع الدراسة واستراتيجية العينة ومعاييرها ومبرر حجمها.',
     instrument: 'اعتمد نوع أداة متسقاً مع منهجك، وأنشئ مسودة تغطي المتغيرات أو المفاهيم المعتمدة مع نص موافقة وتعليمات واضحة.',
-    literature: 'اختر ثلاث دراسات موثقة على الأقل.',
+    literature: 'اختر ثلاث دراسات على الأقل من نتائج البحث.',
     analysis: 'أضف تأطيراً وخلاصة مبنيين على الدراسات المختارة.',
     analysis_input: 'أدخل ملخصاً مجهول الهوية لمخرجات التحليل المنفذ خارج WAHA، واربط مخرجاً واحداً بكل سؤال وفرضية معتمدة.',
     results: 'راجع صياغة نتيجة واحدة لكل سؤال اعتماداً على مخرجات التحليل المحفوظة، من دون اختراع قيم أو إدخال تفسير ومناقشة.',

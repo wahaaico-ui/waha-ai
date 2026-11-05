@@ -1,8 +1,10 @@
 const requireAuthenticatedUser = jest.fn();
 const requestFingerprint = jest.fn();
+const ownsProject = jest.fn();
 
 jest.mock('@/lib/supabase/authorization', () => ({
   requireAuthenticatedUser: (...args: unknown[]) => requireAuthenticatedUser(...args),
+  ownsProject: (...args: unknown[]) => ownsProject(...args),
 }));
 
 jest.mock('@/proxy', () => ({
@@ -22,6 +24,14 @@ describe('verify idea route validation and correlation', () => {
   });
 
   afterEach(() => jest.restoreAllMocks());
+
+  test('another owner project is rejected before exploration', async () => {
+    requireAuthenticatedUser.mockResolvedValue({ user: { id: 'user-a' }, supabase: {} });
+    ownsProject.mockResolvedValue(false);
+    const response = await POST(new NextRequest('https://waha.test/api/verify-idea', { method: 'POST', body: JSON.stringify({ topic: 'Blended learning university students', projectId: 'project-b' }) }));
+    expect(response.status).toBe(404);
+    expect(ownsProject).toHaveBeenCalledWith('project-b', 'user-a', expect.anything());
+  });
 
   test('rejects malformed JSON as a client error with the same request ID', async () => {
     const response = await POST(new NextRequest('https://waha.systems/api/verify-idea', {

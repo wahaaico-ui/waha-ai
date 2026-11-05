@@ -11,10 +11,18 @@ const item: CitationItem = {
 };
 
 describe('citation engine', () => {
+  test.each(CITATION_STYLES)('normalizes DOI URLs in saved references for %s', (style) => {
+    for (const doi of ['10.1000/example', 'https://doi.org/10.1000/example', 'http://dx.doi.org/10.1000/example', 'doi:10.1000/example']) {
+      const formatted = CitationFormatter.bibliography({ ...item, doi }, style);
+      expect(formatted).toContain('10.1000/example');
+      expect(formatted).not.toContain('doi.org/https:');
+    }
+  });
   test.each(CITATION_STYLES)('formats a bibliography and in-text citation for %s', (style) => {
     const citation = CitationEngine.create(item, style, { number: 3, locator: 'p. 12' });
     expect(citation.inText).toBeTruthy();
-    expect(citation.bibliography).toContain('A reliable academic study');
+    // CSL applies the style's title capitalization (e.g. Chicago title case).
+    expect(citation.bibliography.toLowerCase()).toContain('a reliable academic study');
     expect(citation.verificationStatus).toBe('verified');
   });
 

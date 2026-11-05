@@ -1,27 +1,44 @@
 'use client';
 
-import { BookOpenCheck, BrainCircuit, FileCheck2, FolderKanban, Globe2, Route, ShieldCheck, Sparkles } from 'lucide-react';
-import Hero from './components/Hero';
+import { useUiTranslation } from '@/lib/use-ui-translation';
+import TaskStart from '@/components/TaskStart';
 import SiteHeader from '@/components/SiteHeader';
 import SiteFooter from '@/components/SiteFooter';
-import { useWahaLanguage } from '@/lib/use-language';
-
-const features = [
-  { icon: BrainCircuit, ar: ['استكشاف بحثي موثّق', 'حلّل الفكرة ضمن سياقها واكتشف ما يحتاج بحثاً أعمق.'], en: ['Evidence-led exploration', 'Analyse the idea in context and identify what needs deeper research.'] },
-  { icon: Route, ar: ['رحلة مترابطة', 'كل مخرج يصبح مدخلاً للمرحلة التالية داخل المشروع نفسه.'], en: ['Connected journey', 'Every output becomes an input to the next stage in the same project.'] },
-  { icon: FileCheck2, ar: ['بوابات اعتماد واضحة', 'لا تتقدم قبل حفظ المخرج ومراجعته وفق معيار المرحلة.'], en: ['Clear approval gates', 'Progress only after saving and reviewing the current stage output.'] },
-  { icon: BookOpenCheck, ar: ['أدلة قابلة للتتبّع', 'اربط قراراتك بالمصادر التي بُنيت عليها، دون اختلاق مراجع.'], en: ['Traceable evidence', 'Connect decisions to their sources without fabricated references.'] },
-  { icon: FolderKanban, ar: ['مشروع محفوظ وآمن', 'ارجع إلى مشروعك ومراحله ومخرجاته من حسابك في أي وقت.'], en: ['Saved, secure projects', 'Return to your project, stages, and outputs from your account.'] },
-  { icon: Globe2, ar: ['عربية أولاً', 'رحلة بحثية عربية متكاملة، مع أدوات منفصلة للترجمة وتدقيق الإنجليزية.'], en: ['Arabic first', 'A complete Arabic research journey with separate translation and English proofreading tools.'] },
-];
+import PublicCapabilities from '@/components/PublicCapabilities';
+import Link from 'next/link';
+import { BookOpen, Check, FileDown, FolderOpen, Languages } from 'lucide-react';
 
 export default function HomePage() {
-  const { language: lang } = useWahaLanguage();
-  const ar = lang === 'ar';
-  const text = ar ? { features: 'منظومة واحدة لرحلة بحثية متسقة', sub: 'ليست نافذة محادثة تعطيك نصاً وتنتهي؛ بل مشروع محفوظ يربط القرار بالدليل والمرحلة بما بعدها.', how: 'كيف تبدأ رحلتك؟', howSub: 'أربع خطوات واضحة، وكل خطوة تنتج مخرجاً حقيقياً داخل مشروعك.', steps: [['اكتب ما تعرفه', 'صف فكرتك بلغتك، حتى لو كانت أولية أو غير مصاغة أكاديمياً.'], ['استكشف السياق', 'نحلل الفكرة ونراجع الأدلة ونوضح الفجوات والبدائل الممكنة.'], ['اعتمد المسار', 'قارن المقترحات واعتمد الخيار الأنسب قبل بناء عناصر البحث.'], ['ابنِ البحث', 'انتقل بتسلسل مترابط من المشكلة إلى الأهداف والأسئلة والمنهجية.']], cta: 'ابدأ من فكرتك، مهما كانت أولية', ctaSub: 'لن نطلب منك أن تكون خبيراً في الصياغة؛ اكتب ما تفهمه وسنساعدك على تنظيم الخطوة التالية.', button: 'ابدأ الاستكشاف', trust: 'خصوصية المشروع وملكية الباحث أساس في كل مرحلة.' } : { features: 'One system for a coherent research journey', sub: 'Not a chat window that returns text and stops, but a saved project connecting each decision to evidence and the next stage.', how: 'How do you begin?', howSub: 'Four clear steps, each producing a real output inside your project.', steps: [['Write what you know', 'Describe the idea in your own words, even if it is early or not academically phrased.'], ['Explore the context', 'We analyse the idea, review evidence, and clarify gaps and possible alternatives.'], ['Approve the path', 'Compare proposals and approve the strongest direction before building the research.'], ['Build the research', 'Move coherently from the problem to objectives, questions, and methodology.']], cta: 'Start with your idea, however early it is', ctaSub: 'You do not need to be an expert in academic phrasing. Write what you understand, and we will help structure the next step.', button: 'Start exploring', trust: 'Project privacy and researcher ownership are foundational at every stage.' };
-  return <div dir={ar ? 'rtl' : 'ltr'} className="min-h-screen bg-[#f8fafc] text-slate-900"><SiteHeader /><main id="waha-home-main" className="mx-auto max-w-7xl px-4 sm:px-6"><Hero lang={lang} />
-    <section id="features" className="border-t border-slate-200 py-20 sm:py-28"><div className="text-center"><h2 className="font-display text-4xl font-semibold text-[#10213c] sm:text-5xl">{text.features}</h2><p className="mt-4 text-lg text-slate-500">{text.sub}</p></div><div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-3">{features.map((feature) => { const Icon = feature.icon; const [title, detail] = feature[lang]; return <article key={title} className="rounded-2xl border border-slate-200 bg-white p-6 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-950/5"><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><Icon className="h-5 w-5" /></span><h3 className="mt-5 text-lg font-bold text-[#10213c]">{title}</h3><p className="mt-2 text-sm leading-7 text-slate-500">{detail}</p></article>; })}</div></section>
-    <section id="how-it-works" className="rounded-[2rem] bg-white px-5 py-16 ring-1 ring-slate-200 sm:px-10 sm:py-20"><div className="text-center"><h2 className="font-display text-4xl font-semibold text-[#111827] sm:text-5xl">{text.how}</h2><p className="mt-4 text-lg text-slate-500">{text.howSub}</p></div><ol className="mt-12 grid gap-5 md:grid-cols-4">{text.steps.map(([title, detail], index) => <li key={title} className="rounded-2xl border border-slate-200 bg-[#f8fafc] p-5 text-start"><span className="grid h-11 w-11 place-items-center rounded-xl bg-[#1e5eff] text-sm font-bold text-white shadow-lg shadow-blue-500/20">{index + 1}</span><h3 className="mt-4 font-bold text-[#111827]">{title}</h3><p className="mt-2 text-sm leading-7 text-slate-500">{detail}</p></li>)}</ol></section>
-    <section className="my-20 overflow-hidden rounded-[2rem] bg-[#1e5eff] px-6 py-16 text-center text-white sm:my-28 sm:py-20"><h2 className="font-display text-4xl font-semibold sm:text-5xl">{text.cta}</h2><p className="mx-auto mt-4 max-w-2xl leading-7 text-blue-100">{text.ctaSub}</p><a href="/verify-idea" className="mt-8 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-[#1647c9] shadow-lg transition hover:-translate-y-0.5 hover:bg-blue-50"><Sparkles className="h-4 w-4" />{text.button}</a><p className="mt-7 flex justify-center gap-2 text-xs text-blue-100"><ShieldCheck className="h-4 w-4" />{text.trust}</p></section>
-  </main><SiteFooter lang={lang} /></div>;
+  const { text: ui, direction: uiDirection, language: uiLanguage } = useUiTranslation();
+
+  return <div dir={uiDirection} className="min-h-screen bg-bg text-ink"><SiteHeader /><main id="waha-home-main" className="mx-auto max-w-7xl px-4 sm:px-6">
+    <section aria-labelledby="home-heading" className="grid items-start gap-5 py-6 sm:gap-6 sm:py-10 lg:grid-cols-[minmax(0,.9fr)_minmax(0,1.1fr)] lg:gap-12 lg:py-14">
+      <header className="lg:py-5">
+        <p className="inline-flex items-center gap-2 text-xs font-bold text-primary-dark sm:text-sm"><BookOpen aria-hidden="true" className="h-4 w-4" />{ui("الواحة للبحث والكتابة الأكاديمية")}</p>
+        <h1 id="home-heading" className="mt-4 max-w-xl text-[1.65rem] font-black leading-[1.35] tracking-tight text-ink sm:text-4xl lg:text-5xl">{ui("اكتب بحثك بدليل، وافهم دراساتك واستشهاداتك.")}</h1>
+        <p className="mt-4 max-w-xl text-sm leading-7 text-slate-600 sm:text-base sm:leading-8">{ui("كتابة مرتبطة بمصادرك، ومعلومات دراسات قابلة للمراجعة، وتقييم مفسّر للاستشهادات؛ مع نصوصك ومراجعك وملاحظات المشرف في مشروع مترابط بالعربية والإنجليزية.")}</p>
+        <ul className="mt-6 space-y-3 text-sm leading-6 text-slate-700">
+          {['اربط كل جملة بالمقطع الذي تستند إليه.', 'استخرج هدف الدراسة ومنهجها وعينتها ونتائجها من النص المتاح.', 'راجع علاقة الاستشهاد بكلامك قبل اعتمادها.'].map((label) => <li key={label} className="flex items-start gap-2.5"><Check aria-hidden="true" className="mt-1 h-4 w-4 shrink-0 text-primary" />{ui(label)}</li>)}
+        </ul>
+        <div className="mt-7 hidden flex-wrap items-center gap-3 sm:flex">
+          <Link href="/#start" className="rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-white transition hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">{ui("اختر مهمة وابدأ")}</Link>
+          <Link href="/verify-idea" className="rounded-xl px-1 py-2.5 text-sm font-bold text-primary-dark underline-offset-4 hover:underline">{ui("لدي فكرة وأريد استكشافها")}</Link>
+        </div>
+        <p className="mt-5 hidden flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500 sm:flex">
+          <span className="inline-flex items-center gap-1.5"><Languages aria-hidden="true" className="h-3.5 w-3.5" />{ui("واجهة عربية وإنجليزية")}</span>
+          <span className="inline-flex items-center gap-1.5"><FolderOpen aria-hidden="true" className="h-3.5 w-3.5" />{ui("حفظ واسترجاع العمل")}</span>
+          <span className="inline-flex items-center gap-1.5"><FileDown aria-hidden="true" className="h-3.5 w-3.5" />{ui("توثيق وتصدير")}</span>
+        </p>
+      </header>
+      <TaskStart />
+    </section>
+    <PublicCapabilities />
+    <section id="how-it-works" aria-labelledby="workflow-heading" className="scroll-mt-24 border-t border-line py-8 sm:py-10">
+      <h2 id="workflow-heading" className="text-xl font-black">{ui("من طلب واضح إلى عمل محفوظ")}</h2>
+      <ol className="mt-5 grid gap-4 sm:grid-cols-3">
+        {[['اختر مهمتك', 'مراجع، مقارنة دراسات، ترجمة وتدقيق، ملاحظات مشرف، أو قراءة PDF.'], ['راجع النتيجة', 'افتح المصادر، قارن النص بالأصل، وراجع ملاحظاتك قبل اعتماد العمل.'], ['احفظ وتابع', 'ارجع إلى مشروعك ومراجعاته، وصدّر المخرجات المحفوظة عندما تحتاجها.']].map(([title, description], index) => <li key={title} className="rounded-2xl border border-line bg-white p-5"><span aria-hidden="true" className="mb-3 grid h-7 w-7 place-items-center rounded-full bg-primary-tint text-xs font-bold text-primary-dark">{index + 1}</span><h3 className="text-sm font-bold">{ui(title)}</h3><p className="mt-2 text-sm leading-7 text-slate-600">{ui(description)}</p></li>)}
+      </ol>
+      <p className="mt-5 text-sm leading-7 text-slate-600">{ui('مصادرك ونصوصك وتعديلاتك تبقى مرتبطة بمشروعك، لتتابع العمل من حيث توقفت.')}</p>
+    </section>
+  </main><SiteFooter lang={uiLanguage} /></div>;
 }

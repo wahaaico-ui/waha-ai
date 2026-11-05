@@ -1,0 +1,31 @@
+import { buildResultsDraft, researchResultsConsistencyIssue } from '@/lib/research-results';
+import { buildDiscussionDraft, researchDiscussionConsistencyIssue } from '@/lib/research-discussion';
+import { buildConclusionsDraft, researchConclusionsConsistencyIssue } from '@/lib/research-conclusions';
+import { buildProjectExportModel } from '@/lib/project-export';
+
+test('declared test data passes from analysis to results, cited discussion, conclusions and a 50-reference export', () => {
+  const analysisInput = { findings: [{ questionIndex: 0, questionText: 'ما العلاقة بين استخدام المنصة والتعلم ضمن سياق الجامعة؟', hypothesisText: null, findingSummary: 'ظهرت علاقة إيجابية بين استخدام المنصة والتعلم في عينة الاختبار المعلنة.', evidenceSummary: 'بلغ معامل الارتباط 0.42 عند مستوى دلالة 0.01 في بيانات الاختبار.' }], limitations: 'هذه بيانات اختبار معلنة؛ لا تمثل نتيجة علمية أو دراسة ميدانية حقيقية.' };
+  const results = buildResultsDraft(analysisInput)!;
+  expect(researchResultsConsistencyIssue(results, analysisInput)).toBeNull();
+  const discussion = buildDiscussionDraft(JSON.parse(JSON.stringify(results)))!;
+  discussion.discussions[0].interpretation = 'تشير العلاقة إلى اتجاه إيجابي ضمن بيانات الاختبار الحالية مع تجنب تعميم السببية على مجتمعات أخرى.';
+  discussion.discussions[0].literatureComparison = 'تُقارن النتيجة بحذر باتجاه الدراسة المختارة مع اختلاف السياق والتصميم وإبقاء حدود التفسير واضحة.';
+  discussion.discussions[0].supportingPaperIds = ['paper-1'];
+  discussion.overallSynthesis = 'تربط هذه المناقشة النتيجة بسؤال الدراسة والدليل المختار ضمن حدود عينة الاختبار الحالية دون تقديم نتائج جديدة.';
+  const literature = { themes: [{ synthesis: 'دليل اختباري معلن للمقارنة ضمن سياق محدود.', supportingPaperIds: ['paper-1'] }] };
+  expect(researchDiscussionConsistencyIssue(discussion, results, literature)).toBeNull();
+  const conclusions = buildConclusionsDraft(JSON.parse(JSON.stringify(discussion)))!;
+  conclusions.conclusions[0].conclusionStatement = 'يمكن الاستنتاج وجود اتجاه إيجابي للعلاقة ضمن بيانات الاختبار الحالية مع بقاء التفسير محصوراً في هذا السياق.';
+  conclusions.overallConclusion = 'تشير هذه السلسلة الاختبارية إلى إمكان تنظيم النتائج والمناقشة والاستنتاجات مع حفظ الدليل وحدود التفسير دون إثبات نتيجة علمية.';
+  expect(researchConclusionsConsistencyIssue(conclusions, discussion)).toBeNull();
+  const documents = Object.entries({ results, discussion, conclusions }).map(([stage, output]) => ({ type: `journey:${stage}`, content: JSON.stringify(output), version: 1 }));
+  const references = Array.from({ length: 50 }, (_, index) => ({ title: `Declared test reference ${index}`, authors: [`Test author ${index}`], publication_year: 2025, publication_title: 'Test collection', doi: `10.1234/test${index}`, url: null }));
+  const model = buildProjectExportModel({ title: 'سلسلة اختبار معلنة', university_policy: null }, documents, [], references);
+  const exported = model.sections.flatMap((section) => section.paragraphs).join('\n');
+  expect(exported).toContain('0.42'); expect(exported).toContain('0.01');
+  expect(exported).toContain(conclusions.overallConclusion);
+  expect(model.sections.filter((section) => /^المرجع \d/.test(section.title))).toHaveLength(50);
+  expect(model.sections.findIndex((section) => section.title.startsWith('النتائج'))).toBeLessThan(model.sections.findIndex((section) => section.title.startsWith('مناقشة')));
+  expect(researchResultsConsistencyIssue({ ...results, overallSummary: results.overallSummary + ' 99%.' }, analysisInput)).not.toBeNull();
+  expect(researchDiscussionConsistencyIssue({ ...discussion, discussions: [{ ...discussion.discussions[0], supportingPaperIds: ['fabricated'] }] }, results, literature)).not.toBeNull();
+});

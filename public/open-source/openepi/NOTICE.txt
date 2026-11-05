@@ -1,0 +1,23 @@
+WAHA adapts the proportion sample-size calculation from OpenEpi SSPropor.js.
+Statistics: Kevin M. Sullivan, based on code from John C. Pezzullo.
+Original interface: Andrew G. Dean and Roger A. Mir.
+
+Upstream: https://github.com/HIT-Tools/openepi/blob/ae2f4c1db17f98fb7231bd08c1d2f4e6d948b518/SampleSize/SSPropor.js
+Source blob: f9c6f9ea62eb02e548465ed3aa98a3541b10fdbb
+License: MIT; see LICENSE.txt alongside this notice.
+
+Changes in WAHA: TypeScript validation, stable equivalent finite-population
+formula, fixed high-precision two-sided normal critical values for 90/95/99%,
+design effect fixed to one (simple random sampling), explicit unknown population,
+conservative upward rounding, response-rate planning, Arabic/English interface
+and a reproducible methodology note. The legacy interface, approximate inverse
+normal routine, global variables and tracking scripts are not included.
+
+This implementation estimates one population proportion using a normal
+approximation. It does not calculate power for between-group comparisons,
+cluster sampling, continuous means, or qualitative saturation. Verification of
+the calculation does not establish that its assumptions fit a particular study.
+
+Separate WAHA modules independently implement hypothesis approximations and the
+Green heuristic. They are not OpenEpi code and are not exact power analyses.
+Krejcie & Morgan table values are numeric data attributed to their 1970 article.

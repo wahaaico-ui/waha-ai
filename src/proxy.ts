@@ -11,6 +11,10 @@ const RATE_LIMITED_API_PREFIXES = new Map<string, { maxRequests: number; windowS
   ['/api/research/orcid', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/research/library', { maxRequests: 30, windowSeconds: 60 }],
   ['/api/research/citations', { maxRequests: 30, windowSeconds: 60 }],
+  ['/api/research/draft', { maxRequests: 10, windowSeconds: 60 }],
+  ['/api/research/analysis', { maxRequests: 5, windowSeconds: 60 }],
+  ['/api/research/titles', { maxRequests: 10, windowSeconds: 60 }],
+  ['/api/academic/citations', { maxRequests: 20, windowSeconds: 60 }],
   ['/api/academic/literature-synth', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/analyze', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/analyze-idea', { maxRequests: 5, windowSeconds: 60 }],
@@ -55,7 +59,17 @@ const RATE_LIMITED_API_PREFIXES = new Map<string, { maxRequests: number; windowS
   ['/api/suggest-titles', { maxRequests: 10, windowSeconds: 60 }],
 ]);
 
-function rateLimitFor(pathname: string) {
+function rateLimitFor(pathname: string, method: string) {
+  if (/^\/api\/projects\/[a-f0-9-]+\/writing\/analysis$/i.test(pathname)) {
+    return { maxRequests: method === 'POST' ? 10 : 60, windowSeconds: 60 };
+  }
+  // Saving a literature-review batch must not consume the budget for reading
+  // that library. These are request budgets, not limits on stored references.
+  if (pathname === '/api/research/library') {
+    const maxRequests = method === 'POST' ? 120 : method === 'GET' ? 60 : 30;
+    return { maxRequests, windowSeconds: 60 };
+  }
+  if (/^\/api\/projects\/[^/]+\/pdfs(?:\/[^/]+)?$/.test(pathname)) return { maxRequests: method === 'POST' ? 10 : 60, windowSeconds: 60 };
   return [...RATE_LIMITED_API_PREFIXES.entries()].find(([prefix]) => pathname === prefix)?.[1];
 }
 
@@ -65,7 +79,8 @@ export async function requestFingerprint(request: NextRequest) {
   const ip = request.headers.get('x-vercel-forwarded-for')
     ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     ?? 'unknown';
-  const input = new TextEncoder().encode(`waha-api-rate-limit:${ip}:${request.nextUrl.pathname}`);
+  const methodScope = request.nextUrl.pathname === '/api/research/library' ? `:${request.method}` : '';
+  const input = new TextEncoder().encode(`waha-api-rate-limit:${ip}:${request.nextUrl.pathname}${methodScope}`);
   const digest = await crypto.subtle.digest('SHA-256', input);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
@@ -97,7 +112,7 @@ async function rateLimitStatus(request: NextRequest, policy: { maxRequests: numb
 }
 
 export async function proxy(request: NextRequest) {
-  const rateLimitPolicy = rateLimitFor(request.nextUrl.pathname);
+  const rateLimitPolicy = rateLimitFor(request.nextUrl.pathname, request.method);
   if (rateLimitPolicy) {
     const status = await rateLimitStatus(request, rateLimitPolicy);
     if (status === 'limited') {

@@ -1,0 +1,7 @@
+.page { position: relative; width: fit-content; margin-inline: auto; background: white; }
+.page canvas { display: block; }
+.textLayer { position: absolute; text-align: initial; inset: 0; overflow: clip; line-height: 1; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; z-index: 1; }
+.textLayer :global(span), .textLayer :global(br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0% 0%; }
+.textLayer :global(span.markedContent) { top: 0; height: 0; }
+.textLayer ::selection { background: rgb(30 94 255 / .25); color: transparent; }
+.highlight { position: absolute; pointer-events: none; z-index: 2; background: rgb(30 94 255 / .2); }

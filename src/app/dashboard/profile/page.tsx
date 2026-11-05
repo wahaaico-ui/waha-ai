@@ -1,5 +1,6 @@
 'use client';
 
+import { useUiTranslation } from '@/lib/use-ui-translation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
@@ -8,6 +9,8 @@ import Link from 'next/link';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export default function ProfilePage() {
+  const { text: ui } = useUiTranslation();
+
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -63,27 +66,26 @@ export default function ProfilePage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-cyan-500 font-bold">جاري تحميل الملف الشخصي...</div>;
+  if (loading) return <div className="min-h-screen bg-[#09090b] flex items-center justify-center text-cyan-500 font-bold">{ui("جاري تحميل الملف الشخصي...")}</div>;
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white p-6 md:p-12">
       <div className="max-w-2xl mx-auto">
         <Link href="/dashboard" className="inline-flex items-center gap-2 text-gray-400 hover:text-cyan-400 mb-8 transition">
-          <ArrowRight className="w-4 h-4" /> العودة إلى مشاريعي
-        </Link>
+          <ArrowRight className="w-4 h-4" /> {ui("العودة إلى مشاريعي")}</Link>
 
         <Link href="/settings/security" className="mb-6 flex items-center justify-between rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-5 text-emerald-300 transition hover:bg-emerald-500/10">
-          <span className="flex items-center gap-3"><KeyRound className="h-5 w-5" /><span><strong className="block">أمان الحساب والتحقق الثنائي</strong><small className="text-gray-400">إضافة تطبيق مصادقة لحماية تسجيل الدخول</small></span></span>
+          <span className="flex items-center gap-3"><KeyRound className="h-5 w-5" /><span><strong className="block">{ui("أمان الحساب والتحقق الثنائي")}</strong><small className="text-gray-400">{ui("إضافة تطبيق مصادقة لحماية تسجيل الدخول")}</small></span></span>
           <span>←</span>
         </Link>
 
         <Link href="/settings/privacy" className="mb-6 flex items-center justify-between rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5 text-violet-300 transition hover:bg-violet-500/10">
-          <span className="flex items-center gap-3"><Database className="h-5 w-5" /><span><strong className="block">الخصوصية وبيانات الحساب</strong><small className="text-gray-400">تنزيل بياناتك أو حذف الحساب نهائياً</small></span></span>
+          <span className="flex items-center gap-3"><Database className="h-5 w-5" /><span><strong className="block">{ui("الخصوصية وبيانات الحساب")}</strong><small className="text-gray-400">{ui("تنزيل بياناتك أو حذف الحساب نهائياً")}</small></span></span>
           <span>←</span>
         </Link>
 
-        <h1 className="text-3xl font-bold mb-2">إدارة الحساب والملف الأكاديمي</h1>
-        <p className="text-gray-400 mb-8">تعديل بياناتك الشخصية والمؤسسية لضمان دقة التقارير الصادرة.</p>
+        <h1 className="text-3xl font-bold mb-2">{ui("إدارة الحساب والملف الأكاديمي")}</h1>
+        <p className="text-gray-400 mb-8">{ui("تعديل بياناتك الشخصية والمؤسسية لضمان دقة التقارير الصادرة.")}</p>
 
         {banner && (
           <div
@@ -98,13 +100,13 @@ export default function ProfilePage() {
         )}
 
         <Link href="/settings/integrations" className="mb-6 flex items-center justify-between rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-cyan-300 transition hover:bg-cyan-500/10">
-          <span className="flex items-center gap-3"><Plug className="h-5 w-5" /><span><strong className="block">التكاملات البحثية</strong><small className="text-gray-400">ربط Zotero وإدارة مصادر البحث الخارجية</small></span></span>
+          <span className="flex items-center gap-3"><Plug className="h-5 w-5" /><span><strong className="block">{ui("التكاملات البحثية")}</strong><small className="text-gray-400">{ui("ربط Zotero وإدارة مصادر البحث الخارجية")}</small></span></span>
           <span>←</span>
         </Link>
 
         <form onSubmit={handleUpdateProfile} className="bg-[#18181b] border border-[#27272a] rounded-3xl p-8 space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">البريد الإلكتروني (حساب موثق)</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">{ui("البريد الإلكتروني (حساب موثق)")}</label>
             <div className="relative">
               <Mail className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
               <input
@@ -117,42 +119,41 @@ export default function ProfilePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">الجامعة / المؤسسة الأكاديمية</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">{ui("الجامعة / المؤسسة الأكاديمية")}</label>
             <div className="relative">
               <User className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
               <input
                 type="text"
                 value={university}
                 onChange={(e) => setUniversity(e.target.value)}
-                placeholder="مثال: جامعة بيرزيت / الجامعة الأردنية..."
+                placeholder={ui("مثال: جامعة بيرزيت / الجامعة الأردنية...")}
                 className="w-full bg-[#27272a] text-white border border-[#3f3f46] rounded-xl py-3 pr-12 pl-4 focus:outline-none focus:border-cyan-500 text-sm"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">الدرجة الأكاديمية المستهدفة</label>
+            <label className="block text-sm font-medium text-gray-300 mb-2">{ui("الدرجة الأكاديمية المستهدفة")}</label>
             <select
               value={degree}
               onChange={(e) => setDegree(e.target.value)}
               className="w-full bg-[#27272a] text-white border border-[#3f3f46] rounded-xl py-3 px-4 focus:outline-none focus:border-cyan-500 text-sm"
             >
-              <option value="ماجستير">ماجستير</option>
-              <option value="دكتوراه">دكتوراه</option>
-              <option value="بحث منشور">بحث منشور / ورقة علمية</option>
+              <option value="ماجستير">{ui("ماجستير")}</option>
+              <option value="دكتوراه">{ui("دكتوراه")}</option>
+              <option value="بحث منشور">{ui("بحث منشور / ورقة علمية")}</option>
             </select>
           </div>
 
           <div className="pt-4 border-t border-[#27272a] flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs text-emerald-400">
-              <Shield className="w-4 h-4" /> الحساب محمي وفق نظام RLS الآمن
-            </div>
+              <Shield className="w-4 h-4" /> {ui("الحساب محمي وفق نظام RLS الآمن")}</div>
             <button
               type="submit"
               disabled={saving}
               className="flex items-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-3 rounded-xl font-bold transition disabled:opacity-50"
             >
-              <Save className="w-5 h-5" /> {saving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+              <Save className="w-5 h-5" /> {saving ? ui("جاري الحفظ...") : ui("حفظ التعديلات")}
             </button>
           </div>
         </form>

@@ -22,12 +22,12 @@ img, svg { max-width: 100%; }
 #waha-home-hero a { text-decoration: none; }
 
 @media (min-width: 1024px) {
-  #waha-desktop-actions { display: flex; align-items: center; gap: 12px; }
-  #waha-menu-button, #waha-mobile-menu { display: none; }
   #waha-home-hero > div:last-child { grid-template-columns: minmax(0, 1fr) minmax(460px, .92fr); }
   #waha-home-hero h1 { font-size: 64px; }
 }
 
 @media (min-width: 1280px) {
   #waha-desktop-nav { display: flex; align-items: center; }
+  #waha-desktop-actions { display: flex; align-items: center; gap: 12px; }
+  #waha-menu-button, #waha-mobile-menu { display: none; }
 }

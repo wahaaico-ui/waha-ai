@@ -40,4 +40,35 @@ describe('account data export', () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'تعذر تجهيز نسخة بياناتك كاملة. لم يتم تنزيل ملف ناقص.' });
   });
+
+  test('streams a large Unicode archive without truncation, caching, or splitting an emoji', async () => {
+    const content = 'بحث🙂 '.repeat(800_000);
+    const archive = { schemaVersion: 4, research: { documents: [{ content }] } };
+    requireAuthenticatedUser.mockResolvedValue({ user: { id: 'owner-1' }, supabase: {} });
+    buildAccountArchive.mockResolvedValue(archive);
+    const response = await GET();
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toContain('no-transform');
+    expect(response.headers.get('content-length')).toBeNull();
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder('utf-8', { fatal: true });
+    let text = '', bytes = 0, chunks = 0;
+    for (;;) {
+      const { value, done } = await reader.read(); if (done) break;
+      expect(value.length).toBeLessThan(100_000);
+      text += decoder.decode(value, { stream: true }); bytes += value.length; chunks += 1;
+    }
+    text += decoder.decode();
+    expect(bytes).toBeGreaterThan(4.5 * 1024 * 1024);
+    expect(chunks).toBeGreaterThan(1);
+    expect(JSON.parse(text)).toEqual(archive);
+  });
+
+  test('serialisation errors return an error before any download bytes are sent', async () => {
+    requireAuthenticatedUser.mockResolvedValue({ user: { id: 'owner-1' }, supabase: {} });
+    buildAccountArchive.mockResolvedValue({ invalid: BigInt(1) });
+    const response = await GET();
+    expect(response.status).toBe(500);
+    expect(response.headers.get('content-disposition')).toBeNull();
+  });
 });

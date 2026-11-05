@@ -38,22 +38,19 @@ const report: ProblemObjectivesConsistencyReport = {
   checkedAt: '2026-08-27T10:00:00.000Z',
 };
 
-test('renders the saved consistency score, issues, and suggested action', () => {
-  const html = renderToStaticMarkup(
-    <ProblemObjectivesConsistencyPanel
-      status="ready"
-      report={report}
-      warnings={[]}
-      error=""
-      onRetry={() => undefined}
-    />,
-  );
-
-  expect(html).toContain('محرك الاتساق البحثي');
-  expect(html).toContain('76/100');
-  expect(html).toContain('مفهوم الدافعية غير مغطى بوضوح');
-  expect(html).toContain('أضف البعد المرتبط بالدافعية إلى هدف مستقل');
-  expect(html).toContain('تقييم استدلالي مساعد');
+test('shows an advisory review without heuristic conclusions or numerical precision', () => {
+  const html = renderToStaticMarkup(<ProblemObjectivesConsistencyPanel status="ready" report={report} warnings={[]} error="" onRetry={() => undefined} />);
+  expect(html).toContain('المشكلة ↔ الأهداف');
+  expect(html).toContain('مراجعة أولية للعلاقات البحثية');
+  expect(html).toContain('هذه مراجعة آلية أولية، وليست قياساً لجودة البحث أو إثباتاً لصلاحية تصميمه.');
+  expect(html).not.toContain('/100');
+  expect(html).not.toContain('progressbar');
+  expect(html).not.toContain(report.summary);
+  for (const issue of report.issues) expect(html).not.toContain(issue);
+  for (const result of report.results) {
+    expect(html).not.toContain(result.suggestedAction);
+    for (const gap of result.gapsFound) expect(html).not.toContain(gap);
+  }
 });
 
 test('marks a report as stale after the researcher edits objectives', () => {

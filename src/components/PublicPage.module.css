@@ -1,0 +1,88 @@
+.page {
+  font-size: 1rem;
+  line-height: 1.8;
+}
+
+.page h1 {
+  font-family: inherit;
+  font-size: clamp(1.75rem, 3.4vw, 2.75rem);
+  line-height: 1.5;
+  overflow-wrap: break-word;
+}
+
+.page h2,
+.page h3 {
+  font-family: inherit;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+.page p,
+.page li {
+  overflow-wrap: anywhere;
+}
+
+.contactColumns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.contactColumns > section,
+.form > label {
+  min-width: 0;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.25rem;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  font-size: .9375rem;
+  line-height: 1.8;
+}
+
+.form input:not([type="hidden"]),
+.form textarea,
+.form select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.form input,
+.form select {
+  min-height: 3rem;
+}
+
+.form input,
+.form textarea {
+  display: block;
+  text-align: start;
+  font-weight: 400;
+}
+
+.form textarea {
+  min-height: 10rem;
+}
+
+@media (min-width: 640px) {
+  .form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .contactColumns {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr);
+  }
+}

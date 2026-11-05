@@ -1,5 +1,5 @@
 import { assessAcademicText } from '@/lib/academic-content-quality';
-import { researchNumericTokens } from '@/lib/research-numeric-integrity';
+import { firstUnsupportedResearchNumber, researchNumericTokens } from '@/lib/research-numeric-integrity';
 
 export type ResearchResultItem = {
   questionIndex: number;
@@ -73,6 +73,9 @@ export function researchResultsConsistencyIssue(
     const inventedNumber = [...statementNumbers].find((token) => !sourceNumberSet.has(token));
     if (inventedNumber) return `النتيجة ${index + 1}: القيمة «${inventedNumber}» غير موجودة في التحليل المعتمد. احذفها أو صحح مخرج التحليل أولاً.`;
   }
+  const unsupportedSummaryNumber = firstUnsupportedResearchNumber(asText(output.overallSummary),
+    `${asText(analysisInput?.sampleAnalyzed)} ${findings.map((finding) => `${asText(finding.findingSummary)} ${asText(finding.evidenceSummary)}`).join(' ')}`);
+  if (unsupportedSummaryNumber) return `الخلاصة العامة: القيمة «${unsupportedSummaryNumber}» غير موجودة في التحليل المعتمد.`;
   return null;
 }
 
