@@ -13,13 +13,9 @@ const conclusionOne = 'يمكن الاستنتاج أن الذكاء الاصط�
 const conclusionTwo = 'يمكن الاستنتاج أن صعوبة التحقق من دقة المخرجات والمصادر تحد من الاستخدام الأكاديمي الموثوق لدى طلبة الدراسات العليا.';
 
 const stages = [
-  ['verify', {
-    decision: 'proceed',
-    topic: titleText,
-    searchCoverage: { uniqueStudies: 3 },
-    researchPaths: [{ id: 'experiences' }, { id: 'verification' }, { id: 'academic-learning' }],
-    selectedResearchPath: { id: 'experiences' },
-  }],
+  // Only the chosen path id is sent; decision, coverage and paths come from the
+  // exploration report the server stored (see deriveVerifyStageContent).
+  ['verify', { selectedResearchPath: { id: '' } }],
   ['title', { title: titleText }],
   ['problem', {
     problemStatement: 'لا تزال خبرات طلبة الدراسات العليا في استخدام الذكاء الاصطناعي التوليدي لفهم المفاهيم الأكاديمية ومراجعة دقة المخرجات غير موصوفة بوضوح في السياق الجامعي المحلي.',
@@ -168,6 +164,17 @@ test('@critical completes and renders the full research journey', async ({ page 
   await page.locator('#login-password').fill(password);
   await page.getByRole('button', { name: 'تسجيل الدخول' }).click();
   await expect(page).toHaveURL(/\/dashboard$/, { timeout: 20_000 });
+
+  const exploration = await page.evaluate(async ({ projectId, topic }) => {
+    const response = await fetch('/api/verify-idea', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic, projectId }),
+    });
+    return { status: response.status, body: await response.json() };
+  }, { projectId, topic: titleText });
+  expect(exploration.status, `verify-idea: ${JSON.stringify(exploration.body)}`).toBe(200);
+  const pathId = (exploration.body as { researchPaths?: Array<{ id?: string }> }).researchPaths?.[0]?.id;
+  expect(pathId, 'the exploration report offers at least one research path').toBeTruthy();
+  (stages[0][1] as { selectedResearchPath: { id: string } }).selectedResearchPath.id = pathId!;
 
   for (const [stage, content] of stages) {
     const response = await postStage(page, projectId, stage, content);

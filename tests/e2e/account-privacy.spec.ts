@@ -37,7 +37,7 @@ test('@critical account archive is complete and account deletion is permanent', 
     account?: { email?: string };
     research?: { projects?: Array<{ title?: string }>; drafts?: unknown[] };
   };
-  expect(archive.schemaVersion).toBe(3);
+  expect(archive.schemaVersion).toBe(4);
   expect(archive.account?.email).toBe(email);
   expect(archive.research?.projects?.some((project) => project.title === 'مشروع اختبار خصوصية الحساب')).toBe(true);
   expect(Array.isArray(archive.research?.drafts)).toBe(true);
