@@ -12,6 +12,14 @@ const interpretationTwo = 'تشير النتيجة إلى أن الثقة في �
 const conclusionOne = 'يمكن الاستنتاج أن الذكاء الاصطناعي التوليدي يدعم الفهم الأولي للمفاهيم المعقدة لدى الطلبة ضمن حدود الخبرات والسياق المدروس.';
 const conclusionTwo = 'يمكن الاستنتاج أن صعوبة التحقق من دقة المخرجات والمصادر تحد من الاستخدام الأكاديمي الموثوق لدى طلبة الدراسات العليا.';
 
+// Saved to the project library; each keeps its id as the literature paper id,
+// which the analysis stage cites through supportingPaperIds.
+const libraryReferences = [
+  { id: 'paper-ai-learning', title: 'Generative artificial intelligence in postgraduate learning' },
+  { id: 'paper-ai-literacy', title: 'Academic AI literacy and critical verification practices' },
+  { id: 'paper-ai-trust', title: 'Student trust in generative artificial intelligence outputs' },
+];
+
 const stages = [
   // Only the chosen path id is sent; decision, coverage and paths come from the
   // exploration report the server stored (see deriveVerifyStageContent).
@@ -65,11 +73,10 @@ const stages = [
       ] },
     ],
   }],
-  ['literature', { papers: [
-    { id: 'paper-ai-learning', title: 'Generative artificial intelligence in postgraduate learning' },
-    { id: 'paper-ai-literacy', title: 'Academic AI literacy and critical verification practices' },
-    { id: 'paper-ai-trust', title: 'Student trust in generative artificial intelligence outputs' },
-  ] }],
+  // Papers are chosen by id from server-held records; the browser never sends
+  // paper objects (see buildLiteratureSelection). referenceIds are filled in
+  // after the three references below are saved to the project library.
+  ['literature', { referenceIds: [] as string[] }],
   ['analysis', {
     introduction: 'تتناول الأدبيات خبرات استخدام الذكاء الاصطناعي في التعلم الأكاديمي والحاجة إلى التحقق النقدي من المخرجات.',
     thematicSynthesis: 'تتقاطع الدراسات في إبراز فائدة الدعم الأولي للفهم، لكنها تؤكد أن الثقة الأكاديمية تتطلب مراجعة المصادر والأدلة الأصلية.',
@@ -175,6 +182,21 @@ test('@critical completes and renders the full research journey', async ({ page 
   const pathId = (exploration.body as { researchPaths?: Array<{ id?: string }> }).researchPaths?.[0]?.id;
   expect(pathId, 'the exploration report offers at least one research path').toBeTruthy();
   (stages[0][1] as { selectedResearchPath: { id: string } }).selectedResearchPath.id = pathId!;
+
+  const referenceIds: string[] = [];
+  for (const reference of libraryReferences) {
+    const saved = await page.evaluate(async ({ projectId, reference }) => {
+      const response = await fetch('/api/research/library', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, item: { ...reference, authors: ['WAHA Gate'], year: 2025 } }),
+      });
+      return { status: response.status, body: await response.json() };
+    }, { projectId, reference });
+    expect(saved.status, `library: ${JSON.stringify(saved.body)}`).toBe(200);
+    referenceIds.push((saved.body as { item: { id: string } }).item.id);
+  }
+  const literature = stages.find(([id]) => id === 'literature')![1] as { referenceIds: string[] };
+  literature.referenceIds = referenceIds;
 
   for (const [stage, content] of stages) {
     const response = await postStage(page, projectId, stage, content);
