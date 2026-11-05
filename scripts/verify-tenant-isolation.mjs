@@ -112,7 +112,10 @@ async function run() {
   }, 'id, user_id');
   assert.equal(project.user_id, userA.id);
 
-  const document = await insert(clientA, 'documents', {
+  // journey:verify is server-owned: since October the browser role may not
+  // insert it ("Browser cannot insert server-owned research documents"), so the
+  // fixture is written by the server, exactly as /api/verify-idea does.
+  const document = await insert(service, 'documents', {
     project_id: project.id,
     type: 'journey:verify',
     content: '{"owner":"a"}',
@@ -281,6 +284,13 @@ async function run() {
     await assertServiceRowExists(table, key, value, `Server-managed ${table} must remain intact`);
   }
 
+  const directServerDocumentInsert = await clientA.from('documents').insert({
+    project_id: project.id,
+    type: 'journey:verify',
+    content: '{"decision":"proceed","forged":true}',
+    version: 2,
+  }).select('id');
+  assertMutationBlocked(directServerDocumentInsert, 'Browser clients must not forge server-owned exploration results');
   const directUsageInsert = await clientA.from('users_usage').insert({
     user_id: userA.id,
     idea_text: 'forged browser usage',
