@@ -36,10 +36,13 @@ export function calculateHypothesis(input: HypothesisInput): { ok: true; result:
     if (!Number.isFinite(input.effect) || input.effect === 0 || (input.method === 't-test' ? input.effect < 0 : Math.abs(input.effect) >= 1)) return { ok: false, field: 'effect' };
     const sum = Z_ALPHA[input.alpha] + Z_POWER[input.power];
     if (input.method === 't-test') {
-      const rawPerGroup = 2 * (sum / input.effect) ** 2;
+      // Guenther (1981): the Z(1−α/2)²/4 term corrects the normal approximation
+      // towards the exact noncentral-t size (G*Power gives 394 / 64 / 26 for d = .2 / .5 / .8).
+      const zAlpha = Z_ALPHA[input.alpha];
+      const rawPerGroup = 2 * (sum / input.effect) ** 2 + zAlpha ** 2 / 4;
       perGroup = Math.max(2, Math.ceil(rawPerGroup));
       raw = perGroup * 2;
-      formula = 'n/group ≈ max(2, ceil(2 × (Z(1−α/2) + Z(power))² / d²)); total = 2 × n/group';
+      formula = 'n/group ≈ max(2, ceil(2 × (Z(1−α/2) + Z(power))² / d² + Z(1−α/2)² / 4)); total = 2 × n/group';
     } else {
       const fisher = Math.atanh(Math.abs(input.effect));
       raw = 3 + (sum / fisher) ** 2;
@@ -79,6 +82,7 @@ export const SAMPLE_REFERENCES = {
   cochran: { citation: 'Cochran, W. G. (1977). Sampling techniques (3rd ed.). John Wiley & Sons.', url: 'https://www.wiley.com/en-us/Sampling+Techniques%2C+3rd+Edition-p-9780471162407' },
   morgan: { citation: 'Krejcie, R. V., & Morgan, D. W. (1970). Determining sample size for research activities. Educational and Psychological Measurement, 30(3), 607–610. https://doi.org/10.1177/001316447003000308', url: 'https://doi.org/10.1177/001316447003000308' },
   cohen: { citation: 'Cohen, J. (1988). Statistical power analysis for the behavioral sciences (2nd ed.). Lawrence Erlbaum Associates. https://doi.org/10.4324/9780203771587', url: 'https://www.routledge.com/Statistical-Power-Analysis-for-the-Behavioral-Sciences/Cohen/p/book/9780203771587' },
+  guenther: { citation: 'Guenther, W. C. (1981). Sample size formulas for normal theory t tests. The American Statistician, 35(4), 243–244. https://doi.org/10.1080/00031305.1981.10479363', url: 'https://doi.org/10.1080/00031305.1981.10479363' },
   green: { citation: 'Green, S. B. (1991). How many subjects does it take to do a regression analysis? Multivariate Behavioral Research, 26(3), 499–510. https://doi.org/10.1207/s15327906mbr2603_7', url: 'https://pubmed.ncbi.nlm.nih.gov/26776715/' },
 } as const;
 
@@ -111,8 +115,8 @@ export function sampleMethodology(plan: SamplePlan, language: SampleLanguage): s
       references = [SAMPLE_REFERENCES.green];
     } else {
       paragraphs.push(pick(`يُخطط لاختبار ثنائي الطرف عند α = ${h.alpha} وقوة مستهدفة ${h.power}%، على أساس حجم أثر مسبق ${h.method === 't-test' ? 'd' : 'r'} = ${h.effect} (Cohen, 1988). ينبغي تبرير حجم الأثر بدراسة سابقة أو بأصغر أثر ذي أهمية عملية، وليس بنتيجة الدراسة الحالية.`, `A two-sided test is planned at α = ${h.alpha} and target power ${h.power}%, using an a priori effect ${h.method === 't-test' ? 'd' : 'r'} = ${h.effect} (Cohen, 1988). The effect should be justified by prior evidence or the smallest practically meaningful effect, not the current study's result.`), `Z(1−α/2) = ${Z_ALPHA[h.alpha].toFixed(6)}; Z(power) = ${Z_POWER[h.power].toFixed(6)}.`, plan.result.formula);
-      paragraphs.push(h.method === 't-test' ? pick(`يفترض التقريب مجموعتين مستقلتين متساويتين، وتباينًا مشتركًا وتوزيعًا ملائمًا لاختبار المتوسطات. ينتج ${plan.result.perGroup} مشاركًا قابلًا للتحليل لكل مجموعة، بإجمالي ${completed}. هذا تقريب طبيعي لتخطيط اختبار t، وليس حلًا دقيقًا بتوزيع t غير المركزي.`, `The approximation assumes two independent equal groups, a common variance and distributions suitable for mean testing. It yields ${plan.result.perGroup} analyzable participants per group, ${completed} in total. This is a normal approximation for t-test planning, not an exact noncentral-t solution.`) : pick(`يفترض الحساب ارتباط بيرسون بين متغيرين بقياسات مستقلة بين المشاركين وتوزيعًا ثنائيًا طبيعيًا، ويختبر H₀: ρ = 0. يستخدم تحويل Fisher: atanh(|r|) = ${Math.atanh(Math.abs(h.effect)).toFixed(6)}، وينتج حجمًا غير مقرب ${plan.result.raw.toFixed(6)}. هذا تقريب لاختبار ارتباط واحد ولا يخص القياسات المتكررة أو سبيرمان أو مقارنة ارتباطين.`, `The calculation assumes Pearson correlation, independent participants and bivariate normality, testing H₀: ρ = 0. Fisher's transform is atanh(|r|) = ${Math.atanh(Math.abs(h.effect)).toFixed(6)}, giving an unrounded size of ${plan.result.raw.toFixed(6)}. This approximation is for one correlation, not repeated measures, Spearman correlation or comparing two correlations.`));
-      references = [SAMPLE_REFERENCES.cohen];
+      paragraphs.push(h.method === 't-test' ? pick(`يفترض التقريب مجموعتين مستقلتين متساويتين، وتباينًا مشتركًا وتوزيعًا ملائمًا لاختبار المتوسطات. ينتج ${plan.result.perGroup} مشاركًا قابلًا للتحليل لكل مجموعة، بإجمالي ${completed}. هذا تقريب طبيعي مع تصحيح Guenther (1981) لصغر العينة، ويقترب من الحل الدقيق بتوزيع t غير المركزي؛ يُنصح بالتحقق منه ببرنامج تحليل قدرة.`, `The approximation assumes two independent equal groups, a common variance and distributions suitable for mean testing. It yields ${plan.result.perGroup} analyzable participants per group, ${completed} in total. This is a normal approximation with Guenther's (1981) small-sample correction, close to the exact noncentral-t solution; confirm it with power-analysis software.`) : pick(`يفترض الحساب ارتباط بيرسون بين متغيرين بقياسات مستقلة بين المشاركين وتوزيعًا ثنائيًا طبيعيًا، ويختبر H₀: ρ = 0. يستخدم تحويل Fisher: atanh(|r|) = ${Math.atanh(Math.abs(h.effect)).toFixed(6)}، وينتج حجمًا غير مقرب ${plan.result.raw.toFixed(6)}. هذا تقريب لاختبار ارتباط واحد ولا يخص القياسات المتكررة أو سبيرمان أو مقارنة ارتباطين.`, `The calculation assumes Pearson correlation, independent participants and bivariate normality, testing H₀: ρ = 0. Fisher's transform is atanh(|r|) = ${Math.atanh(Math.abs(h.effect)).toFixed(6)}, giving an unrounded size of ${plan.result.raw.toFixed(6)}. This approximation is for one correlation, not repeated measures, Spearman correlation or comparing two correlations.`));
+      references = h.method === 't-test' ? [SAMPLE_REFERENCES.cohen, SAMPLE_REFERENCES.guenther] : [SAMPLE_REFERENCES.cohen];
     }
     paragraphs.push(pick(`لم يُطبق تصحيح مجتمع محدود على حساب الفرضية؛ ${input.population === null ? 'حجم المجتمع غير محدد.' : `المجتمع المدخل N = ${input.population} ويُستخدم لفحص إمكانية التجنيد فقط.`}`, `No finite-population correction is applied to hypothesis planning; ${input.population === null ? 'population size is unspecified.' : `the supplied population N = ${input.population} is used only to assess recruitment feasibility.`}`));
   }
