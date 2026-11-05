@@ -22,6 +22,35 @@ const nextConfig: NextConfig = {
   // لذا نستثنيها من التجميع وتبقى تُحمَّل عبر require() الطبيعي من node_modules.
   serverExternalPackages: ['pdf-parse', 'pdfjs-dist'],
 
+  // pdfjs-dist loads two things by a run-time path that file tracing cannot see:
+  // its worker (pdf.worker.mjs) and @napi-rs/canvas, which supplies DOMMatrix in
+  // Node. Without them the deployed function fails on import with
+  // "DOMMatrix is not defined". Checked by `npm run test:pdf-trace` after a build.
+  outputFileTracingIncludes: {
+    '/api/academic/export': ['./public/fonts/NotoNaskhArabic.ttf', './public/fonts/Amiri-Regular.ttf', './public/fonts/NotoSans-Regular.ttf', './public/fonts/NotoSansMath-Regular.ttf'],
+    '/api/academic/parse-pdf': [
+      './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+      './node_modules/@napi-rs/canvas/**/*',
+      './node_modules/@napi-rs/canvas-linux-x64-gnu/**/*',
+      './node_modules/@napi-rs/canvas-darwin-x64/**/*',
+      './node_modules/@napi-rs/canvas-linux-arm64-gnu/**/*',
+    ],
+    '/api/projects/*/pdfs': [
+      './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+      './node_modules/@napi-rs/canvas/**/*',
+      './node_modules/@napi-rs/canvas-linux-x64-gnu/**/*',
+      './node_modules/@napi-rs/canvas-linux-arm64-gnu/**/*',
+      './node_modules/@napi-rs/canvas-darwin-x64/**/*',
+    ],
+    '/api/academic/projects/policy': [
+      './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+      './node_modules/@napi-rs/canvas/**/*',
+      './node_modules/@napi-rs/canvas-linux-x64-gnu/**/*',
+      './node_modules/@napi-rs/canvas-linux-arm64-gnu/**/*',
+      './node_modules/@napi-rs/canvas-darwin-x64/**/*',
+    ],
+  },
+
   typescript: {
     // أخطاء الأنواع يجب أن تظهر لا أن تُخفى — المشروع يعبر tsc بنجاح حالياً.
     ignoreBuildErrors: false,

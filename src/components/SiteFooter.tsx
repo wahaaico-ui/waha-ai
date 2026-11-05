@@ -2,5 +2,43 @@ import Link from 'next/link';
 
 export default function SiteFooter({ lang }: { lang: 'ar' | 'en' }) {
   const ar = lang === 'ar';
-  return <footer className="border-t border-slate-200 bg-white"><div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4"><div><Link href="/" className="text-xl font-extrabold tracking-tight text-[#10213c]">WAHA</Link><p className="mt-4 max-w-xs text-sm leading-7 text-slate-500">{ar ? 'منظومة بحثية ترافق الباحث من الفكرة إلى النشر.' : 'A research ecosystem from first idea to publication.'}</p></div><div><h2 className="font-bold text-[#10213c]">{ar ? 'المنتج' : 'Product'}</h2><div className="mt-4 grid gap-3 text-sm text-slate-500"><Link href="/verify-idea">{ar ? 'استكشف مسارك البحثي' : 'Explore your research path'}</Link><Link href="/dashboard">{ar ? 'مشاريعي البحثية' : 'My research projects'}</Link><Link href="/pricing">{ar ? 'الأسعار' : 'Pricing'}</Link></div></div><div><h2 className="font-bold text-[#10213c]">{ar ? 'الموارد' : 'Resources'}</h2><div className="mt-4 grid gap-3 text-sm text-slate-500"><Link href="/#features">{ar ? 'الميزات' : 'Features'}</Link><Link href="/#how-it-works">{ar ? 'كيف تعمل' : 'How it works'}</Link><Link href="/about">{ar ? 'من نحن' : 'About WAHA'}</Link></div></div><div><h2 className="font-bold text-[#10213c]">{ar ? 'الدعم' : 'Support'}</h2><div className="mt-4 grid gap-3 text-sm text-slate-500"><Link href="/login">{ar ? 'تسجيل الدخول' : 'Log in'}</Link><Link href="/contact">{ar ? 'تواصل معنا' : 'Contact us'}</Link></div></div></div><div className="border-t border-slate-100 py-6 text-center text-xs text-slate-400">© {new Date().getFullYear()} WAHA Research Intelligence</div></footer>;
+  const columns = [
+    { title: ar ? 'المنتج' : 'Product', links: [
+      { href: '/?task=writing#start', label: ar ? 'الكتابة بالدليل' : 'Writing with evidence' },
+      { href: '/dashboard', label: ar ? 'مشاريعي البحثية' : 'My research projects' },
+      { href: '/tools/sample-size', label: ar ? 'حاسبة حجم العينة المجانية' : 'Free sample size calculator' },
+      { href: '/pricing', label: ar ? 'الأسعار' : 'Pricing' },
+    ] },
+    { title: ar ? 'تعرّف على الواحة' : 'Explore WAHA', links: [
+      { href: '/', label: ar ? 'الرئيسية' : 'Home' },
+      { href: '/#features', label: ar ? 'إمكانيات الواحة' : 'WAHA capabilities' },
+      { href: '/guide', label: ar ? 'كيف تعمل' : 'How it works' },
+      { href: '/about', label: ar ? 'من نحن' : 'About WAHA' },
+    ] },
+    { title: ar ? 'الدعم والبيانات' : 'Support and data', links: [
+      { href: '/login', label: ar ? 'تسجيل الدخول' : 'Log in' },
+      { href: '/contact', label: ar ? 'تواصل معنا' : 'Contact us' },
+      { href: '/privacy', label: ar ? 'بياناتك وخصوصيتك' : 'Your data and privacy' },
+      { href: '/terms', label: ar ? 'إرشادات الاستخدام' : 'Use guidelines' },
+    ] },
+  ];
+  return (
+    <footer dir={ar ? 'rtl' : 'ltr'} className="border-t border-slate-200 bg-white">
+      <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <Link href="/" className="inline-flex min-h-11 items-center rounded-lg text-xl font-extrabold tracking-tight text-[#10213c]">WAHA</Link>
+          <p className="mt-3 max-w-xs text-sm leading-7 text-slate-500">{ar ? 'مصادرك وكتابتك ومراجعاتك في مشروع بحثي مترابط.' : 'Your sources, writing and reviews in one connected research project.'}</p>
+        </div>
+        {columns.map(column => (
+          <nav key={column.title} aria-label={column.title}>
+            <h2 className="font-bold text-[#10213c]">{column.title}</h2>
+            <ul className="mt-3 grid text-sm leading-7 text-slate-600">
+              {column.links.map(link => <li key={link.href}><Link href={link.href} className="inline-flex min-h-11 items-center rounded-lg py-2 hover:text-primary-dark hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary">{link.label}</Link></li>)}
+            </ul>
+          </nav>
+        ))}
+      </div>
+      <div className="border-t border-slate-100 px-5 py-6 text-center text-xs leading-6 text-slate-500">© {new Date().getFullYear()} {ar ? 'الواحة للبحث العلمي' : 'WAHA Research Intelligence'}</div>
+    </footer>
+  );
 }

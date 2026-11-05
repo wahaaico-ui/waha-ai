@@ -1,9 +1,13 @@
 import { APPLICATION_EMAIL, fetchJson } from '../integrations/http';
 import { normaliseDoi, safeUrl } from '../integrations/normalization';
 import type { AcademicPaper, AcademicSearchProvider, SearchOptions } from '../integrations/types';
+import { normalisePmcid, normalisePmid } from '../identity';
 
 export interface OpenAlexPaper {
   id: string;
+  openalexId: string | null;
+  pmid: string | null;
+  pmcid: string | null;
   title: string;
   doi: string | null;
   publicationYear: number;
@@ -23,7 +27,7 @@ export interface OpenAlexPaper {
   referencedWorksCount: number;
 }
 
-type OpenAlexResponse = { results?: Array<Record<string, unknown>> };
+type OpenAlexResponse = { results?: Array<Record<string, unknown>>; meta?: { next_cursor?: string | null } };
 
 function abstractFromIndex(value: unknown) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
@@ -38,19 +42,29 @@ export class OpenAlexService implements AcademicSearchProvider {
   public readonly id = 'openalex' as const;
 
   public static async searchWorks(query: string, perPage: number = 10): Promise<OpenAlexPaper[]> {
+    return (await this.searchWorksPage(query, perPage)).papers;
+  }
+
+  private static async searchWorksPage(query: string, perPage: number, cursor?: string) {
     const params = new URLSearchParams({ search: query, 'per-page': String(Math.min(100, Math.max(1, perPage))), mailto: APPLICATION_EMAIL });
+    if (cursor) params.set('cursor', cursor);
     if (process.env.OPENALEX_API_KEY) params.set('api_key', process.env.OPENALEX_API_KEY);
     const data = await fetchJson<OpenAlexResponse>(`https://api.openalex.org/works?${params}`);
-    return (data.results || []).flatMap((work) => {
+    const papers = (data.results || []).flatMap((work) => {
       const title = typeof work.title === 'string' ? work.title.trim() : '';
       if (!title) return [];
       const authorships = Array.isArray(work.authorships) ? work.authorships as Array<{ author?: { display_name?: string; orcid?: string } }> : [];
       const topics = Array.isArray(work.topics) ? work.topics as Array<{ display_name?: string }> : [];
       const openAccess = work.open_access && typeof work.open_access === 'object' ? work.open_access as { oa_url?: string } : {};
       const primary = work.primary_location && typeof work.primary_location === 'object' ? work.primary_location as { landing_page_url?: string; pdf_url?: string; source?: { display_name?: string; host_organization_name?: string } } : {};
+      const ids = work.ids && typeof work.ids === 'object' ? work.ids as { pmid?: string; pmcid?: string } : {};
       const biblio = work.biblio && typeof work.biblio === 'object' ? work.biblio as { volume?: string; issue?: string; first_page?: string; last_page?: string } : {};
       return [{
         id: typeof work.id === 'string' ? work.id : title,
+        // The OpenAlex work ID only when OpenAlex supplied one; never the title.
+        openalexId: typeof work.id === 'string' ? work.id : null,
+        pmid: typeof ids.pmid === 'string' ? ids.pmid : null,
+        pmcid: typeof ids.pmcid === 'string' ? ids.pmcid : null,
         title,
         doi: normaliseDoi(typeof work.doi === 'string' ? work.doi : null),
         publicationYear: typeof work.publication_year === 'number' ? work.publication_year : 0,
@@ -64,16 +78,27 @@ export class OpenAlexService implements AcademicSearchProvider {
         publisher: primary.source?.host_organization_name || null,
         volume: biblio.volume || null,
         issue: biblio.issue || null,
-        pages: [biblio.first_page, biblio.last_page].filter(Boolean).join('-') || null,
+        // Electronic journals put the article number in both fields; it is not a range.
+        pages: [...new Set([biblio.first_page, biblio.last_page].filter(Boolean))].join('-') || null,
         orcidIds: authorships.map((entry) => entry.author?.orcid?.replace(/^https?:\/\/orcid\.org\//, '') || '').filter(Boolean),
         publicationType: typeof work.type === 'string' ? work.type : null,
         referencedWorksCount: typeof work.referenced_works_count === 'number' ? work.referenced_works_count : 0,
       }];
     });
+    return { papers, nextCursor: typeof data.meta?.next_cursor === 'string' && data.meta.next_cursor !== cursor ? data.meta.next_cursor : null };
   }
 
   public async search(options: SearchOptions): Promise<AcademicPaper[]> {
-    return (await OpenAlexService.searchWorks(options.query, options.limit)).map((paper) => ({
+    return (await OpenAlexService.searchWorks(options.query, options.limit)).map((paper) => this.toAcademicPaper(paper));
+  }
+
+  public async searchPage(query: string, cursor: string) {
+    const page = await OpenAlexService.searchWorksPage(query, 50, cursor);
+    return { papers: page.papers.map((paper) => this.toAcademicPaper(paper)), nextCursor: page.nextCursor };
+  }
+
+  private toAcademicPaper(paper: OpenAlexPaper): AcademicPaper {
+    return {
       id: paper.id, title: paper.title, abstract: paper.abstract, year: paper.publicationYear,
       citationCount: paper.citedByCount, authors: paper.authors, doi: paper.doi, pdfUrl: paper.pdfUrl,
       url: paper.url, source: this.id, sources: [this.id], subjects: paper.subjects,
@@ -81,7 +106,9 @@ export class OpenAlexService implements AcademicSearchProvider {
       journal: paper.journal, containerTitle: paper.journal, publisher: paper.publisher,
       volume: paper.volume, issue: paper.issue, pages: paper.pages, orcidIds: paper.orcidIds,
       referencedWorksCount: paper.referencedWorksCount,
+      pmid: normalisePmid(paper.pmid), pmcid: normalisePmcid(paper.pmcid),
+      providerIds: paper.openalexId ? { openalex: paper.openalexId } : undefined,
       fieldProvenance: { title: [this.id], doi: [this.id], authors: [this.id], year: [this.id], journal: [this.id], citationCount: [this.id], orcidIds: [this.id] },
-    }));
+    };
   }
 }

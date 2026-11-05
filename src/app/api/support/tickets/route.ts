@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { isProjectEmailConfigured, sendTransactionalEmail } from '@/lib/email/resend';
-import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
+import { completeOperationalRequest, logOperationalEvent, operationalHeaders, startOperationalRequest } from '@/lib/observability';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const CATEGORIES = new Set(['technical', 'research', 'suggestion', 'partnership', 'billing', 'other']);
@@ -27,8 +27,10 @@ function pagePath(value: unknown) {
   if (!raw) return null;
   try {
     const url = new URL(raw, 'https://waha.systems');
-    if (!['waha.systems', 'www.waha.systems', 'waha-ai.vercel.app', 'localhost'].includes(url.hostname)) return null;
-    return `${url.pathname}${url.search}`.slice(0, 500);
+    if (!['http:', 'https:'].includes(url.protocol) || !['waha.systems', 'www.waha.systems', 'waha-ai.vercel.app', 'localhost'].includes(url.hostname)) return null;
+    // Query strings can contain OAuth codes, project identifiers or user text.
+    // A path is sufficient for support; omit query, fragment and credentials.
+    return url.pathname.slice(0, 500);
   } catch {
     return null;
   }
@@ -86,8 +88,14 @@ export async function POST(request: Request) {
       .single();
     if (error || !data) throw new Error('SUPPORT_TICKET_INSERT_FAILED');
 
+    const notification = {
+      route: operation.route,
+      requestId: operation.requestId,
+      stage: 'email_notification',
+    };
     if (isProjectEmailConfigured()) {
       const safeMessage = escapeHtml(message).replaceAll('\n', '<br />');
+      const notificationStartedAt = Date.now();
       try {
         await sendTransactionalEmail({
           to: 'support@waha.systems',
@@ -97,10 +105,32 @@ export async function POST(request: Request) {
           html: `<div dir="rtl" style="font-family:Arial,sans-serif;line-height:1.8"><h1>بلاغ دعم جديد</h1><p><strong>الرقم:</strong> ${escapeHtml(data.ticket_number)}</p><p><strong>الاسم:</strong> ${escapeHtml(requesterName)}</p><p><strong>البريد:</strong> ${escapeHtml(requesterEmail)}</p><p><strong>التصنيف:</strong> ${escapeHtml(category)}</p><p><strong>المسار:</strong> ${escapeHtml(pagePath(input.pageUrl) || 'غير محدد')}</p><hr /><p>${safeMessage}</p></div>`,
           idempotencyKey: `support-ticket-${data.ticket_number}`,
         });
+        // An accepted send request is not a delivery receipt. Do not log the
+        // provider ID, ticket number, recipient or any ticket content.
+        logOperationalEvent('info', {
+          ...notification,
+          event: 'api.support.notification.accepted',
+          outcome: 'success',
+          durationMs: Date.now() - notificationStartedAt,
+        });
       } catch {
         // The ticket is durable in the database; an email provider outage must
         // not make the reporter resubmit and create a duplicate request.
+        logOperationalEvent('warn', {
+          ...notification,
+          event: 'api.support.notification.failed',
+          outcome: 'failed',
+          errorCode: 'email_provider_failed',
+          durationMs: Date.now() - notificationStartedAt,
+        });
       }
+    } else {
+      logOperationalEvent('warn', {
+        ...notification,
+        event: 'api.support.notification.unconfigured',
+        outcome: 'rejected',
+        errorCode: 'email_not_configured',
+      });
     }
 
     return respond({

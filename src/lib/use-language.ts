@@ -7,17 +7,16 @@ export type WahaLanguage = 'ar' | 'en';
 const LANG_KEY = 'waha_lang';
 const LANGUAGE_EVENT = 'waha-language-change';
 
-// The complete research journey is currently Arabic-first. Keep the language
-// state API in place for the future English release, but never expose a mixed
-// interface until every research stage has a reviewed English translation.
-export const ENGLISH_INTERFACE_ENABLED = false;
+export const ENGLISH_INTERFACE_ENABLED = true;
+let transientLanguage: WahaLanguage = 'ar';
 
 function getSnapshot(): WahaLanguage {
   if (!ENGLISH_INTERFACE_ENABLED) return 'ar';
   try {
-    return localStorage.getItem(LANG_KEY) === 'en' ? 'en' : 'ar';
+    const saved = localStorage.getItem(LANG_KEY);
+    return saved === 'en' || saved === 'ar' ? saved : transientLanguage;
   } catch {
-    return 'ar';
+    return transientLanguage;
   }
 }
 
@@ -36,6 +35,7 @@ function subscribe(callback: () => void) {
 
 export function setWahaLanguage(language: WahaLanguage) {
   const supportedLanguage = ENGLISH_INTERFACE_ENABLED ? language : 'ar';
+  transientLanguage = supportedLanguage;
   try {
     localStorage.setItem(LANG_KEY, supportedLanguage);
   } catch {

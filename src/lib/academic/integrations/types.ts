@@ -6,7 +6,11 @@ export type AcademicProvider =
 
 export type AcademicCapability = 'discovery' | 'metadata' | 'open-access' | 'citations' | 'author-identity' | 'books' | 'datasets';
 export type EvidenceVerificationStatus = 'verified' | 'cross-checked' | 'partially-verified' | 'unverified';
-export type FieldProvenance = Record<string, AcademicProvider[]>;
+/** A provider, or an enrichment service that supplied a field value. */
+export type ProvenanceSource = AcademicProvider | 'unpaywall' | 'opencitations';
+export type FieldProvenance = Record<string, ProvenanceSource[]>;
+/** Record IDs assigned by providers that hold several records per work; never a title. */
+export type ProviderRecordIds = { openalex?: string; semantic_scholar?: string; core?: string };
 
 export type AcademicPaper = {
   id: string;
@@ -40,7 +44,27 @@ export type AcademicPaper = {
   verificationStatus?: EvidenceVerificationStatus;
   confidenceScore?: number;
   fieldProvenance?: FieldProvenance;
+  providerIds?: ProviderRecordIds;
+  /** Citation counts as each source reported them; citationCount stays the display value. */
+  citationCounts?: Partial<Record<ProvenanceSource, number>>;
+  /** What each source reported, kept separately through merges (Slice 3). */
+  providerObservations?: Partial<Record<ProvenanceSource, ProviderObservation>>;
+  /** Outcome of each enrichment request; null results are not negative findings. */
+  enrichmentOutcomes?: Partial<Record<'unpaywall' | 'opencitations', EnrichmentOutcome>>;
 };
+
+/** One source's own values for a record, before any merge. */
+export type ProviderObservation = {
+  title?: string | null;
+  year?: number | null;
+  venue?: string | null;
+  doi?: string | null;
+  citationCount?: number | null;
+  oaUrl?: string | null;
+  isOpenAccess?: boolean | null;
+};
+
+export type EnrichmentOutcome = { status: 'reported' | 'not_reported' | 'error'; errorCode?: string };
 
 export type UnifiedResearchItem = AcademicPaper;
 

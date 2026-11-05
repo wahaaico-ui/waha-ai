@@ -39,6 +39,7 @@ async function postOAuth(url: string, extra: Record<string, string>, tokenSecret
     method: 'POST',
     headers: { Authorization: oauthHeader('POST', url, extra, tokenSecret) },
     cache: 'no-store',
+    signal: AbortSignal.timeout(10_000),
   });
   const body = await response.text();
   if (!response.ok) throw new Error(`Zotero OAuth request failed (${response.status})`);

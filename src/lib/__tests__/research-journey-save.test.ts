@@ -86,7 +86,7 @@ test('returns the newer server draft when autosave detects a conflict', async ()
     'problem',
     { problemStatement: 'الأقدم' },
     '2026-09-19T18:00:00.000Z',
-  )).resolves.toEqual({ error: 'A newer draft is already saved', draft: serverDraft });
+  )).resolves.toEqual({ success: false, draft: serverDraft });
 });
 
 test('turns an expired autosave session into a clear Arabic error', async () => {

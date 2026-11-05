@@ -1,4 +1,7 @@
 import { isStage, type WorkflowStage } from '@/lib/research-workflow';
+import { readSavedWriting, WRITING_DOCUMENT_TYPE } from '@/lib/evidence-writing';
+import { readSupervisorReview, SUPERVISOR_DOCUMENT_TYPE } from '@/lib/supervisor-review';
+import { readLanguageTask } from '@/lib/language-task';
 
 const MAX_EMAIL_CONTENT_LENGTH = 20_000;
 
@@ -35,6 +38,9 @@ export const FIELD_LABELS: Record<string, string> = {
   mode: 'قرار استخدام الفرضيات',
   approach: 'المنهج',
   population: 'مجتمع الدراسة',
+  description: 'الوصف',
+  location: 'المكان/السياق',
+  timeframe: 'الإطار الزمني',
   sample: 'العينة',
   variables: 'المتغيرات أو المفاهيم',
   sections: 'محاور الأداة',
@@ -159,12 +165,43 @@ function safeUrl(input: string) {
   }
 }
 
+/** Customer-facing saved text only; never email editor internals, offsets,
+ * source hashes, raw provider objects or an unreadable replacement snapshot. */
+function snapshotLines(stage: string, content: unknown): string[] {
+  if (stage === WRITING_DOCUMENT_TYPE) {
+    const draft = readSavedWriting(content);
+    if (!draft) throw new Error('EMAIL_SNAPSHOT_UNREADABLE');
+    return ['النص المحفوظ:', draft.text, ...draft.citations.flatMap(citation => [
+      '', `الجملة المرتبطة بالدليل: ${citation.claimText}`, `المصدر: ${citation.source.title}`,
+      `المقطع المحفوظ من المصدر: ${citation.quoteText}`, ...(citation.note ? [`ملاحظتك: ${citation.note}`] : []),
+    ])];
+  }
+  if (stage === SUPERVISOR_DOCUMENT_TYPE) {
+    const review = readSupervisorReview(content);
+    if (!review) throw new Error('EMAIL_SNAPSHOT_UNREADABLE');
+    const status = { open: 'مفتوحة', addressed: 'سجل الباحث تعديلها', deferred: 'مؤجلة مع مبرر' };
+    return ['النص المعدّل:', review.revisedText, '', 'النص قبل المراجعة:', review.originalText,
+      ...review.notes.flatMap(note => ['', `ملاحظة المشرف: ${note.comment}`, `الموضع: ${note.location || 'لم يحدد'}`,
+        `الحالة: ${status[note.status]}`, `رد الباحث: ${note.response || 'لم يسجل بعد'}`])];
+  }
+  if (stage === 'journey:language_task') {
+    const task = readLanguageTask(content);
+    if (!task) throw new Error('EMAIL_SNAPSHOT_UNREADABLE');
+    return [task.operation === 'translate' ? 'ترجمة النص' : 'تدقيق النص', 'النص الأصلي:', task.text,
+      '', ...(task.status === 'completed' ? ['النتيجة المحفوظة:', task.output] : ['المدخل محفوظ؛ لا توجد نتيجة مكتملة لهذه المهمة بعد.'])];
+  }
+  return readableLines(parseContent(content));
+}
+
 export function buildProjectSnapshotEmail(input: ProjectSnapshotEmailInput) {
   const rawStage = input.stage.replace('journey:', '');
   const stage = isStage(rawStage) ? rawStage : null;
-  const stageLabel = stage ? STAGE_LABELS[stage].ar : 'آخر مخرج محفوظ';
-  const contentText = readableLines(parseContent(input.content)).join('\n').slice(0, MAX_EMAIL_CONTENT_LENGTH)
-    || 'لا يتوفر نص قابل للعرض في هذه النسخة.';
+  const stageLabel = stage ? STAGE_LABELS[stage].ar : input.stage === WRITING_DOCUMENT_TYPE ? 'الكتابة المرتبطة بالدليل'
+    : input.stage === SUPERVISOR_DOCUMENT_TYPE ? 'مراجعة ملاحظات المشرف' : input.stage === 'journey:language_task' ? 'الترجمة والتدقيق' : 'آخر مخرج محفوظ';
+  const fullText = snapshotLines(input.stage, input.content).join('\n');
+  const contentText = (fullText.length > MAX_EMAIL_CONTENT_LENGTH
+    ? `${fullText.slice(0, MAX_EMAIL_CONTENT_LENGTH)}\n\nيعرض البريد مقتطفًا من النسخة المحفوظة لطولها. افتح مشروعك للاطلاع على النص الكامل وتصديره.`
+    : fullText) || 'لا يتوفر نص قابل للعرض في هذه النسخة.';
   const dashboardUrl = safeUrl(input.dashboardUrl);
   const name = cleanText(input.researcherName).slice(0, 120) || 'الباحث';
   const projectTitle = cleanText(input.projectTitle).slice(0, 300) || 'مشروع بحثي';
@@ -178,7 +215,7 @@ export function buildProjectSnapshotEmail(input: ProjectSnapshotEmailInput) {
     '',
     input.isDraft
       ? 'هذه أحدث مسودة محفوظة تلقائياً في رحلتك البحثية على WAHA.'
-      : 'هذه نسخة من آخر مخرج معتمد في رحلتك البحثية على WAHA.',
+      : 'هذه نسخة من آخر عمل حفظته في مشروعك البحثي على WAHA.',
     `المشروع: ${projectTitle}`,
     `المرحلة: ${stageLabel}`,
     `الحالة: ${versionLabel}`,
@@ -195,6 +232,6 @@ export function buildProjectSnapshotEmail(input: ProjectSnapshotEmailInput) {
   return {
     subject,
     text,
-    html: `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#f8fafc;color:#10213c;font-family:Arial,sans-serif"><div style="max-width:680px;margin:0 auto;padding:32px 18px"><div style="background:#0b2551;color:#fff;border-radius:20px;padding:24px"><div style="font-size:22px;font-weight:800">WAHA AI</div><p style="margin:10px 0 0;color:#dbeafe">نسختك البحثية المحفوظة</p></div><div style="background:#fff;border:1px solid #dbe3ef;border-radius:20px;margin-top:16px;padding:24px"><h1 style="font-size:22px;margin:0 0 16px">مرحباً ${escapeHtml(name)}</h1><p style="line-height:1.9">${input.isDraft ? 'هذه أحدث مسودة محفوظة تلقائياً في رحلتك البحثية.' : 'هذه نسخة من آخر مخرج معتمد في رحلتك البحثية.'}</p><div style="background:#eff6ff;border-radius:14px;padding:16px;line-height:1.9"><strong>المشروع:</strong> ${escapeHtml(projectTitle)}<br /><strong>المرحلة:</strong> ${escapeHtml(stageLabel)}<br /><strong>الحالة:</strong> ${escapeHtml(versionLabel)}<br /><strong>تاريخ الحفظ:</strong> ${escapeHtml(savedAt)}</div><div style="margin-top:18px;border:1px solid #e2e8f0;border-radius:14px;padding:18px;line-height:1.9;white-space:normal">${htmlContent}</div><a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;margin-top:20px;background:#2563eb;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700">متابعة المشروع</a><p style="margin-top:22px;color:#64748b;font-size:12px;line-height:1.7">أُرسلت هذه الرسالة بناءً على طلبك من داخل حسابك في WAHA. لا تشاركها إذا كانت تحتوي على مادة بحثية خاصة.</p></div></div></body></html>`,
+    html: `<!doctype html><html lang="ar" dir="rtl"><body style="margin:0;background:#f8fafc;color:#10213c;font-family:Arial,sans-serif"><div style="max-width:680px;margin:0 auto;padding:32px 18px"><div style="background:#0b2551;color:#fff;border-radius:20px;padding:24px"><div style="font-size:22px;font-weight:800">WAHA AI</div><p style="margin:10px 0 0;color:#dbeafe">نسختك البحثية المحفوظة</p></div><div style="background:#fff;border:1px solid #dbe3ef;border-radius:20px;margin-top:16px;padding:24px"><h1 style="font-size:22px;margin:0 0 16px">مرحباً ${escapeHtml(name)}</h1><p style="line-height:1.9">${input.isDraft ? 'هذه أحدث مسودة محفوظة تلقائياً في رحلتك البحثية.' : 'هذه نسخة من آخر عمل حفظته في مشروعك البحثي.'}</p><div style="background:#eff6ff;border-radius:14px;padding:16px;line-height:1.9"><strong>المشروع:</strong> ${escapeHtml(projectTitle)}<br /><strong>المرحلة:</strong> ${escapeHtml(stageLabel)}<br /><strong>الحالة:</strong> ${escapeHtml(versionLabel)}<br /><strong>تاريخ الحفظ:</strong> ${escapeHtml(savedAt)}</div><div style="margin-top:18px;border:1px solid #e2e8f0;border-radius:14px;padding:18px;line-height:1.9;white-space:normal">${htmlContent}</div><a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;margin-top:20px;background:#2563eb;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:700">متابعة المشروع</a><p style="margin-top:22px;color:#64748b;font-size:12px;line-height:1.7">أُرسلت هذه الرسالة بناءً على طلبك من داخل حسابك في WAHA. لا تشاركها إذا كانت تحتوي على مادة بحثية خاصة.</p></div></div></body></html>`,
   };
 }

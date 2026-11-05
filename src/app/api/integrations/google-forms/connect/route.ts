@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { encryptIntegrationSecret } from '@/lib/integrations/crypto';
+import { isGoogleFormsOAuthConfigured } from '@/lib/integrations/configuration';
 import { buildGoogleFormsAuthorizationUrl, googleFormsOAuthConfig } from '@/lib/integrations/google-forms/oauth';
 import { readApprovedQuestionnaire } from '@/lib/integrations/google-forms/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
@@ -21,13 +22,14 @@ export async function GET(request: Request) {
   const access = await requireAuthenticatedUser();
   if (!access) return NextResponse.redirect(new URL('/login', request.url));
   const projectId = new URL(request.url).searchParams.get('projectId')?.trim() || '';
-  if (!UUID_PATTERN.test(projectId) || !(await ownsProject(projectId, access.user.id, access.supabase))) {
-    return NextResponse.redirect(instrumentUrl(request.url, projectId, 'forbidden'));
-  }
   try {
+    if (!UUID_PATTERN.test(projectId) || !(await ownsProject(projectId, access.user.id, access.supabase))) {
+      return NextResponse.redirect(instrumentUrl(request.url, projectId, 'forbidden'));
+    }
+    if (!isGoogleFormsOAuthConfigured()) return NextResponse.redirect(instrumentUrl(request.url, projectId, 'config'));
+    const config = googleFormsOAuthConfig(request.url);
     const questionnaire = await readApprovedQuestionnaire(projectId, access.supabase);
     if (!questionnaire) return NextResponse.redirect(instrumentUrl(request.url, projectId, 'not-ready'));
-    const config = googleFormsOAuthConfig(request.url);
     const state = randomBytes(32).toString('base64url');
     const cookieStore = await cookies();
     const oauthState: GoogleFormsOAuthState = {
@@ -46,6 +48,6 @@ export async function GET(request: Request) {
     });
     return NextResponse.redirect(buildGoogleFormsAuthorizationUrl(config, state));
   } catch {
-    return NextResponse.redirect(instrumentUrl(request.url, projectId, 'config'));
+    return NextResponse.redirect(instrumentUrl(request.url, projectId, 'error'));
   }
 }

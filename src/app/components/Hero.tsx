@@ -9,12 +9,12 @@ const stages = [
   { icon: Lightbulb, ar: 'الفكرة والفجوة', en: 'Idea & gap', detailAr: 'نفهم الفكرة ونختبر سياقها البحثي', detailEn: 'Understand the idea and its research context' },
   { icon: Search, ar: 'الأدلة والأدبيات', en: 'Evidence', detailAr: 'نجمع الأدلة ونربطها بقراراتك', detailEn: 'Gather evidence and connect it to decisions' },
   { icon: BrainCircuit, ar: 'البناء والتحليل', en: 'Build & analyse', detailAr: 'نبني عناصر البحث ونتحقق من اتساقها', detailEn: 'Build research elements and check coherence' },
-  { icon: FileCheck2, ar: 'الجاهزية للنشر', en: 'Publication ready', detailAr: 'نراجع المخرجات ونجهزها للتقديم', detailEn: 'Review outputs and prepare them for submission' },
+  { icon: FileCheck2, ar: 'التحضير للتقديم', en: 'Submission preparation', detailAr: 'نراجع المخرجات ونجهزها للتقديم', detailEn: 'Review outputs and prepare them for submission' },
 ] as const;
 
 const copy = {
-  ar: { badge: 'نظام تشغيل للبحث الأكاديمي', title: ['من الفكرة الأولى', 'إلى بحث متسق وجاهز للنشر'], description: 'الواحة تنظّم رحلة الباحث مرحلةً بمرحلة: تستكشف الفكرة، تربطها بالأدلة، وتتحقق من اتساق المشكلة والأهداف والأسئلة والمنهجية قبل الانتقال.', start: 'ابدأ رحلتك البحثية', demo: 'شاهد مسار العمل', journey: 'رحلتك الأكاديمية في مسار واحد', note: 'بيانات مشروعك خاصة بك، وكل مرحلة تُبنى على مخرج محفوظ ومعتمد.', gate: 'لا انتقال عشوائي', evidence: 'قرارات مدعومة بالأدلة' },
-  en: { badge: 'Academic Research Operating System', title: ['From the first idea', 'to coherent, publication-ready research'], description: 'WAHA structures the research journey stage by stage: explore the idea, connect it to evidence, and verify coherence across the problem, objectives, questions, and methodology.', start: 'Start your research journey', demo: 'See the workflow', journey: 'Your academic journey in one path', note: 'Your project data remains private, and every stage builds on an approved, saved output.', gate: 'No blind progression', evidence: 'Evidence-backed decisions' },
+  ar: { badge: 'نظام تشغيل للبحث الأكاديمي', title: ['من الفكرة الأولى', 'إلى خطة بحث ومسودة قابلة للمراجعة'], description: 'الواحة تنظّم رحلة الباحث مرحلةً بمرحلة: تستكشف الفكرة، تربطها بالأدلة، وتقدم مراجعة أولية لعلاقات المشكلة والأهداف والأسئلة والمنهجية.', start: 'ابدأ رحلتك البحثية', demo: 'شاهد مسار العمل', journey: 'رحلتك الأكاديمية في مسار واحد', note: 'بيانات مشروعك خاصة بك، وكل مرحلة تُبنى على مخرج محفوظ ومعتمد.', gate: 'لا انتقال عشوائي', evidence: 'قرارات مدعومة بالأدلة' },
+  en: { badge: 'Academic Research Operating System', title: ['From the first idea', 'to a research plan and reviewable draft'], description: 'WAHA structures the research journey stage by stage: explore the idea, connect it to evidence, and offer preliminary checks across the problem, objectives, questions, and methodology.', start: 'Start your research journey', demo: 'See the workflow', journey: 'Your academic journey in one path', note: 'Your project data remains private, and every stage builds on an approved, saved output.', gate: 'No blind progression', evidence: 'Evidence-backed decisions' },
 };
 
 export default function Hero({ lang }: { lang: Language }) {

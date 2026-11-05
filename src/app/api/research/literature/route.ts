@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { UnifiedResearchEngine } from '@/lib/academic/services/UnifiedResearchEngine';
 import { normaliseTitle } from '@/lib/academic/integrations/normalization';
-import { CitationResolver } from '@/lib/citations';
 import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
+import { citationItemFromDiscovered, discoveredPaperFrom, storeSearchResults } from '@/lib/research-search-results';
 
 function parseDocument(content: string | null) {
   if (!content) return null;
@@ -59,20 +59,30 @@ export async function POST(request: Request) {
     const result = await UnifiedResearchEngine.searchDetailed({ query: title, alternateQueries: queries.slice(1), specialty, limit: 40 });
     const availableProviders = result.providers.filter((provider) => provider.available);
     if (!availableProviders.length) return respond({ success: false, error: 'تعذر الوصول إلى مصادر الأدبيات حالياً. أعد المحاولة لاحقاً.' }, 503, 'academic_providers_unavailable');
-    const relevant = result.papers
-      .filter((paper) => paper.relevanceScore >= 18)
-      .map((paper) => ({
-        id: String(paper.id).slice(0, 500),
+    const relevantPapers = result.papers.filter((paper) => paper.relevanceScore >= 18);
+    // Results are held on the server; the browser selects them by resultId and
+    // never supplies their metadata when saving (src/lib/research-search-results.ts).
+    let resultIds: string[];
+    try {
+      resultIds = await storeSearchResults({ userId: access.user.id, projectId, context: 'literature', query: title, papers: relevantPapers, scope: { domain: result.domain, providers: result.providers, candidateCount: result.papers.length } });
+    } catch {
+      return respond({ success: false, error: 'تعذر حفظ نتائج البحث لاختيارها. أعد المحاولة بعد قليل.' }, 503, 'search_results_not_stored');
+    }
+    const relevant = relevantPapers
+      .map((paper, index) => ({
+        resultId: resultIds[index],
+        id: discoveredPaperFrom(paper).id,
         doi: paper.doi,
         title: paper.title.slice(0, 500),
         authors: (paper.authors.join('، ') || 'بيانات المؤلفين غير متاحة').slice(0, 1_000),
         year: paper.year || 'د.ت',
         citationCount: paper.citationCount,
         abstract: paper.abstract.slice(0, 4_000),
-        source: paper.sources.length > 1 ? 'سجل موثق من عدة فهارس' : 'سجل أكاديمي موثق',
+        // Appearing in an index is discovery, not verification.
+        source: paper.sources.length > 1 ? 'سجل ظهر في عدة فهارس' : 'سجل ظهر في فهرس أكاديمي',
         pdfUrl: paper.pdfUrl || paper.url,
         relevanceScore: paper.relevanceScore,
-        item: CitationResolver.fromPaper(paper),
+        item: citationItemFromDiscovered(discoveredPaperFrom(paper)),
       }));
 
     return respond({

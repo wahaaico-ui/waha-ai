@@ -1,54 +1,34 @@
 import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
-import { buildDashboardProjects } from '@/lib/dashboard-resume';
+import { buildDashboardProjects, type DashboardProjectSource } from '@/lib/dashboard-resume';
+import { readDashboardPages, readDashboardWork } from '@/lib/dashboard-resume-server';
+
+const privateHeaders = { 'Cache-Control': 'private, no-store' };
 
 export async function GET() {
   try {
     const access = await requireAuthenticatedUser();
-    if (!access) return NextResponse.json({ error: 'يجب تسجيل الدخول' }, { status: 401 });
+    if (!access) return NextResponse.json({ error: 'يجب تسجيل الدخول' }, { status: 401, headers: privateHeaders });
 
-    const [usageResult, projectsResult] = await Promise.all([
-      access.supabase
+    const [history, projectSources] = await Promise.all([
+      readDashboardPages<{ id: string; idea_text: string; report_score: number; created_at: string }>((from, to) => access.supabase
         .from('users_usage')
         .select('id, idea_text, report_score, created_at')
         .eq('user_id', access.user.id)
-        .order('created_at', { ascending: false }),
-      access.supabase
+        .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to)),
+      readDashboardPages<DashboardProjectSource>((from, to) => access.supabase
         .from('projects')
         .select('id, title, status, created_at')
         .eq('user_id', access.user.id)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to)),
     ]);
 
-    if (usageResult.error || projectsResult.error) {
-      console.error('Dashboard query failed', {
-        usageError: usageResult.error?.message,
-        projectsError: projectsResult.error?.message,
-      });
-      return NextResponse.json({ error: 'فشل جلب بيانات لوحة التحكم' }, { status: 500 });
-    }
-
-    const projectSources = projectsResult.data || [];
     const projectIds = projectSources.map((project) => project.id);
-    const documentsResult = projectIds.length
-      ? await access.supabase
-        .from('documents')
-        .select('project_id, type, content, version, created_at')
-        .in('project_id', projectIds)
-        .like('type', 'journey:%')
-        .order('created_at', { ascending: false })
-      : { data: [], error: null };
-
-    if (documentsResult.error) {
-      console.error('Dashboard journey query failed', { error: documentsResult.error.message });
-      return NextResponse.json({ error: 'فشل جلب آخر مرحلة محفوظة' }, { status: 500 });
-    }
-
-    const projects = buildDashboardProjects(projectSources, documentsResult.data || []);
-    const history = usageResult.data || [];
+    const work = await readDashboardWork(access.supabase, projectIds);
+    const projects = buildDashboardProjects(projectSources, work.documents, work.drafts);
     const total = history.length;
     const avg = total ? Math.round(history.reduce((sum, r) => sum + r.report_score, 0) / total) : 0;
-    const best = total ? Math.max(...history.map((r) => r.report_score)) : 0;
+    const best = history.reduce((score, row) => Math.max(score, row.report_score), 0);
 
     const metadata = access.user.user_metadata || {};
     const displayName = typeof metadata.full_name === 'string' && metadata.full_name.trim()
@@ -67,9 +47,9 @@ export async function GET() {
         displayName,
         specialty: typeof metadata.specialty === 'string' ? metadata.specialty : null,
       },
-    });
+    }, { headers: privateHeaders });
   } catch (error) {
     console.error('Dashboard stats error:', error);
-    return NextResponse.json({ error: 'فشل جلب بيانات لوحة التحكم' }, { status: 500 });
+    return NextResponse.json({ error: 'فشل جلب بيانات لوحة التحكم' }, { status: 500, headers: privateHeaders });
   }
 }

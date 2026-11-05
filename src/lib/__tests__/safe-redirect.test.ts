@@ -1,6 +1,12 @@
 import { safeAuthRedirect } from '../auth/safe-redirect';
 
 describe('safeAuthRedirect', () => {
+  it('returns visitors to the task they started without allowing an external return URL', () => {
+    expect(safeAuthRedirect('/#start')).toBe('/#start');
+    expect(safeAuthRedirect('/#unrecognised')).toBe('/');
+    expect(safeAuthRedirect('https://attacker.example/#start')).toBe('/dashboard');
+    expect(safeAuthRedirect('//attacker.example/#start')).toBe('/dashboard');
+  });
   test('preserves approved project routes and query parameters', () => {
     expect(safeAuthRedirect('/research/journey?projectId=project-1')).toBe('/research/journey?projectId=project-1');
     expect(safeAuthRedirect('/projects/workspace?projectId=project-2')).toBe('/projects/workspace?projectId=project-2');

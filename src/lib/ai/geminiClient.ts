@@ -2,11 +2,40 @@ import { createClient as createServerClient } from '@/lib/supabase/server';
 import { ownsProject } from '@/lib/supabase/authorization';
 import { logOperationalEvent } from '@/lib/observability';
 import { createHash } from 'node:crypto';
+import { createServiceClient } from '@/lib/supabase/service';
+
+/** Stored and returned instead of a confidence level: the output was not evaluated. */
+export const AI_OUTPUT_NOT_ASSESSED = 'not_assessed';
 
 const AI_TIMEOUT_MS = 30_000;
 const GEMINI_MODEL = 'gemini-flash-latest';
 const OPENAI_MODEL = 'gpt-4.1-mini';
 const GROQ_MODELS = ['qwen/qwen3.6-27b', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'] as const;
+
+export interface GenerationProvenance {
+  provider: 'gemini' | 'openai' | 'groq';
+  requestedModel: string;
+  /** Provider-reported identity, not an independently verified immutable version. */
+  reportedModel: string | null;
+  modelVersionStatus: 'reported' | 'not_reported';
+}
+
+interface ProviderGeneration {
+  output: string;
+  requestedModel: string;
+  reportedModel: string | null;
+  modelVersionStatus: GenerationProvenance['modelVersionStatus'];
+}
+
+function providerGeneration(output: string, requestedModel: string, reported: unknown): ProviderGeneration {
+  // Provider metadata is untrusted. Never substitute the requested alias when
+  // the response omits a model identity, and never log arbitrary response text.
+  const reportedModel = typeof reported === 'string' && reported.length <= 128
+    && /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$/.exec(reported)?.[0] === reported
+    ? reported
+    : null;
+  return { output, requestedModel, reportedModel, modelVersionStatus: reportedModel ? 'reported' : 'not_reported' };
+}
 
 class AIProviderError extends Error {
   constructor(public readonly provider: 'gemini' | 'openai' | 'groq', public readonly status: number | null) {
@@ -39,7 +68,7 @@ async function generateWithOpenAI(apiKey: string, prompt: string) {
   const data = await response.json();
   const output = data.choices?.[0]?.message?.content;
   if (typeof output !== 'string' || !output.trim()) throw new AIProviderError('openai', response.status);
-  return { output, model: OPENAI_MODEL };
+  return providerGeneration(output, OPENAI_MODEL, data.model);
 }
 
 async function generateWithGemini(apiKey: string, prompt: string) {
@@ -58,7 +87,7 @@ async function generateWithGemini(apiKey: string, prompt: string) {
   const data = await response.json();
   const output = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (typeof output !== 'string' || !output.trim()) throw new AIProviderError('gemini', response.status);
-  return { output, model: GEMINI_MODEL };
+  return providerGeneration(output, GEMINI_MODEL, data.modelVersion);
 }
 
 async function generateWithGroq(apiKey: string, prompt: string) {
@@ -90,7 +119,7 @@ async function generateWithGroq(apiKey: string, prompt: string) {
     }
     const data = await response.json();
     const output = data.choices?.[0]?.message?.content;
-    if (typeof output === 'string' && output.trim()) return { output, model };
+    if (typeof output === 'string' && output.trim()) return providerGeneration(output, model, data.model);
   }
   throw new AIProviderError('groq', lastStatus);
 }
@@ -107,6 +136,7 @@ interface GenerateOptions {
 interface GenerateResult {
   output: string;
   confidenceLabel: string;
+  provenance: GenerationProvenance;
 }
 
 export async function generateStructured({
@@ -138,7 +168,7 @@ export async function generateStructured({
     }
   }
 
-  let generation: { output: string; model: string; provider: 'gemini' | 'openai' | 'groq' } | null = null;
+  let generation: (ProviderGeneration & Pick<GenerationProvenance, 'provider'>) | null = null;
   if (geminiKey) {
     const providerStartedAt = Date.now();
     try {
@@ -185,48 +215,50 @@ export async function generateStructured({
     });
     throw new Error('Structured generation is temporarily unavailable.');
   }
-  const { output, model: modelName, provider } = generation;
+  const { output, requestedModel, reportedModel, modelVersionStatus, provider } = generation;
+  const provenance: GenerationProvenance = { provider, requestedModel, reportedModel, modelVersionStatus };
 
-  // منطق بسيط لتحديد مستوى الثقة (confidenceLabel)
-  let confidenceLabel = 'منخفض';
-  const lowerPrompt = prompt.toLowerCase();
-  if (
-    lowerPrompt.includes('source') ||
-    lowerPrompt.includes('citation') ||
-    lowerPrompt.includes('مرجع') ||
-    lowerPrompt.includes('سياق') ||
-    lowerPrompt.includes('context')
-  ) {
-    confidenceLabel = 'عالي';
-  } else if (prompt.length > 150) {
-    confidenceLabel = 'متوسط';
-  }
+  // No quality assessment of the output is performed, so no confidence level is
+  // claimed. The previous label was derived from words in the prompt and did not
+  // measure the output at all.
+  const confidenceLabel = AI_OUTPUT_NOT_ASSESSED;
 
-  // سجّل العملية من خلال عميل المستخدم نفسه؛ لا حاجة لتجاوز RLS بمفتاح خدمة.
+  // The generation log is server-owned audit data (the browser cannot write it
+  // after migration 20260927000000). Ownership of projectId was verified above.
   if (projectId && callerSupabase) {
-    const { error } = await callerSupabase.from('ai_generations_log').insert({
-      project_id: projectId,
-      feature,
-      model: modelName,
-      output,
-      confidence_label: confidenceLabel,
-      prompt_hash: createHash('sha256').update(prompt).digest('hex'),
-    });
+    let error: unknown = null;
+    try {
+      ({ error } = await createServiceClient().from('ai_generations_log').insert({
+        project_id: projectId,
+        feature,
+        // This legacy column continues to mean the requested model; the
+        // distinct reported identity is returned and recorded operationally.
+        model: requestedModel,
+        output,
+        confidence_label: confidenceLabel,
+        prompt_hash: createHash('sha256').update(prompt).digest('hex'),
+      }));
+    } catch (reason) {
+      error = reason;
+    }
     if (error) {
       logOperationalEvent('error', {
         event: 'ai.audit_write_failed', route: '/server/structured-generation', requestId, feature, provider,
-        model: modelName, durationMs: Date.now() - startedAt, outcome: 'failed', errorCode: 'database_write_failed',
+        model: requestedModel, requestedModel, reportedModel, modelVersionStatus,
+        durationMs: Date.now() - startedAt, outcome: 'failed', errorCode: 'database_write_failed',
       });
     }
   }
 
   logOperationalEvent('info', {
     event: 'ai.generation_completed', route: '/server/structured-generation', requestId, feature, provider,
-    model: modelName, durationMs: Date.now() - startedAt, outcome: 'success',
+    model: requestedModel, requestedModel, reportedModel, modelVersionStatus,
+    durationMs: Date.now() - startedAt, outcome: 'success',
   });
 
   return {
     output,
     confidenceLabel,
+    provenance,
   };
 }

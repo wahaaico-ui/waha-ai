@@ -1,5 +1,8 @@
 'use client';
 
+import { useUiTranslation } from '@/lib/use-ui-translation';
+import PdfProjectResults from '@/components/PdfProjectResults';
+
 import { supabase } from '@/lib/supabase/client';
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
@@ -32,6 +35,8 @@ type ProjectReference = {
 };
 
 function WorkspaceContent() {
+  const { text: ui, direction: uiDirection } = useUiTranslation();
+
   const searchParams = useSearchParams();
   const projectId = searchParams.get('projectId');
 
@@ -45,6 +50,12 @@ function WorkspaceContent() {
   const [submitting, setSubmitting] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploadError, setUploadError] = useState('');
+  const [extractedText, setExtractedText] = useState('');
+  const [reading, setReading] = useState<{ totalPages: number; processedPages: number; complete: boolean; method: string } | null>(null);
+  const [readingRefresh, setReadingRefresh] = useState(0);
+  const [allowExternalOcr, setAllowExternalOcr] = useState(false);
+  const [analysisOutput, setAnalysisOutput] = useState('');
+  const [analysisSaved, setAnalysisSaved] = useState(false);
 
 const fetchProjectData = async () => {
     try {
@@ -144,34 +155,43 @@ const fetchProjectData = async () => {
       setUploadStatus('جاري استخراج النص من الـ PDF...');
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('projectId', projectId);
+      formData.append('allowExternalOcr', String(allowExternalOcr));
 
       const parseRes = await fetch('/api/academic/parse-pdf', { method: 'POST', body: formData });
-      if (!parseRes.ok) throw new Error('فشل استخراج النص');
+
       const parseData = await parseRes.json();
       const extractedText = parseData.text;
+      setExtractedText(extractedText); setReading(parseData.reading || null); setAnalysisOutput(''); setAnalysisSaved(false);
+      if (!parseRes.ok) throw new Error(parseData.error || 'فشل استخراج النص');
+      if (parseData.reportSaved) setReadingRefresh((value) => value + 1);
+      if (!extractedText?.trim() || (parseData.ocrAvailable && !allowExternalOcr)) throw new Error(parseData.message || 'لا يوجد نص كافٍ للاستخدام؛ لم يُحفظ كمستخلص.');
 
       // 2. تحليل بـ Gemini
-      setUploadStatus('جاري التحليل واستخراج البيانات بـ Gemini...');
+      setUploadStatus('جارٍ حفظ النص ومحاولة إعداد تحليل أولي…');
       const analyzeRes = await fetch('/api/academic/pdf-analyzer', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: extractedText, projectId })
       });
-      if (!analyzeRes.ok) throw new Error('فشل راوت التحليل pdf-analyzer');
       const analyzeData = await analyzeRes.json();
+      setAnalysisOutput(typeof analyzeData.output === 'string' ? analyzeData.output : '');
+      setAnalysisSaved(analyzeData.saved === true); setReadingRefresh((value) => value + 1);
+      if (!analyzeRes.ok) throw new Error(analyzeData.error || 'تعذر حفظ التحليل؛ النص المحفوظ باقٍ.');
       const sourceId = analyzeData.sourceId || analyzeData.id;
-      if (!sourceId) throw new Error('لم يرجع sourceId');
+      if (!sourceId) throw new Error("لم يرجع sourceId");
 
       // 3. توليد مراجع حقيقية
-      setUploadStatus('جاري توليد مراجع APA/IEEE الحقيقية...');
+      setUploadStatus('جاري البحث عن معرّف DOI لتوثيق المصدر...');
       const citeRes = await fetch('/api/academic/citations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sourceId })
       });
-      if (!citeRes.ok) throw new Error('فشل توليد المراجع');
+      if (!citeRes.ok) throw new Error("فشل توليد المراجع");
 
-      setUploadStatus('تم الرفع والتحليل بنجاح!');
+      const citationData = await citeRes.json();
+      setUploadStatus(`حُفظ النص المستخرج.${(analyzeData.analysisStatus === 'unavailable' || analyzeData.analysisStatus === 'already_saved') ? ' التحليل غير متاح، لكن النص باقٍ.' : ' راجع التحليل الآلي.'} ${citationData.message || 'راجع التوثيق قبل الاستخدام.'}`);
       setSelectedFile(null);
       const fileInput = document.getElementById('pdf-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
@@ -183,49 +203,51 @@ const fetchProjectData = async () => {
       setUploadStatus('');
     } finally {
       setSubmitting(false);
-      setTimeout(() => setUploadStatus(''), 4000);
+      // A citation/provider failure must not hide an already-saved raw source.
+      await fetchProjectData();
+
     }
   };
 
   if (!projectId) {
     return (
       <div className="p-8 text-center space-y-4">
-        <p className="text-gray-500">لا يوجد مشروع محدد بعد.</p>
+        <p className="text-gray-500">{ui("لا يوجد مشروع محدد بعد.")}</p>
         <Link
           href="/projects/create"
           className="inline-flex items-center justify-center px-6 py-3 bg-gradient-to-l from-blue-500 to-teal-400 text-gray-950 font-bold rounded-xl transition-all text-sm"
         >
-          أنشئ مشروعاً
-        </Link>
+          {ui("أنشئ مشروعاً")}</Link>
       </div>
     );
   }
 
-  if (loading) return <div className="p-8 text-center">جاري التحميل...</div>;
+  if (loading) return <div className="p-8 text-center">{ui("جاري التحميل...")}</div>;
   if (error || !project) return <div className="p-8 text-center text-red-500">{error || 'Project not found'}</div>;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-6">
+    <div dir={uiDirection} className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white p-4 sm:p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
           <h1 className="text-2xl font-bold">{project.title}</h1>
-          <p className="text-sm text-gray-500 mt-1">ID: {project.id}</p>
+          <Link href={`/research/tasks?projectId=${encodeURIComponent(project.id)}`} className="mt-2 block text-sm text-blue-700 underline">{ui("العودة إلى المهام والمخرجات")}</Link>
         </div>
-
-        <ZoteroImportPanel projectId={project.id} onImported={fetchProjectData} />
+        <PdfProjectResults projectId={project.id} sources={sources} refreshKey={readingRefresh} currentText={extractedText} currentAnalysis={analysisOutput} analysisSaved={analysisSaved} partial={Boolean(reading && !reading.complete)} />
 
         {references.length > 0 && <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-          <h2 className="text-lg font-semibold mb-4">مراجع Zotero ({references.length})</h2>
+          <h2 className="text-lg font-semibold mb-4">{ui("مراجع Zotero (")}{' '}{references.length})</h2>
           <div className="space-y-3">{references.map((reference) => <article key={reference.id} className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:bg-gray-900">
             <h3 className="font-semibold text-blue-700 dark:text-blue-300">{reference.title}</h3>
-            <p className="mt-1 text-xs text-gray-500">{reference.authors.map((author) => author.name).filter(Boolean).join('، ') || 'مؤلف غير محدد'}{reference.publication_year ? ` · ${reference.publication_year}` : ''}</p>
+            <p className="mt-1 text-xs text-gray-500">{reference.authors.map((author) => author.name).filter(Boolean).join(ui("،")) || ui("مؤلف غير محدد")}{reference.publication_year ? ` · ${reference.publication_year}` : ''}</p>
             {reference.publication_title && <p className="mt-1 text-xs text-gray-500">{reference.publication_title}</p>}
-            <div className="mt-2 flex flex-wrap gap-3 text-xs">{reference.doi && <span>DOI: {reference.doi}</span>}{reference.url && <a href={reference.url} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">فتح المصدر ↗</a>}</div>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs">{reference.doi && <span>DOI: {reference.doi}</span>}{reference.url && <a href={reference.url} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 hover:underline">{ui("فتح المصدر ↗")}</a>}</div>
           </article>)}</div>
         </div>}
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-          <h2 className="text-lg font-semibold mb-4">رفع ملف PDF للتحليل واستخراج المراجع (حقيقي)</h2>
+          <h2 className="text-lg font-semibold mb-4">{ui("استخراج نص PDF وحفظه في المشروع")}</h2>
+          <p className="mb-4 text-sm leading-7">{ui("اختر ملف PDF حتى 10 MB و50 صفحة. الملفات الأطول تُرفض دون اقتطاع صامت.")}</p>
+          <label className="mb-4 flex items-start gap-3 text-sm leading-6"><input type="checkbox" checked={allowExternalOcr} onChange={(event) => setAllowExternalOcr(event.target.checked)} className="mt-1" />{ui("أوافق على إرسال الملف إلى Google لاستخراج النص إذا كان ممسوحًا ضوئيًا. دون الموافقة تبقى المعالجة محلية للنص.")}</label>
           <form onSubmit={handleFileUpload} className="space-y-4">
             <input
               id="pdf-upload"
@@ -240,36 +262,21 @@ const fetchProjectData = async () => {
               disabled={submitting || !selectedFile}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition disabled:opacity-50"
             >
-              {submitting ? 'جاري المعالجة التسلسلية...' : 'رفع وتحليل ملف PDF'}
+              {submitting ? ui("جارٍ استخراج النص وحفظه…") : ui("استخرج النص واحفظه")}
             </button>
             {uploadStatus && <p className="text-sm font-medium text-blue-600 mt-2">{uploadStatus}</p>}
-            {uploadError && <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">{uploadError}</div>}
+            {uploadError && <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">{ui(uploadError)}</div>}
           </form>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow">
-          <h2 className="text-lg font-semibold mb-4">المصادر المرفوعة ({sources.length})</h2>
-          {sources.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">لا توجد مصادر بعد. ارفع ملف PDF أعلاه لبدء التحليل.</p>}
-          {sources.map(src => (
-            <div key={src.id} className="p-4 mb-4 rounded-lg bg-gray-50 dark:bg-gray-900 border border-gray-200">
-              <h3 className="font-semibold text-blue-600">النص المستخرج:</h3>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 line-clamp-3">{src.raw_text}</p>
-
-              {src.title && <p className="text-sm mt-2"><strong>العنوان:</strong> {src.title}</p>}
-              {src.authors && <p className="text-sm"><strong>المؤلفون:</strong> {src.authors}</p>}
-
-              <div className="mt-4 pt-3 border-t border-gray-200">
-                <p className="text-sm text-green-700"><strong>APA Citation:</strong> {src.parsed_citation_apa || 'قيد التوليد'}</p>
-                <p className="text-sm text-green-700 mt-1"><strong>IEEE Citation:</strong> {src.parsed_citation_ieee || 'قيد التوليد'}</p>
-              </div>
-            </div>
-          ))}
-        </div>
+        <details className="rounded-xl border bg-white p-4"><summary className="cursor-pointer font-bold">{ui("استيراد مراجع Zotero والتوثيق")}</summary><ZoteroImportPanel projectId={project.id} onImported={fetchProjectData} />{sources.map((source) => <div key={source.id} className="mt-3 break-words text-sm"><p>APA: {source.parsed_citation_apa || ui("لا توثيق محفوظ")}</p><p>IEEE: {source.parsed_citation_ieee || ui("لا توثيق محفوظ")}</p></div>)}</details>
       </div>
     </div>
   );
 }
 
 export default function WorkspacePage() {
-  return <Suspense fallback={<div className="p-8 text-center">جاري التحميل...</div>}><WorkspaceContent /></Suspense>;
+  const { text: ui } = useUiTranslation();
+
+  return <Suspense fallback={<div className="p-8 text-center">{ui("جاري التحميل...")}</div>}><WorkspaceContent /></Suspense>;
 }

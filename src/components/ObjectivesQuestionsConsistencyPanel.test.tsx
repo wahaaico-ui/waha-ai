@@ -27,12 +27,19 @@ const report: ObjectivesQuestionsConsistencyReport = {
   checkedAt: '2026-08-27T12:00:00.000Z',
 };
 
-test('renders objective-question scores and corrective action', () => {
+test('shows an advisory review without heuristic conclusions or numerical precision', () => {
   const html = renderToStaticMarkup(<ObjectivesQuestionsConsistencyPanel status="ready" report={report} warnings={[]} error="" onRetry={() => undefined} />);
   expect(html).toContain('الأهداف ↔ الأسئلة');
-  expect(html).toContain('72/100');
-  expect(html).toContain('أضف مجتمع الدراسة المذكور في الهدف');
-  expect(html).toContain('تقييم استدلالي مساعد');
+  expect(html).toContain('مراجعة أولية للعلاقات البحثية');
+  expect(html).toContain('هذه مراجعة آلية أولية، وليست قياساً لجودة البحث أو إثباتاً لصلاحية تصميمه.');
+  expect(html).not.toContain('/100');
+  expect(html).not.toContain('progressbar');
+  expect(html).not.toContain(report.summary);
+  for (const issue of report.issues) expect(html).not.toContain(issue);
+  for (const result of report.results) {
+    expect(html).not.toContain(result.suggestedAction);
+    for (const gap of result.gapsFound) expect(html).not.toContain(gap);
+  }
 });
 
 test('marks the saved report stale after question editing', () => {

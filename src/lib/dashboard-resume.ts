@@ -5,6 +5,10 @@ import {
   type WorkflowStage,
   WORKFLOW_STAGES,
 } from '@/lib/research-workflow';
+import { readSavedWriting, WRITING_DOCUMENT_TYPE } from '@/lib/evidence-writing';
+import { readSupervisorReview, SUPERVISOR_DOCUMENT_TYPE } from '@/lib/supervisor-review';
+import { readLanguageTask } from '@/lib/language-task';
+import { JOURNEY_STAGES } from '@/lib/research-journey';
 
 export type DashboardProjectSource = {
   id: string;
@@ -14,12 +18,27 @@ export type DashboardProjectSource = {
 };
 
 export type DashboardJourneyDocument = {
+  id?: string;
   project_id: string;
   type: string | null;
   content: unknown;
   version: number | null;
   created_at: string;
 };
+
+export type DashboardStageDraft = {
+  project_id: string;
+  stage: string;
+  content: unknown;
+  updated_at: string;
+};
+
+export const DASHBOARD_DOCUMENT_TYPES = [
+  ...WORKFLOW_STAGES.map(stage => `journey:${stage}`),
+  WRITING_DOCUMENT_TYPE, SUPERVISOR_DOCUMENT_TYPE, 'journey:language_task',
+];
+
+export type ResumeActivity = 'journey' | 'draft' | 'writing' | 'supervisor' | 'language';
 
 export type ProjectResume = {
   lastActivityAt: string;
@@ -28,14 +47,35 @@ export type ProjectResume = {
   lastOutputPreview: string | null;
   nextStage: WorkflowStage | null;
   completedStages: number;
+  totalStages: number;
+  activity: ResumeActivity;
+  href: string;
 };
 
 export type DashboardProject = DashboardProjectSource & { resume: ProjectResume };
 
-function newestStageDocument(first: DashboardJourneyDocument, second: DashboardJourneyDocument) {
-  const versionDifference = (second.version ?? 0) - (first.version ?? 0);
-  if (versionDifference !== 0) return versionDifference;
-  return new Date(second.created_at).getTime() - new Date(first.created_at).getTime();
+function timestamp(value: string) { return Number.isFinite(Date.parse(value)) ? Date.parse(value) : 0; }
+
+/** Immutable writing/review revisions all use version=1. Their creation time,
+ * then ID, decides the latest revision; workflow stages use their version. */
+export function latestDashboardDocuments<T extends Omit<DashboardJourneyDocument, 'content'>>(documents: T[]): T[] {
+  const selected = new Map<string, T>();
+  for (const row of documents) {
+    if (!row.type || !DASHBOARD_DOCUMENT_TYPES.includes(row.type)) continue;
+    const key = JSON.stringify([row.project_id, row.type]);
+    const previous = selected.get(key);
+    const stage = WORKFLOW_STAGES.some(stage => row.type === `journey:${stage}`);
+    const version = stage ? (row.version ?? 0) - (previous?.version ?? 0) : 0;
+    if (!previous || version > 0 || (version === 0 && (timestamp(row.created_at) > timestamp(previous.created_at)
+      || (timestamp(row.created_at) === timestamp(previous.created_at) && (row.id ?? '') > (previous.id ?? ''))))) selected.set(key, row);
+  }
+  return [...selected.values()];
+}
+
+function resumePath(projectId: string, activity: ResumeActivity, stage: WorkflowStage | null) {
+  const project = `projectId=${encodeURIComponent(projectId)}`;
+  if (activity === 'writing' || activity === 'supervisor' || activity === 'language') return `/research/tasks?${project}&task=${activity}`;
+  return `${JOURNEY_STAGES.find(item => item.id === stage)?.href || '/research/seminar'}?${project}`;
 }
 
 function parseOutput(content: unknown): WorkflowOutput | null {
@@ -126,17 +166,18 @@ function outputPreview(stage: WorkflowStage, output: WorkflowOutput | null) {
 export function buildDashboardProjects(
   projects: DashboardProjectSource[],
   documents: DashboardJourneyDocument[],
+  drafts: DashboardStageDraft[] = [],
 ): DashboardProject[] {
+  const latestDocuments = latestDashboardDocuments(documents);
   return projects.map((project) => {
-    const projectDocuments = documents
+    const projectDocuments = latestDocuments
       .filter((document) => document.project_id === project.id && document.type?.startsWith('journey:'));
     const outputs: Partial<Record<WorkflowStage, WorkflowOutput>> = {};
     const canonicalDocuments: DashboardJourneyDocument[] = [];
 
     for (const stage of WORKFLOW_STAGES) {
       const latest = projectDocuments
-        .filter((document) => document.type === `journey:${stage}`)
-        .sort(newestStageDocument)[0];
+        .find((document) => document.type === `journey:${stage}`);
       const output = parseOutput(latest?.content);
       if (latest) canonicalDocuments.push(latest);
       if (output) outputs[stage] = output;
@@ -147,16 +188,49 @@ export function buildDashboardProjects(
     const rawStage = lastDocument?.type?.replace('journey:', '');
     const lastStage = WORKFLOW_STAGES.find((stage) => stage === rawStage) ?? null;
     const lastOutput = lastStage ? parseOutput(lastDocument?.content) : null;
+    const nextStage = nextAllowedStage(outputs);
+    let activity: ResumeActivity = lastDocument ? 'journey' : 'writing';
+    let activityStage = lastStage;
+    let lastActivityAt = lastDocument?.created_at || project.created_at;
+    let lastVersion = lastDocument?.version ?? null;
+    let preview = lastStage ? outputPreview(lastStage, lastOutput) : null;
+
+    const taskDocuments = latestDocuments.filter(row => row.project_id === project.id)
+      .filter(row => row.type === WRITING_DOCUMENT_TYPE || row.type === SUPERVISOR_DOCUMENT_TYPE || row.type === 'journey:language_task');
+    for (const row of taskDocuments) {
+      if (timestamp(row.created_at) <= timestamp(lastActivityAt)) continue;
+      activity = row.type === WRITING_DOCUMENT_TYPE ? 'writing' : row.type === SUPERVISOR_DOCUMENT_TYPE ? 'supervisor' : 'language';
+      activityStage = null;
+      lastActivityAt = row.created_at;
+      lastVersion = row.version;
+      preview = activity === 'writing' ? cleanPreview(readSavedWriting(row.content)?.text)
+        : activity === 'supervisor' ? cleanPreview(readSupervisorReview(row.content)?.revisedText)
+          : (() => { const task = readLanguageTask(row.content); return cleanPreview(task?.status === 'completed' ? task.output : task?.text); })();
+    }
+    for (const draft of drafts.filter(row => row.project_id === project.id)) {
+      const stage = WORKFLOW_STAGES.find(stage => stage === draft.stage);
+      const approved = canonicalDocuments.find(row => row.type === `journey:${stage}`);
+      const content = parseOutput(draft.content);
+      // Use the server save time. A client clock must not move a stale draft
+      // ahead of an approved version, nor turn a draft into a completed stage.
+      if (!stage || !content || timestamp(draft.updated_at) <= timestamp(lastActivityAt)
+        || (approved && timestamp(draft.updated_at) <= timestamp(approved.created_at))) continue;
+      activity = 'draft'; activityStage = stage; lastActivityAt = draft.updated_at; lastVersion = null;
+      preview = outputPreview(stage, content);
+    }
 
     return {
       ...project,
       resume: {
-        lastActivityAt: lastDocument?.created_at || project.created_at,
-        lastStage,
-        lastVersion: lastDocument?.version ?? null,
-        lastOutputPreview: lastStage ? outputPreview(lastStage, lastOutput) : null,
-        nextStage: nextAllowedStage(outputs),
+        lastActivityAt,
+        lastStage: activityStage,
+        lastVersion,
+        lastOutputPreview: preview,
+        nextStage,
         completedStages: WORKFLOW_STAGES.filter((stage) => stageComplete(stage, outputs[stage])).length,
+        totalStages: WORKFLOW_STAGES.length,
+        activity,
+        href: resumePath(project.id, activity, activity === 'draft' ? activityStage : nextStage),
       },
     };
   }).sort((first, second) =>

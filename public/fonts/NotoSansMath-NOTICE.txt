@@ -1,0 +1,5 @@
+Noto Sans Math Regular, unmodified Google Fonts distribution.
+SIL Open Font License 1.1; see NotoSansMath-OFL.txt.
+Source: https://github.com/google/fonts/blob/main/ofl/notosansmath/NotoSansMath-Regular.ttf
+Git blob: 7e505c9bad286732f4d6daf0165e6b6cbbe57079 (1,015,396 bytes).
+Used locally for PDF mathematical operators; no runtime font download.

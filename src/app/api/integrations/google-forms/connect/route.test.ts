@@ -35,10 +35,15 @@ const access = {
   user: { id: 'user-a', email: 'owner@example.test', user_metadata: {} },
   supabase: { from: jest.fn() },
 };
+const originalEnvironment = { ...process.env };
+afterAll(() => { process.env = originalEnvironment; });
 
 describe('Google Forms OAuth connect route', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.GOOGLE_FORMS_CLIENT_ID = 'fixture-client';
+    process.env.GOOGLE_FORMS_CLIENT_SECRET = 'fixture-secret';
+    process.env.INTEGRATIONS_ENCRYPTION_KEY = 'fixture-encryption-key-at-least-32-chars';
     googleFormsOAuthConfig.mockReturnValue({ clientId: 'client', clientSecret: 'secret', callbackUrl: 'https://waha.test/api/integrations/google-forms/callback' });
     buildGoogleFormsAuthorizationUrl.mockReturnValue(new URL('https://accounts.google.com/o/oauth2/v2/auth?state=opaque'));
     encryptIntegrationSecret.mockReturnValue('encrypted-state');
@@ -74,5 +79,24 @@ describe('Google Forms OAuth connect route', () => {
       sameSite: 'lax',
       maxAge: 600,
     }));
+  });
+
+  test('missing configuration never reads or sends the questionnaire or sets OAuth state', async () => {
+    requireAuthenticatedUser.mockResolvedValue(access); ownsProject.mockResolvedValue(true);
+    delete process.env.GOOGLE_FORMS_CLIENT_SECRET;
+    const response = await GET(new Request(`https://waha.test/api/integrations/google-forms/connect?projectId=${projectId}`));
+    expect(response.headers.get('location')).toContain('googleForm=config');
+    expect(readApprovedQuestionnaire).not.toHaveBeenCalled();
+    expect(buildGoogleFormsAuthorizationUrl).not.toHaveBeenCalled();
+    expect(cookieSet).not.toHaveBeenCalled();
+  });
+
+  test('a storage error is reported as a recoverable error without exposing its details', async () => {
+    requireAuthenticatedUser.mockResolvedValue(access); ownsProject.mockResolvedValue(true);
+    readApprovedQuestionnaire.mockRejectedValueOnce(new Error('private-database-details'));
+    const response = await GET(new Request(`https://waha.test/api/integrations/google-forms/connect?projectId=${projectId}`));
+    expect(response.headers.get('location')).toContain('googleForm=error');
+    expect(response.headers.get('location')).not.toContain('private-database-details');
+    expect(cookieSet).not.toHaveBeenCalled();
   });
 });

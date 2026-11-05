@@ -1,0 +1,17 @@
+citeproc-js implements the Citation Style Language
+Copyright (c) Frank Bennett
+https://citationstyles.org/
+
+Processor: npm citeproc 2.4.63, unmodified, used under CPAL-1.0.
+Original source: /open-source/citeproc/citeproc_commonjs.js
+License: /open-source/citeproc/CPAL.txt
+Upstream dual-license notice: /open-source/citeproc/LICENSE.txt
+No warranty.
+
+CSL styles and locale: Citation Style Language project and contributors.
+Sources, contributor credits, revision hashes and individual Creative Commons
+Attribution-ShareAlike licenses are preserved in:
+/open-source/citeproc/csl-data.json
+/open-source/citeproc/csl-manifest.json
+https://github.com/citation-style-language/styles
+https://github.com/citation-style-language/locales

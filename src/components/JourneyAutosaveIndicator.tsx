@@ -1,5 +1,6 @@
 'use client';
 
+import { useUiTranslation } from '@/lib/use-ui-translation';
 import { useEffect, useState } from 'react';
 import { Cloud, CloudAlert, CloudCheck, LoaderCircle } from 'lucide-react';
 import {
@@ -17,6 +18,8 @@ const LABELS: Record<JourneyAutosaveStatus, string> = {
 };
 
 export default function JourneyAutosaveIndicator() {
+  const { text: ui } = useUiTranslation();
+
   const [detail, setDetail] = useState<JourneyAutosaveDetail>({ stage: 'verify', status: 'idle' });
 
   useEffect(() => {
@@ -33,7 +36,7 @@ export default function JourneyAutosaveIndicator() {
       className={`flex min-w-32 items-center justify-center gap-2 rounded-xl px-3 py-2 text-[10px] font-bold ${detail.status === 'error' ? 'bg-rose-50 text-rose-700' : detail.status === 'pending' ? 'bg-amber-50 text-amber-700' : 'text-slate-600'}`}
     >
       <Icon className={`h-4 w-4 ${detail.status === 'saving' ? 'animate-spin' : ''}`} />
-      {LABELS[detail.status]}
+      {ui(LABELS[detail.status])}
     </div>
   );
 }

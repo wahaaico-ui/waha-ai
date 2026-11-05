@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { generateStructured } from '@/lib/ai/geminiClient';
 import { ownedDocument, requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { isServerOwnedDocumentType } from '@/lib/research-trust';
 
 export async function POST(request: Request) {
   try {
@@ -10,6 +11,9 @@ export async function POST(request: Request) {
     if (!documentId) return NextResponse.json({ error: 'documentId is required' }, { status: 400 });
     const document = await ownedDocument(documentId, access.user.id, access.supabase);
     if (!document) return NextResponse.json({ error: 'Document not found' }, { status: 404 });
+    // Journey stages and exploration reports are server-owned records; an AI
+    // rewrite must not become a new version of them.
+    if (isServerOwnedDocumentType(document.type)) return NextResponse.json({ error: 'This document type cannot be rewritten' }, { status: 409 });
     const text = document.content || '';
     if (!text.trim()) return NextResponse.json({ error: 'Document content is empty' }, { status: 400 });
 

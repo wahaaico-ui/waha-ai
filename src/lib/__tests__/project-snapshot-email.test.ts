@@ -38,6 +38,7 @@ describe('project snapshot email', () => {
     expect(email.html).not.toContain('javascript:');
     expect(email.text).toContain('https://waha.systems/dashboard');
     expect(email.text.length).toBeLessThan(22_000);
+    expect(email.text).toContain('يعرض البريد مقتطفًا');
   });
 
   test('labels autosaved drafts without presenting them as approved versions', () => {
@@ -56,4 +57,15 @@ describe('project snapshot email', () => {
     expect(email.text).toContain('هذه أحدث مسودة محفوظة تلقائياً');
     expect(email.text).not.toContain('رقم النسخة: 3');
   });
+});
+
+test('renders a writing snapshot without leaking internal editor fields and rejects an unreadable one', () => {
+  const input = { researcherName: 'Researcher', projectTitle: 'Project', stage: 'evidence-writing:v1', version: 1,
+    savedAt: '2026-10-20T00:00:00Z', dashboardUrl: 'https://waha.systems/dashboard' };
+  const message = buildProjectSnapshotEmail({ ...input, content: { text: '<script>saved text</script>', citations: [] } });
+  expect(message.text).toContain('الكتابة المرتبطة بالدليل');
+  expect(message.html).toContain('&lt;script&gt;saved text&lt;/script&gt;');
+  expect(message.html).not.toContain('<script>');
+  expect(message.text).not.toMatch(/citations:|sourceHash|richText/);
+  expect(() => buildProjectSnapshotEmail({ ...input, content: { text: 123, citations: [] } })).toThrow('EMAIL_SNAPSHOT_UNREADABLE');
 });

@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { createServiceClient } from '@/lib/supabase/service';
+import { LEGACY_SCORE_NOTICE } from '@/lib/research-trust';
 import { requestFingerprint } from '@/proxy';
 import {
   buildResearchPaths,
@@ -328,6 +330,8 @@ function makeDecision(score: number, gaps: string[], evidenceCount: number): {
 // ============================================================
 // SAVE VERIFICATION TO DATABASE
 // ============================================================
+const FREE_LIMIT = 3;
+
 async function countDailyUserVerifications(ip: string, requestId: string): Promise<number> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -407,12 +411,15 @@ async function saveVerification(
 // Supabase client, so RLS enforces that every row belongs to that user.
 async function persistAuthenticatedVerification(
   report: VerifyReport,
-  access: Awaited<ReturnType<typeof requireAuthenticatedUser>>
+  access: Awaited<ReturnType<typeof requireAuthenticatedUser>>,
+  existingProjectId?: string,
 ): Promise<string | null> {
   if (!access) return null;
 
   const { supabase, user } = access;
-  const { data: existingProject, error: existingProjectError } = await supabase
+  const { data: existingProject, error: existingProjectError } = existingProjectId
+    ? { data: { id: existingProjectId }, error: null }
+    : await supabase
     .from('projects')
     .select('id')
     .eq('user_id', user.id)
@@ -445,7 +452,10 @@ async function persistAuthenticatedVerification(
 
   if (latestDocumentError) throw new Error('PROJECT_DOCUMENT_LOOKUP_FAILED');
 
-  const { error: documentError } = await supabase.from('documents').insert({
+  // idea_verification is the server's record of what the exploration found; the
+  // verify gate is derived from it. Ownership was established by the project
+  // lookup above, and the browser cannot write this document type.
+  const { error: documentError } = await createServiceClient().from('documents').insert({
     project_id: project.id,
     type: 'idea_verification',
     content: JSON.stringify(report),
@@ -497,6 +507,16 @@ export async function POST(request: NextRequest) {
     // Resolve the cookie-bound identity once. The client cannot submit or
     // override this profile context.
     const access = await requireAuthenticatedUser();
+    const requestedProjectId = typeof payload.projectId === 'string' ? payload.projectId.trim() : undefined;
+    if (payload.projectId !== undefined && (!requestedProjectId || !access || !(await ownsProject(requestedProjectId, access.user.id, access.supabase)))) {
+      return respond({ error: 'المشروع غير موجود أو لا تملك صلاحية الوصول إليه.' }, 404, 'project_not_found');
+    }
+    // A visitor's daily allowance is enforced here, before any model or index
+    // is called; hiding the report in the browser would not stop the calls.
+    const usageCount = await countDailyUserVerifications(ip, operation.requestId);
+    if (!access && usageCount >= FREE_LIMIT) {
+      return respond({ error: 'استخدمت الاستكشافات المجانية الثلاثة اليوم. سجّل الدخول لتتابع داخل مشروعك، أو عد بعد 24 ساعة.' }, 429, 'daily_limit');
+    }
     const metadata = access?.user.user_metadata || {};
     const asMetadataText = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
     const researcherCountryCode = asMetadataText(metadata.country)?.toUpperCase() || null;
@@ -577,6 +597,8 @@ export async function POST(request: NextRequest) {
       methodologyNote: 'تصنيف استدلالي مبني على كلمات ظاهرة في الملخصات المتاحة؛ يجب مراجعة قسم المنهجية في الدراسة الأصلية قبل الاعتماد.',
       gaps,
       acceptanceScore: score,
+      scoreStatus: 'legacy_heuristic',
+      scoreNotice: LEGACY_SCORE_NOTICE,
       scoreBreakdown: breakdown,
       decision: decision.decision,
       decisionMessage: decision.message,
@@ -602,16 +624,12 @@ export async function POST(request: NextRequest) {
       ],
     };
 
-    // Count before scheduling the current write so the freemium decision does
-    // not depend on a race between INSERT and COUNT.
-    const usageCount = await countDailyUserVerifications(ip, operation.requestId);
-
     // Persist an authenticated researcher's output before returning the next
     // journey link. Anonymous visitors deliberately keep the existing local
     // exploration flow and never receive a project id.
     let projectId: string | null;
     try {
-      projectId = await persistAuthenticatedVerification(report, access);
+      projectId = await persistAuthenticatedVerification(report, access, requestedProjectId);
     } catch {
       logOperationalEvent('error', {
         event: 'api.verify_idea.project_persistence_failed',
@@ -642,8 +660,7 @@ export async function POST(request: NextRequest) {
       return respond({ error: 'اكتمل التحليل، لكن تعذر تسجيله في سجل الاستكشافات. حاول مجدداً قبل المتابعة.' }, 503, 'history_persistence_failed');
     }
 
-    // Freemium: compute usage info based on the history before this request.
-    const FREE_LIMIT = 3;
+    // Freemium: usage info is based on the history counted before this request.
     const reportWithUsage = {
       ...report,
       usageInfo: {

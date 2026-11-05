@@ -1,5 +1,6 @@
 'use client';
 
+import { useUiTranslation } from '@/lib/use-ui-translation';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import JourneyProgress from '@/components/JourneyProgress';
@@ -24,6 +25,8 @@ function savedDiscussion(output: Record<string, unknown> | undefined): ResearchD
 }
 
 export default function ResearchDiscussionPage() {
+  const { text: ui, direction: uiDirection, language: uiLanguage } = useUiTranslation();
+
   const projectId = useProjectId();
   const [journey, setJourney] = useState<JourneyData | null>(null);
   const [form, setForm] = useState<ResearchDiscussionOutput | null>(null);
@@ -129,56 +132,52 @@ export default function ResearchDiscussionPage() {
     }
   }
 
-  return <div dir="rtl" className="min-h-screen bg-[#F8FAFC] pb-24 text-slate-950">
+  return <div dir={uiDirection} className="min-h-screen bg-[#F8FAFC] pb-24 text-slate-950">
     <SiteHeader />
-    <JourneyProgress current="discussion" lang="ar" />
+    <JourneyProgress current="discussion" lang={uiLanguage} />
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 lg:py-12">
       <header className="rounded-3xl border border-blue-100 bg-white p-6 shadow-sm sm:p-8">
-        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">فهم ما وراء النتائج</div>
-        <h1 className="mt-4 text-3xl font-black">فسّر النتائج في حدود ما تسمح به الأدلة</h1>
-        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">ناقش معنى كل نتيجة، ثم قارنها بدراسة أو أكثر من الأدلة التي اخترتها سابقاً. لا تضف رقماً جديداً، ولا تحوّل التفسير إلى توصية تنفيذية.</p>
+        <div className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{ui("فهم ما وراء النتائج")}</div>
+        <h1 className="mt-4 text-3xl font-black">{ui("فسّر النتائج في حدود ما تسمح به الأدلة")}</h1>
+        <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-600">{ui("ناقش معنى كل نتيجة، ثم قارنها بدراسة أو أكثر من الأدلة التي اخترتها سابقاً. لا تضف رقماً جديداً، ولا تحوّل التفسير إلى توصية تنفيذية.")}</p>
       </header>
 
-      {loading ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">جارٍ إعداد المناقشة…</section>
-      : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">هذه المرحلة تحتاج مشروعاً محفوظاً</h2><Link href="/dashboard" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">اختر مشروعاً</Link></section>
-      : error && !journey ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{error}</section>
-      : !resultsComplete ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">اعتمد النتائج أولاً</h2><p className="mt-3 text-sm leading-7 text-amber-900">لا يمكن مناقشة نتيجة قبل تثبيت صيغتها وربطها بمخرج التحليل.</p><Link href={`/research/results?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى النتائج</Link></section>
-      : !availablePapers.length ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">لا توجد أدلة مخُلَّقة للمقارنة</h2><p className="mt-3 text-sm leading-7 text-amber-900">أعد تحليل الأدبيات حتى يحتوي على محاور مسندة بالدراسات المختارة.</p><Link href={`/research/analysis?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">العودة إلى تحليل الأدبيات</Link></section>
+      {loading ? <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">{ui("جارٍ إعداد المناقشة…")}</section>
+      : !projectId ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">{ui("هذه المرحلة تحتاج مشروعاً محفوظاً")}</h2><Link href="/dashboard" className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white">{ui("اختر مشروعاً")}</Link></section>
+      : error && !journey ? <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800">{ui(error)}</section>
+      : !resultsComplete ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">{ui("اعتمد النتائج أولاً")}</h2><p className="mt-3 text-sm leading-7 text-amber-900">{ui("لا يمكن مناقشة نتيجة قبل تثبيت صيغتها وربطها بمخرج التحليل.")}</p><Link href={`/research/results?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">{ui("العودة إلى النتائج")}</Link></section>
+      : !availablePapers.length ? <section className="rounded-2xl border border-amber-200 bg-amber-50 p-7 text-center"><h2 className="text-xl font-black text-amber-950">{ui("لا توجد أدلة مخُلَّقة للمقارنة")}</h2><p className="mt-3 text-sm leading-7 text-amber-900">{ui("أعد تحليل الأدبيات حتى يحتوي على محاور مسندة بالدراسات المختارة.")}</p><Link href={`/research/analysis?projectId=${encodeURIComponent(projectId)}`} className="mt-5 inline-flex rounded-xl bg-amber-300 px-5 py-3 text-sm font-bold text-amber-950">{ui("العودة إلى تحليل الأدبيات")}</Link></section>
       : journey && form ? <>
         <section className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-bold text-emerald-700">النتائج المقفلة</p><p className="mt-2 text-sm font-black text-emerald-950">{form.discussions.length} نتيجة معتمدة</p></div>
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">الأدلة المتاحة</p><p className="mt-2 text-sm font-black text-blue-950">{availablePapers.length} دراسة موثقة</p></div>
-          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4"><p className="text-xs font-bold text-violet-700">الحد المنهجي</p><p className="mt-2 text-sm font-black text-violet-950">تفسير ومقارنة بلا توصيات</p></div>
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-bold text-emerald-700">{ui("النتائج المقفلة")}</p><p className="mt-2 text-sm font-black text-emerald-950">{form.discussions.length} {ui("نتيجة معتمدة")}</p></div>
+          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-4"><p className="text-xs font-bold text-blue-700">{ui("الأدلة المتاحة")}</p><p className="mt-2 text-sm font-black text-blue-950">{availablePapers.length} {ui("دراسة مختارة (غير متحقق منها)")}</p></div>
+          <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4"><p className="text-xs font-bold text-violet-700">{ui("الحد المنهجي")}</p><p className="mt-2 text-sm font-black text-violet-950">{ui("تفسير ومقارنة بلا توصيات")}</p></div>
         </section>
 
         <section className="space-y-5">
           {form.discussions.map((item, index) => <article key={item.questionIndex} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-bold text-emerald-700">النتيجة المعتمدة للسؤال {index + 1}</p><p className="mt-2 text-sm font-bold leading-7 text-emerald-950">{item.resultStatement}</p><p className="mt-2 border-t border-emerald-200 pt-2 text-xs leading-6 text-emerald-800">{item.questionText}</p></div>
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-bold text-emerald-700">{ui("النتيجة المعتمدة للسؤال")}{' '}{index + 1}</p><p className="mt-2 text-sm font-bold leading-7 text-emerald-950">{item.resultStatement}</p><p className="mt-2 border-t border-emerald-200 pt-2 text-xs leading-6 text-emerald-800">{item.questionText}</p></div>
             <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              <label className="space-y-2 text-sm font-bold">ماذا تعني هذه النتيجة في سياق الدراسة؟
-                <textarea value={item.interpretation} onChange={(event) => updateItem(index, 'interpretation', event.target.value)} maxLength={2400} rows={7} placeholder="فسّر المعنى المحتمل بحذر، واربطه بالسياق والمنهج دون ادعاء سببية غير مثبتة…" className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+              <label className="space-y-2 text-sm font-bold">{ui("ماذا تعني هذه النتيجة في سياق الدراسة؟")}<textarea dir="auto" value={item.interpretation} onChange={(event) => updateItem(index, 'interpretation', event.target.value)} maxLength={2400} rows={7} placeholder={ui("فسّر المعنى المحتمل بحذر، واربطه بالسياق والمنهج دون ادعاء سببية غير مثبتة…")} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
               </label>
-              <label className="space-y-2 text-sm font-bold">كيف تتفق أو تختلف مع الأدبيات المختارة؟
-                <textarea value={item.literatureComparison} onChange={(event) => updateItem(index, 'literatureComparison', event.target.value)} maxLength={2400} rows={7} placeholder="قارن اتجاه النتيجة بما ورد في الأدلة المحددة، واذكر حدود المقارنة…" className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+              <label className="space-y-2 text-sm font-bold">{ui("كيف تتفق أو تختلف مع الأدبيات المختارة؟")}<textarea dir="auto" value={item.literatureComparison} onChange={(event) => updateItem(index, 'literatureComparison', event.target.value)} maxLength={2400} rows={7} placeholder={ui("قارن اتجاه النتيجة بما ورد في الأدلة المحددة، واذكر حدود المقارنة…")} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
               </label>
             </div>
-            <fieldset className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4"><legend className="px-2 text-sm font-black text-blue-950">اختر الأدلة المستخدمة فعلاً في المقارنة</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{availablePapers.map((paper) => <label key={paper.id} className="flex cursor-pointer items-start gap-2 rounded-lg border border-blue-100 bg-white p-3 text-xs leading-6 text-slate-700"><input type="checkbox" checked={item.supportingPaperIds.includes(paper.id)} onChange={() => togglePaper(index, paper.id)} className="mt-1 h-4 w-4" /><span><strong>{paper.title}</strong>{paper.year ? ` (${paper.year})` : ''}</span></label>)}</div></fieldset>
-            {item.supportingPaperIds.length ? <div className="mt-4 space-y-2">{themes.filter((theme) => theme.supportingPaperIds.some((id) => item.supportingPaperIds.includes(id))).map((theme) => <div key={theme.title} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-7 text-slate-700"><strong>{theme.title}:</strong> {theme.synthesis}<div className="mt-2 text-[11px] font-bold text-blue-700">{theme.supportingPaperIds.filter((id) => item.supportingPaperIds.includes(id)).map((id) => paperById.get(id)?.title || id).join('، ')}</div></div>)}</div> : null}
+            <fieldset className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4"><legend className="px-2 text-sm font-black text-blue-950">{ui("اختر الأدلة المستخدمة فعلاً في المقارنة")}</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{availablePapers.map((paper) => <label key={paper.id} className="flex cursor-pointer items-start gap-2 rounded-lg border border-blue-100 bg-white p-3 text-xs leading-6 text-slate-700"><input type="checkbox" checked={item.supportingPaperIds.includes(paper.id)} onChange={() => togglePaper(index, paper.id)} className="mt-1 h-4 w-4" /><span><strong>{paper.title}</strong>{paper.year ? ` (${paper.year})` : ''}</span></label>)}</div></fieldset>
+            {item.supportingPaperIds.length ? <div className="mt-4 space-y-2">{themes.filter((theme) => theme.supportingPaperIds.some((id) => item.supportingPaperIds.includes(id))).map((theme) => <div key={theme.title} className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs leading-7 text-slate-700"><strong>{theme.title}:</strong> {theme.synthesis}<div className="mt-2 text-[11px] font-bold text-blue-700">{theme.supportingPaperIds.filter((id) => item.supportingPaperIds.includes(id)).map((id) => paperById.get(id)?.title || id).join(ui("،"))}</div></div>)}</div> : null}
           </article>)}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-          <label className="space-y-2 text-sm font-bold">الخلاصة التفسيرية للمناقشة
-            <textarea value={form.overallSynthesis} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, overallSynthesis: event.target.value } : current); }} maxLength={3000} rows={6} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+          <label className="space-y-2 text-sm font-bold">{ui("الخلاصة التفسيرية للمناقشة")}<textarea dir="auto" value={form.overallSynthesis} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, overallSynthesis: event.target.value } : current); }} maxLength={3000} rows={6} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
-          <label className="mt-5 block space-y-2 text-sm font-bold">كيف تؤثر حدود الدراسة في تفسير النتائج؟
-            <textarea value={form.limitationsInterpretation} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, limitationsInterpretation: event.target.value } : current); }} maxLength={1600} rows={4} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
+          <label className="mt-5 block space-y-2 text-sm font-bold">{ui("كيف تؤثر حدود الدراسة في تفسير النتائج؟")}<textarea dir="auto" value={form.limitationsInterpretation} onChange={(event) => { markEdited(); setForm((current) => current ? { ...current, limitationsInterpretation: event.target.value } : current); }} maxLength={1600} rows={4} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
           </label>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7 text-blue-950"><input type="checkbox" checked={form.evidenceGroundingConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, evidenceGroundingConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أن المقارنات مبنية على الأدلة المحددة داخل المشروع.</span></label><label className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-7 text-violet-950"><input type="checkbox" checked={form.noNewResultsConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, noNewResultsConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>أؤكد أنني لم أضف نتائج أو قيماً جديدة أثناء التفسير.</span></label></div>
-          {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{validationIssue}</p> : null}
-          {error ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-7 text-rose-800">{error}</p> : null}
-          <button type="button" onClick={() => void save()} disabled={Boolean(validationIssue) || status === 'saving'} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? 'جارٍ التحقق والحفظ…' : 'اعتماد مناقشة النتائج'}</button>
-          {status === 'saved' && !validationIssue ? <Link href={`/research/conclusions?projectId=${encodeURIComponent(projectId)}`} className="mt-4 block rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold leading-7 text-emerald-900">تم حفظ المناقشة والتحقق منها. انتقل إلى الاستنتاجات ←</Link> : null}
+          <div className="mt-5 grid gap-3 sm:grid-cols-2"><label className="flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7 text-blue-950"><input type="checkbox" checked={form.evidenceGroundingConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, evidenceGroundingConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>{ui("أؤكد أن المقارنات مبنية على الأدلة المحددة داخل المشروع.")}</span></label><label className="flex items-start gap-3 rounded-xl border border-violet-200 bg-violet-50 p-4 text-sm leading-7 text-violet-950"><input type="checkbox" checked={form.noNewResultsConfirmed} onChange={(event) => { setStatus('idle'); setForm((current) => current ? { ...current, noNewResultsConfirmed: event.target.checked as true } : current); }} className="mt-1 h-4 w-4" /><span>{ui("أؤكد أنني لم أضف نتائج أو قيماً جديدة أثناء التفسير.")}</span></label></div>
+          {validationIssue ? <p role="alert" className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-7 text-amber-950">{ui(validationIssue)}</p> : null}
+          {error ? <p role="alert" className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm leading-7 text-rose-800">{ui(error)}</p> : null}
+          <button type="button" onClick={() => void save()} disabled={Boolean(validationIssue) || status === 'saving'} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? ui("جارٍ التحقق والحفظ…") : ui("اعتماد مناقشة النتائج")}</button>
+          {status === 'saved' && !validationIssue ? <Link href={`/research/conclusions?projectId=${encodeURIComponent(projectId)}`} className="mt-4 block rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold leading-7 text-emerald-900">{ui("تم حفظ المناقشة والتحقق منها. انتقل إلى الاستنتاجات ←")}</Link> : null}
         </section>
       </> : null}
     </main>

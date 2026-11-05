@@ -1,9 +1,9 @@
 import { createClient as createSupabaseClient, type User } from '@supabase/supabase-js';
 import { createServiceClient } from '@/lib/supabase/service';
+import { deleteAccountPdfFiles } from '@/lib/pdf-evidence-server';
+import { readAccountArchiveRows, readAccountProjectRows, type ArchiveCollection } from '@/lib/account-archive-reader';
 
 const RECENT_AUTH_WINDOW_SECONDS = 10 * 60;
-
-type QueryResult = { data: unknown; error: { code?: string } | null };
 
 function credentials() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -12,66 +12,63 @@ function credentials() {
   return { url, anonKey };
 }
 
-async function rows<T = Record<string, unknown>>(result: PromiseLike<QueryResult>, label: string): Promise<T[]> {
-  const { data, error } = await result;
-  if (error) throw new Error(`ACCOUNT_EXPORT_${label}_FAILED`);
-  if (data === null || data === undefined) return [];
-  return (Array.isArray(data) ? data : [data]) as T[];
-}
+const OWNED_COLLECTIONS = {
+  profile: { table: 'profiles', columns: 'id, full_name, email, role, free_credits, created_at', userColumn: 'id' },
+  usage: { table: 'users_usage', columns: 'id, created_at, idea_text, report_score', userColumn: 'user_id' },
+  verifications: { table: 'idea_verifications', columns: 'id, topic, translated_query, acceptance_score, decision, total_papers, gaps_count, created_at', userColumn: 'user_id' },
+  subscription: { table: 'subscriptions', columns: 'plan, status, current_period_end, created_at, updated_at', keys: ['user_id'], userColumn: 'user_id' },
+  integrations: { table: 'user_integrations', columns: 'provider, external_user_id, permissions, status, connected_at, revoked_at', keys: ['provider'], userColumn: 'user_id' },
+  researchProjects: { table: 'research_projects', columns: 'id, project_title, discipline, current_step, brain_status, clarity_score, created_at', userColumn: 'user_id' },
+  savedPapers: { table: 'saved_papers', columns: 'id, title, abstract, year, citation_count, pdf_url, source, created_at', userColumn: 'user_id' },
+} satisfies Record<string, ArchiveCollection>;
+
+const PROJECT_COLLECTIONS = {
+  references: { table: 'project_references', columns: 'id, project_id, work_id, provider, external_item_key, doi, isbn, title, authors, publication_year, publication_title, url, citation_data, source_version, synced_at, created_at', userColumn: 'user_id' },
+  documents: { table: 'documents', columns: 'id, project_id, type, content, version, created_at' },
+  sources: { table: 'sources', columns: 'id, project_id, raw_text, parsed_citation_apa, parsed_citation_ieee, confidence, created_at' },
+  generations: { table: 'ai_generations_log', columns: 'id, project_id, feature, prompt_hash, model, output, confidence_label, created_at' },
+  drafts: { table: 'research_stage_drafts', columns: 'project_id, stage, content, client_updated_at, updated_at', keys: ['project_id', 'stage'] },
+  researchProfiles: { table: 'research_profiles', columns: 'id, project_id, summary, ai_recommendations, health_score, current_stage, next_action, active_tasks_count, recent_activity, references_count, chapters_progress, updated_at' },
+  evidence: { table: 'evidence_items', columns: 'id, project_id, project_reference_id, work_id, source_kind, evidence_type, content, locator, origin, state, state_set_by, state_set_at, provenance, created_at, updated_at' },
+  claims: { table: 'claims', columns: 'id, project_id, statement, claim_type, origin, status, confirmed_at, created_at, updated_at' },
+  claimSupports: { table: 'claim_supports', columns: 'id, project_id, claim_id, evidence_item_id, relation, origin, confirmation, rationale, decided_at, provenance, created_at, updated_at' },
+  gaps: { table: 'gap_assessments', columns: 'id, project_id, claim_id, classification, rationale, limitations, basis, search_run_ids, scope, origin, method_version, researcher_confirmation, confirmed_at, generated_at' },
+  searchRuns: { table: 'research_search_runs', columns: 'id, project_id, context, query, domain, providers, providers_attempted, providers_available, candidate_count, result_count, limitations, executed_at, created_at', userColumn: 'user_id' },
+  integrityEvents: { table: 'research_integrity_events', columns: 'id, project_id, actor, entity_type, entity_id, action, details, created_at' },
+} satisfies Record<string, ArchiveCollection>;
 
 export async function buildAccountArchive(user: User) {
   const service = createServiceClient();
-  const projects = await rows<{ id: string }>(
-    service.from('projects').select('id, title, status, university_policy, created_at').eq('user_id', user.id).order('created_at'),
-    'PROJECTS',
-  );
-  const projectIds = projects.map((project) => project.id);
-
-  const [profile, usage, verifications, subscription, integrations, references, researchProjects, savedPapers] = await Promise.all([
-    rows(service.from('profiles').select('id, full_name, email, role, free_credits, created_at').eq('id', user.id), 'PROFILE'),
-    rows(service.from('users_usage').select('id, created_at, idea_text, report_score').eq('user_id', user.id).order('created_at'), 'USAGE'),
-    rows(service.from('idea_verifications').select('id, topic, translated_query, acceptance_score, decision, total_papers, gaps_count, created_at').eq('user_id', user.id).order('created_at'), 'VERIFICATIONS'),
-    rows(service.from('subscriptions').select('plan, status, current_period_end, created_at, updated_at').eq('user_id', user.id), 'SUBSCRIPTION'),
-    rows(service.from('user_integrations').select('provider, external_user_id, permissions, status, connected_at, revoked_at').eq('user_id', user.id), 'INTEGRATIONS'),
-    rows(service.from('project_references').select('id, project_id, provider, external_item_key, doi, isbn, title, authors, publication_year, publication_title, url, citation_data, source_version, synced_at, created_at').eq('user_id', user.id).order('created_at'), 'REFERENCES'),
-    rows(service.from('research_projects').select('id, project_title, discipline, current_step, brain_status, clarity_score, created_at').eq('user_id', user.id).order('created_at'), 'RESEARCH_PROJECTS'),
-    rows(service.from('saved_papers').select('id, title, abstract, year, citation_count, pdf_url, source, created_at').eq('user_id', user.id).order('created_at'), 'SAVED_PAPERS'),
-  ]);
-
-  let documents: unknown[] = [];
-  let sources: unknown[] = [];
-  let generations: unknown[] = [];
-  let drafts: unknown[] = [];
-  let researchProfiles: unknown[] = [];
-  if (projectIds.length > 0) {
-    [documents, sources, generations, drafts, researchProfiles] = await Promise.all([
-      rows(service.from('documents').select('id, project_id, type, content, version, created_at').in('project_id', projectIds).order('created_at'), 'DOCUMENTS'),
-      rows(service.from('sources').select('id, project_id, raw_text, parsed_citation_apa, parsed_citation_ieee, confidence, created_at').in('project_id', projectIds).order('created_at'), 'SOURCES'),
-      rows(service.from('ai_generations_log').select('id, project_id, feature, prompt_hash, model, output, confidence_label, created_at').in('project_id', projectIds).order('created_at'), 'GENERATIONS'),
-      rows(service.from('research_stage_drafts').select('project_id, stage, content, client_updated_at, updated_at').in('project_id', projectIds).order('updated_at'), 'DRAFTS'),
-      rows(service.from('research_profiles').select('id, project_id, summary, ai_recommendations, health_score, current_stage, next_action, active_tasks_count, recent_activity, references_count, chapters_progress, updated_at').in('project_id', projectIds).order('updated_at'), 'RESEARCH_PROFILES'),
-    ]);
+  const projectCollection = { table: 'projects', columns: 'id, title, status, university_policy, created_at', userColumn: 'user_id' };
+  const projects = await readAccountArchiveRows(service, projectCollection, user.id);
+  const projectIds = projects.map(project => String(project.id));
+  const owned = Object.fromEntries(await Promise.all(Object.entries(OWNED_COLLECTIONS).map(async ([key, collection]) => [key, await readAccountArchiveRows(service, collection, user.id)]))) as Record<keyof typeof OWNED_COLLECTIONS, Record<string, unknown>[]>;
+  const research = Object.fromEntries(await Promise.all(Object.entries(PROJECT_COLLECTIONS).map(async ([key, collection]) => [key, await readAccountProjectRows(service, collection, user.id, projectIds)]))) as Record<keyof typeof PROJECT_COLLECTIONS, Record<string, unknown>[]>;
+  // Do not release a file based on a project list that lost/gained ownership
+  // during the read. This is not a transactional snapshot of concurrent edits.
+  const current = await readAccountArchiveRows(service, { ...projectCollection, columns: 'id' }, user.id);
+  if (current.length !== projectIds.length || current.some((project, index) => project.id !== projectIds[index])) {
+    throw new Error('ACCOUNT_EXPORT_PROJECTS_CHANGED');
   }
-
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     exportedAt: new Date().toISOString(),
     account: {
-      id: user.id,
-      email: user.email ?? null,
-      phone: user.phone ?? null,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at ?? null,
+      id: user.id, email: user.email ?? null, phone: user.phone ?? null,
+      createdAt: user.created_at, updatedAt: user.updated_at ?? null,
       lastSignInAt: user.last_sign_in_at ?? null,
       providers: user.app_metadata.providers ?? (user.app_metadata.provider ? [user.app_metadata.provider] : []),
-      profile,
+      profile: owned.profile,
     },
-    research: { projects, researchProjects, researchProfiles, documents, sources, references, savedPapers, drafts, generations, verifications, usage },
-    subscription,
-    integrations,
+    research: { projects, researchProjects: owned.researchProjects, savedPapers: owned.savedPapers, verifications: owned.verifications, usage: owned.usage, ...research },
+    subscription: owned.subscription,
+    integrations: owned.integrations,
     exclusions: [
       'Integration access tokens and encrypted credentials are excluded for security.',
       'Authentication secrets, password hashes, and active session tokens are never exportable.',
+      'Original PDF binaries can be downloaded from their private project readers; this JSON archive contains their saved metadata and extracted text.',
+      'Shared scholarly catalogs and temporary search caches are excluded; saved project references and recorded search runs are included.',
+      'Support and email correspondence are separate records; contact support about those records.',
     ],
   };
 }
@@ -121,6 +118,7 @@ export async function permanentlyDeleteAccount(userId: string, accessToken: stri
     throw new Error('ACCOUNT_DELETE_ACTIVE_SUBSCRIPTION');
   }
 
+  await deleteAccountPdfFiles(service, userId);
   const { error: signOutError } = await service.auth.admin.signOut(accessToken, 'global');
   if (signOutError) throw new Error('ACCOUNT_DELETE_SESSION_REVOCATION_FAILED');
   const { error: deleteError } = await service.auth.admin.deleteUser(userId, false);

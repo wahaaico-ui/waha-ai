@@ -1,5 +1,6 @@
 const INTERNAL_ORIGIN = 'https://waha.internal';
 const ALLOWED_EXACT_PATHS = new Set([
+  '/',
   '/dashboard',
   '/email-confirmed',
   '/pricing',
@@ -17,7 +18,8 @@ export function safeAuthRedirect(value: string | null | undefined, fallback = '/
     const pathAllowed = ALLOWED_EXACT_PATHS.has(parsed.pathname)
       || ALLOWED_PREFIXES.some((prefix) => parsed.pathname === prefix || parsed.pathname.startsWith(`${prefix}/`));
     if (parsed.origin !== INTERNAL_ORIGIN || !pathAllowed) return fallback;
-    return `${parsed.pathname}${parsed.search}`;
+    const entryAnchor = parsed.pathname === '/' && parsed.hash === '#start' ? '#start' : '';
+    return `${parsed.pathname}${parsed.search}${entryAnchor}`;
   } catch {
     return fallback;
   }

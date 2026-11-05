@@ -1,0 +1,24 @@
+.content { min-height: 24rem; padding: 1rem; outline: none; font-size: 1rem; line-height: 2; overflow-wrap: anywhere; white-space: pre-wrap; }
+.content p { margin-block: 0 1rem; }
+.content h1 { font-size: 1.75rem; font-weight: 750; line-height: 1.65; margin-block: 1.25rem .75rem; }
+.content h2 { font-size: 1.4rem; font-weight: 700; line-height: 1.7; margin-block: 1rem .5rem; }
+.content h3 { font-size: 1.15rem; font-weight: 700; line-height: 1.8; margin-block: .75rem .5rem; }
+.content ul, .content ol { padding-inline-start: 1.75rem; margin-block: .75rem; }
+.content ul { list-style: disc; }
+.content ol { list-style: decimal; }
+.content li p { margin-block: .25rem; }
+.content blockquote { border-inline-start: 3px solid #1e5eff; padding-inline-start: 1rem; margin-block: 1rem; color: #475569; }
+.content strong { font-weight: 750; }
+.content em { font-style: italic; }
+.content u { text-decoration: underline; }
+.content s { text-decoration: line-through; }
+.content[contenteditable="false"] { background: #f8fafc; }
+.content :global(.tableWrapper) { max-width: 100%; overflow-x: auto; margin-block: 1rem; }
+.content table { width: 100%; min-width: 28rem; border-collapse: collapse; table-layout: fixed; }
+.content[lang="ar"] table { direction: rtl; }
+.content[lang="en"] table { direction: ltr; }
+.content th, .content td { position: relative; vertical-align: top; border: 1px solid #cbd5e1; padding: .6rem; min-width: 4rem; }
+.content th { background: #eef4ff; font-weight: 700; text-align: start; }
+.content th p, .content td p { margin-block: 0 .4rem; }
+.content :global(.selectedCell)::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: #1e5eff18; }
+@media (max-width: 639px) { .content { min-height: 19rem; padding: .875rem; } }
