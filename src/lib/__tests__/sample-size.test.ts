@@ -68,8 +68,14 @@ test('published Morgan table is not silently replaced with ceiling estimates', (
 
 test('independent group approximation returns per-group and balanced recruitment totals', () => {
   const { result } = hypothesis({ ...tTest, responsePercent: 70 });
-  expect(result).toMatchObject({ perGroup: 63, completed: 126, invitationsPerGroup: 90, contacts: 180 });
-  expect(sampleMethodology({ kind: 'hypothesis', result }, 'en')).toContain('63 analyzable participants per group');
+  expect(result).toMatchObject({ perGroup: 64, completed: 128, invitationsPerGroup: 92, contacts: 184 });
+  expect(sampleMethodology({ kind: 'hypothesis', result }, 'en')).toContain('64 analyzable participants per group');
+});
+
+// Exact two-sided noncentral-t sizes per group (G*Power 3.1, alpha = .05, power = .80).
+// The plain normal approximation gives 393 / 63 / 25; Guenther's (1981) correction closes the gap.
+test.each([[0.2, 394], [0.5, 64], [0.8, 26]])('t-test with d = %s matches the exact per-group size %s', (effect, perGroup) => {
+  expect(hypothesis({ ...tTest, effect }).result.perGroup).toBe(perGroup);
 });
 test('correlation matches the StatsDirect published initial-estimate example', () => {
   expect(hypothesis({ ...tTest, method: 'correlation', effect: 0.4 }).result.completed).toBe(47);
@@ -86,7 +92,7 @@ test.each([['overall',82],['individual',108],['both',108]] as const)('Green %s i
   expect(sampleMethodology(plan,'en')).not.toContain('target power 80%');
 });
 test('hypothesis population is feasibility only and never applies a survey correction', () => {
-  expect(hypothesis({ ...tTest, population: 50 }).result).toMatchObject({ completed: 126, feasible: false });
+  expect(hypothesis({ ...tTest, population: 50 }).result).toMatchObject({ completed: 128, feasible: false });
 });
 test.each([
   { ...tTest, effect: 0 }, { ...tTest, effect: -0.2 }, { ...tTest, alpha: 0.2 }, { ...tTest, power: 99 },
