@@ -23,6 +23,9 @@ const eslintConfig = defineConfig([
     "tests/runner.*",
     "scripts/e2e-verify.js",
     "scripts/verify-pdf-upload.js",
+    // Vendored third-party builds served as static files (pdf.js, citeproc, OpenEPI).
+    "public/pdfjs/**",
+    "public/open-source/**",
   ]),
 ]);
 
