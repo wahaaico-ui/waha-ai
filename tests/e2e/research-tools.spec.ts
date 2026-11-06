@@ -12,9 +12,16 @@ const projectId = process.env.E2E_TEST_PROJECT_ID?.trim();
 test.use({ trace: 'off', screenshot: 'off', video: 'off' });
 test.describe.configure({ mode: 'serial' });
 
-/** A one-page PDF whose text layer reads `text`, with a correct xref table. */
+/** A one-page PDF whose text layer reads `text`, with a correct xref table.
+ * Text is wrapped inside the page: PDF readers drop text drawn past its edge. */
 function minimalPdf(text: string): Buffer {
-  const stream = `BT /F1 18 Tf 72 720 Td (${text}) Tj ET`;
+  const lines: string[] = [];
+  for (const word of text.split(' ')) {
+    const last = lines.at(-1);
+    if (last !== undefined && `${last} ${word}`.length <= 70) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+  }
+  const stream = `BT /F1 11 Tf 14 TL 72 720 Td ${lines.map(line => `(${line}) Tj T*`).join(' ')} ET`;
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
