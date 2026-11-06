@@ -32,7 +32,7 @@ Project text is compared on the server and never sent out. The open-source check
 
 ## Interface
 
-- `POST /api/academic/originality` `{ projectId, input: 'draft' | 'text', text?, includeOpenSources }` → `{ checkedAt, coverage, passages[{ start, end, text, matches[{ origin, title, url, year, cited }] }], checked{ projectSources, openSources, providers }, licensed: 'not_configured', limitations[] }`. Owner check and rate limit (5/min).
+- `POST /api/academic/originality` `{ projectId, input: 'draft' | 'text', text?, includeOpenSources }` → `{ checkedAt, coverage, passages[{ start, end, text, matches[{ origin, title, url, year, cited }] }], checked{ projectSources, openSources, providers }, licensed: 'not_configured', limitations[] }`. Owner check and the existing rate limit (10/min in `src/proxy.ts`).
 - Page `/research/originality`, linked from the research workspace navigation, Arabic and English.
 
 ## Units

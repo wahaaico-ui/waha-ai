@@ -22,7 +22,7 @@
 | `src/app/api/academic/literature-synth/route.ts` | مجمّد — لا تلمسه |
 | `src/app/api/academic/matrix/route.ts` | مجمّد — لا تلمسه |
 | `src/app/api/academic/methodology/route.ts` | مجمّد — لا تلمسه |
-| `src/app/api/academic/originality/route.ts` | مجمّد — لا تلمسه |
+| `src/app/api/academic/originality/route.ts` | MVP - نشط |
 | `src/app/api/academic/paraphrase/route.ts` | MVP - نشط |
 | `src/app/api/academic/pdf-analyzer/route.ts` | MVP - نشط |
 | `src/app/api/academic/pdf-chat/route.ts` | مجمّد — لا تلمسه |

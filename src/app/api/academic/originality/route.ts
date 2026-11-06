@@ -1,44 +1,62 @@
 import { NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { buildOriginalityReport, type ReportCitation } from '@/lib/originality/report';
+import { loadOpenSources, loadProjectSources, readLatestWritingDraft } from '@/lib/originality/sources-server';
+import type { OverlapSource } from '@/lib/originality/text-match';
 
 const MAX_TEXT_LENGTH = 50_000;
-const UNAVAILABLE_MESSAGE = 'فحص التشابه مع قواعد بيانات النشر غير متاح حالياً. لن تعرض الواحة نسبة أصالة تخمينية أو تدّعي كشف الانتحال دون مقارنة موثقة بمصادر فعلية.';
+const MIN_TEXT_LENGTH = 50;
 
 function response(payload: Record<string, unknown>, status: number) {
   return NextResponse.json(payload, {
     status,
-    headers: {
-      'Cache-Control': 'private, no-store',
-      'X-Content-Type-Options': 'nosniff',
-    },
+    headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' },
   });
 }
 
+/**
+ * Word-for-word overlap between the researcher's text and the sources the
+ * platform can read: the project's own PDFs and references, and (opt-in) open
+ * scholarly abstracts. Never a guessed originality score.
+ */
 export async function POST(request: Request) {
   const access = await requireAuthenticatedUser();
-  if (!access) return response({ error: 'Unauthorized' }, 401);
+  if (!access) return response({ error: 'يجب تسجيل الدخول أولاً.' }, 401);
 
   const body: unknown = await request.json().catch(() => null);
-  if (!body || typeof body !== 'object' || Array.isArray(body)) {
-    return response({ error: 'طلب المراجعة غير صالح.' }, 400);
-  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return response({ error: 'طلب الفحص غير صالح.' }, 400);
+  const fields = body as Record<string, unknown>;
 
-  const value = (body as Record<string, unknown>).textToCheck;
-  const textToCheck = typeof value === 'string' ? value.trim() : '';
-  if (!textToCheck) return response({ error: 'النص المراد مراجعته مفقود.' }, 400);
-  if (textToCheck.length > MAX_TEXT_LENGTH) {
-    return response({ error: 'النص يتجاوز الحد المسموح للمراجعة.' }, 413);
-  }
+  const projectId = typeof fields.projectId === 'string' ? fields.projectId.trim() : '';
+  if (!projectId || !(await ownsProject(projectId, access.user.id, access.supabase))) return response({ error: 'المشروع غير موجود.' }, 404);
+  if (fields.input !== 'draft' && fields.input !== 'text') return response({ error: 'اختر النص المراد فحصه.' }, 400);
 
-  return response({
-    success: false,
-    available: false,
-    capability: 'source-backed-similarity-check',
-    error: UNAVAILABLE_MESSAGE,
-    limitations: [
-      'لم يُقارن النص بمستودعات جامعية أو قواعد بيانات ناشرين.',
-      'لا تُحسب نسبة أصالة أو تشابه بواسطة نموذج لغوي.',
-      'راجع متطلبات جامعتك واستخدم خدمة تشابه مرخصة عند الحاجة إلى تقرير رسمي.',
-    ],
-  }, 501);
+  try {
+    let text: string;
+    let citations: ReportCitation[] = [];
+    if (fields.input === 'draft') {
+      const draft = await readLatestWritingDraft(access.supabase, projectId);
+      if (!draft) return response({ error: 'لا توجد مسودة محفوظة في الكتابة بالدليل لهذا المشروع.' }, 404);
+      ({ text, citations } = draft);
+    } else {
+      text = typeof fields.text === 'string' ? fields.text.trim() : '';
+    }
+    if (text.length < MIN_TEXT_LENGTH) return response({ error: `أدخل نصًا من ${MIN_TEXT_LENGTH} حرفًا على الأقل.` }, 400);
+    if (text.length > MAX_TEXT_LENGTH) return response({ error: 'النص يتجاوز الحد المسموح للفحص.' }, 413);
+
+    const projectSources = await loadProjectSources(access.supabase, projectId);
+    let openSources: OverlapSource[] = [];
+    let openSourceProviders: string[] = [];
+    if (fields.includeOpenSources === true) {
+      ({ sources: openSources, providers: openSourceProviders } = await loadOpenSources(text));
+    }
+
+    const report = buildOriginalityReport({
+      text, citations, sources: [...projectSources, ...openSources],
+      checked: { projectSources: projectSources.length, openSources: openSources.length, openSourceProviders },
+    });
+    return response({ success: true, input: fields.input, report }, 200);
+  } catch {
+    return response({ error: 'تعذر إكمال الفحص الآن. لم يُحفظ أي تقرير؛ أعد المحاولة.' }, 503);
+  }
 }
