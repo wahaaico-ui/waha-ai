@@ -12,15 +12,15 @@ test('actual research destinations including university instructions preserve en
   (useProjectId as jest.Mock).mockReturnValue('project & other');
   (usePathname as jest.Mock).mockReturnValue('/research/library');
   const html = renderToStaticMarkup(<ResearchWorkspaceNav />);
-  for (const route of ['problem', 'sources', 'library', 'intelligence', 'language-tools', 'guidelines', 'publication']) {
+  for (const route of ['problem', 'sources', 'library', 'intelligence', 'language-tools', 'originality', 'guidelines', 'publication']) {
     expect(html).toContain(`/research/${route}?projectId=project%20%26%20other`);
     expect(existsSync(join(process.cwd(), `src/app/research/${route}/page.tsx`))).toBe(true);
   }
-  expect((html.match(/<a /g) || []).length).toBe(8);
+  expect((html.match(/<a /g) || []).length).toBe(9);
   expect(html).toContain('dir="rtl"');
   expect(html).toContain('grid-cols-2');
   expect(html).toContain('sm:grid-cols-4');
-  expect(html).toContain('xl:grid-cols-8');
+  expect(html).toContain('xl:grid-cols-9');
   expect(html).toContain('focus-visible:');
   expect(html).toContain('المكتبة والمراجع');
   expect(html).toMatch(/aria-current="page"[^>]+href="\/research\/library\?projectId=project%20%26%20other"/);

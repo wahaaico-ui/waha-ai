@@ -40,6 +40,8 @@ test.describe('research tools on the live site', () => {
   test.setTimeout(120_000);
   let request: APIRequestContext;
   const marker = `gate-${Date.now()}`;
+  // Copied verbatim into the originality check below, which must trace it to this PDF.
+  const pdfSentence = 'Students who revised drafts with generative tools reported clearer argument structure in their final theses';
 
   test.beforeAll(async ({ playwright, baseURL }) => {
     if (!email || !password || !projectId) throw new Error('Research tools gate requires E2E_TEST_EMAIL, E2E_TEST_PASSWORD and E2E_TEST_PROJECT_ID.');
@@ -70,7 +72,7 @@ test.describe('research tools on the live site', () => {
 
   test('PDF workspace extracts text from an uploaded file', async () => {
     const response = await request.post(`/api/projects/${projectId}/pdfs`, {
-      multipart: { file: { name: `${marker}.pdf`, mimeType: 'application/pdf', buffer: minimalPdf(`WAHA release gate ${marker}`) } },
+      multipart: { file: { name: `${marker}.pdf`, mimeType: 'application/pdf', buffer: minimalPdf(`WAHA release gate ${marker}. ${pdfSentence}`) } },
       timeout: 60_000,
     });
     expect(response.status(), await response.text()).toBe(200);
@@ -80,6 +82,17 @@ test.describe('research tools on the live site', () => {
     const comparison = await request.get(`/api/projects/${projectId}/writing/comparison?kind=pdf&language=en&offset=0`);
     expect(comparison.status(), await comparison.text()).toBe(200);
     expect(await comparison.text()).toContain(String(body.sourceId));
+  });
+
+  test('similarity check traces an uncited copied sentence to the project PDF', async () => {
+    const text = `This paragraph is the researcher's own framing of the study (${marker}). ${pdfSentence}.`;
+    const response = await request.post('/api/academic/originality', { data: { projectId, input: 'text', text, includeOpenSources: false }, timeout: 60_000 });
+    expect(response.status(), await response.text()).toBe(200);
+    const { report } = await response.json() as { report: { passages: Array<{ text: string; matches: Array<{ origin: string; cited: boolean }> }>; licensedService: string } };
+    const passage = report.passages.find(item => item.text.includes('generative tools'));
+    expect(passage, 'the copied sentence is reported').toBeTruthy();
+    expect(passage!.matches).toContainEqual(expect.objectContaining({ origin: 'project-pdf', cited: false }));
+    expect(report.licensedService).toBe('not_configured');
   });
 
   test('evidence writing saves a draft and returns it', async () => {
