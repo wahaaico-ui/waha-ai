@@ -95,6 +95,16 @@ test.describe('research tools on the live site', () => {
     expect(report.licensedService).toBe('not_configured');
   });
 
+  test('idea timing uses five complete years of real OpenAlex counts', async () => {
+    const response = await request.post('/api/idea-insights', { data: { query: 'generative artificial intelligence in higher education' }, timeout: 60_000 });
+    expect(response.status(), await response.text()).toBe(200);
+    const { insights } = await response.json() as { insights: { timing: { stage: string; years: Array<{ year: number; count: number }> }; directions: unknown[] } };
+    const currentYear = new Date().getUTCFullYear();
+    expect(insights.timing.years.map(y => y.year)).toEqual([1, 2, 3, 4, 5].map(i => currentYear - 6 + i));
+    expect(['insufficient', 'emerging', 'peak', 'saturated', 'limited']).toContain(insights.timing.stage);
+    expect(insights.directions.length).toBeLessThanOrEqual(20);
+  });
+
   test('evidence writing saves a draft and returns it', async () => {
     const text = `Generative AI changes how universities assess students (${marker}).`;
     const saved = await request.post(`/api/projects/${projectId}/writing`, { data: { text, citations: [] } });
