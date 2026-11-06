@@ -6,7 +6,7 @@ permissions:
 jobs:
   browser-checks:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     env:
       E2E_BASE_URL: https://waha.systems
       NEXT_PUBLIC_SUPABASE_URL: https://zwbtgwgthbyddvurmefk.supabase.co

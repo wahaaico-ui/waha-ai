@@ -10,6 +10,7 @@ import AuthGate from '@/components/AuthGate';
 import { saveJourneyStage } from '@/lib/research-journey';
 import { buildProvidedTitlesPath, type ResearchPath, type ResearchScenario, type VerifyReport } from '@/lib/research-exploration';
 import { useAuthSession } from '@/components/AuthSessionProvider';
+import { IdeaQuestionsAndMatrix, TopicTimingPanel } from '@/components/IdeaSelectionPanels';
 import { Check, Lightbulb, Search, MessageSquare, Copy, LibraryBig } from 'lucide-react';
 
 // ============================================================
@@ -467,6 +468,9 @@ export default function VerifyIdeaPage() {
               <div className="text-sm opacity-95 leading-relaxed">{report.decisionMessage}</div>
             </div>
 
+            {/* TOPIC TIMING AND RECENT DIRECTIONS (DOC-24-07, DOC-23-01) */}
+            <TopicTimingPanel key={report.translatedQuery || report.topic} query={report.translatedQuery || report.topic} />
+
             {/* PLAIN-LANGUAGE OUTCOME */}
             <div className="rounded-2xl border border-blue-200 bg-blue-50 p-6">
               <h3 className="text-lg font-black text-slate-900">{ui("ماذا تعني هذه النتيجة؟")}</h3>
@@ -677,6 +681,9 @@ export default function VerifyIdeaPage() {
                 </div>
               </div>
             )}
+
+            {/* FIVE QUESTIONS AND PASSION-FEASIBILITY MATRIX (DOC-23-04, DOC-23-03) */}
+            {!referencesOnly && !comparisonScenario && <IdeaQuestionsAndMatrix paths={report.researchPaths} projectId={projectId} isAuthenticated={isAuthenticated} />}
 
             {/* PROCEED CTA (if strong) */}
             {referencesOnly ? (

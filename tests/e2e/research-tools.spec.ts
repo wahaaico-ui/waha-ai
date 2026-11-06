@@ -12,9 +12,16 @@ const projectId = process.env.E2E_TEST_PROJECT_ID?.trim();
 test.use({ trace: 'off', screenshot: 'off', video: 'off' });
 test.describe.configure({ mode: 'serial' });
 
-/** A one-page PDF whose text layer reads `text`, with a correct xref table. */
+/** A one-page PDF whose text layer reads `text`, with a correct xref table.
+ * Text is wrapped inside the page: PDF readers drop text drawn past its edge. */
 function minimalPdf(text: string): Buffer {
-  const stream = `BT /F1 18 Tf 72 720 Td (${text}) Tj ET`;
+  const lines: string[] = [];
+  for (const word of text.split(' ')) {
+    const last = lines.at(-1);
+    if (last !== undefined && `${last} ${word}`.length <= 70) lines[lines.length - 1] = `${last} ${word}`;
+    else lines.push(word);
+  }
+  const stream = `BT /F1 11 Tf 14 TL 72 720 Td ${lines.map(line => `(${line}) Tj T*`).join(' ')} ET`;
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
     '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
@@ -93,6 +100,16 @@ test.describe('research tools on the live site', () => {
     expect(passage, 'the copied sentence is reported').toBeTruthy();
     expect(passage!.matches).toContainEqual(expect.objectContaining({ origin: 'project-pdf', cited: false }));
     expect(report.licensedService).toBe('not_configured');
+  });
+
+  test('idea timing uses five complete years of real OpenAlex counts', async () => {
+    const response = await request.post('/api/idea-insights', { data: { query: 'generative artificial intelligence in higher education' }, timeout: 60_000 });
+    expect(response.status(), await response.text()).toBe(200);
+    const { insights } = await response.json() as { insights: { timing: { stage: string; years: Array<{ year: number; count: number }> }; directions: unknown[] } };
+    const currentYear = new Date().getUTCFullYear();
+    expect(insights.timing.years.map(y => y.year)).toEqual([1, 2, 3, 4, 5].map(i => currentYear - 6 + i));
+    expect(['insufficient', 'emerging', 'peak', 'saturated', 'limited']).toContain(insights.timing.stage);
+    expect(insights.directions.length).toBeLessThanOrEqual(20);
   });
 
   test('evidence writing saves a draft and returns it', async () => {
