@@ -86,6 +86,7 @@ async function main() {
     'tests/e2e/public-smoke.spec.ts',
     'tests/e2e/authenticated-critical.spec.ts',
     'tests/e2e/research-journey.spec.ts',
+    'tests/e2e/research-tools.spec.ts',
     'tests/e2e/google-oauth.spec.ts',
     'tests/e2e/mfa.spec.ts',
     'tests/e2e/account-privacy.spec.ts',

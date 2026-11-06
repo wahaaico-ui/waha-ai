@@ -47,7 +47,10 @@ test.describe('WAHA public launch path', () => {
 
   test('@critical exploration validates scenarios before external AI calls', async ({ page }) => {
     await open(page, '/verify-idea');
-    await page.getByRole('button', { name: /أقارن بين عناوين/ }).click();
+    // Phones choose the scenario from a dropdown; wider screens show buttons.
+    const scenarioSelect = page.getByRole('combobox', { name: 'أين أنت الآن؟' });
+    if (await scenarioSelect.isVisible()) await scenarioSelect.selectOption('compare_titles');
+    else await page.getByRole('button', { name: /أقارن بين عناوين/ }).click();
     await page.locator('textarea').first().fill('التعليم الجامعي');
     await page.getByPlaceholder('العنوان 1').fill('أثر الذكاء الاصطناعي في التعليم الجامعي');
     await page.getByRole('button', { name: 'حلّل المسار البحثي' }).click();

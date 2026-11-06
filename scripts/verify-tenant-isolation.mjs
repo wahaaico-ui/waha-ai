@@ -112,32 +112,38 @@ async function run() {
   }, 'id, user_id');
   assert.equal(project.user_id, userA.id);
 
-  const document = await insert(clientA, 'documents', {
+  // journey:verify is server-owned: since October the browser role may not
+  // insert it ("Browser cannot insert server-owned research documents"), so the
+  // fixture is written by the server, exactly as /api/verify-idea does.
+  const document = await insert(service, 'documents', {
     project_id: project.id,
     type: 'journey:verify',
     content: '{"owner":"a"}',
     version: 1,
   }, 'id');
-  const source = await insert(clientA, 'sources', {
+  // Only the server writes these tables now (browser INSERT is revoked), so
+  // fixtures are seeded with the service client inside the owner's project.
+  // The read checks below still run with each user's own browser session.
+  const source = await insert(service, 'sources', {
     project_id: project.id,
     raw_text: `RLS source ${runId}`,
     confidence: 'high',
   }, 'id');
-  const generation = await insert(clientA, 'ai_generations_log', {
+  const generation = await insert(service, 'ai_generations_log', {
     project_id: project.id,
     feature: 'rls-test',
     model: 'fixture',
     output: 'owner-a',
     confidence_label: 'high',
   }, 'id');
-  const reference = await insert(clientA, 'project_references', {
+  const reference = await insert(service, 'project_references', {
     project_id: project.id,
     user_id: userA.id,
     provider: 'manual-test',
     external_item_key: runId,
     title: `RLS reference ${runId}`,
   }, 'id');
-  const draft = await insert(clientA, 'research_stage_drafts', {
+  const draft = await insert(service, 'research_stage_drafts', {
     project_id: project.id,
     stage: 'verify',
     content: { owner: 'a' },
@@ -281,6 +287,19 @@ async function run() {
     await assertServiceRowExists(table, key, value, `Server-managed ${table} must remain intact`);
   }
 
+  const directSourceInsert = await clientA.from('sources').insert({
+    project_id: project.id,
+    raw_text: 'forged browser source',
+    confidence: 'high',
+  }).select('id');
+  assertMutationBlocked(directSourceInsert, 'Browser clients must not write sources directly');
+  const directServerDocumentInsert = await clientA.from('documents').insert({
+    project_id: project.id,
+    type: 'journey:verify',
+    content: '{"decision":"proceed","forged":true}',
+    version: 2,
+  }).select('id');
+  assertMutationBlocked(directServerDocumentInsert, 'Browser clients must not forge server-owned exploration results');
   const directUsageInsert = await clientA.from('users_usage').insert({
     user_id: userA.id,
     idea_text: 'forged browser usage',
