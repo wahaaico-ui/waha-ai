@@ -103,7 +103,14 @@ test.describe('research tools on the live site', () => {
   });
 
   test('idea timing uses five complete years of real OpenAlex counts', async () => {
-    const response = await request.post('/api/idea-insights', { data: { query: 'generative artificial intelligence in higher education' }, timeout: 60_000 });
+    // OpenAlex throttles anonymous traffic under load; the service then answers
+    // 503 instead of a guessed indicator. Wait out a short throttle, but still
+    // fail if OpenAlex stays unavailable.
+    let response = await request.post('/api/idea-insights', { data: { query: 'generative artificial intelligence in higher education' }, timeout: 60_000 });
+    for (let attempt = 1; attempt < 3 && response.status() === 503; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 20_000));
+      response = await request.post('/api/idea-insights', { data: { query: 'generative artificial intelligence in higher education' }, timeout: 60_000 });
+    }
     expect(response.status(), await response.text()).toBe(200);
     const { insights } = await response.json() as { insights: { timing: { stage: string; years: Array<{ year: number; count: number }> }; directions: unknown[] } };
     const currentYear = new Date().getUTCFullYear();
