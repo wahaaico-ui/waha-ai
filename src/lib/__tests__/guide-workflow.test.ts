@@ -64,3 +64,19 @@ it('the matrix matches the files: Word names the approved font, the PDF embeds i
     expect(xml).toContain('w:cs="Simplified Arabic"'); expect(xml).toContain('w:firstLine="567"');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('only an approved page number rule reaches the export profile, and it keeps its source line', () => {
+  const sentence = 'Page numbers must be placed at the top right of each page.';
+  const text = `Arabic body font size: 14 pt\n${sentence}\nThe thesis must not exceed 80,000 words.`;
+  const approved = saveGuideEnvelope(text, [
+    { key: 'page_numbering', value: 'top-right', evidence: sentence, status: 'approved' },
+    { key: 'max_words', value: '80000', evidence: 'The thesis must not exceed 80,000 words.', status: 'review' },
+  ]);
+  expect(approved).not.toBeNull();
+  const profile = approvedStyleProfile(readSavedGuide(approved));
+  expect(profile.document_rules.page_numbering).toEqual({ value: 'top-right', evidence: sentence });
+  // Still under review, so it must not act on the draft or the export.
+  expect(profile.document_rules.max_words).toBeNull();
+  // A value outside the allowed positions cannot be approved.
+  expect(saveGuideEnvelope(text, [{ key: 'page_numbering', value: 'somewhere', evidence: sentence, status: 'approved' }])).toBeNull();
+});
