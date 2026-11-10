@@ -4,6 +4,7 @@ import { UnifiedResearchEngine } from '@/lib/academic/services/UnifiedResearchEn
 import { normaliseTitle } from '@/lib/academic/integrations/normalization';
 import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
 import { citationItemFromDiscovered, discoveredPaperFrom, storeSearchResults } from '@/lib/research-search-results';
+import { researcherProfileFromMetadata, routingSpecialty } from '@/lib/researcher-profile';
 
 function parseDocument(content: string | null) {
   if (!content) return null;
@@ -52,9 +53,9 @@ export async function POST(request: Request) {
       typeof selectedPath?.title === 'string' ? selectedPath.title.trim() : '',
       typeof verificationOutput?.topic === 'string' ? verificationOutput.topic.trim() : '',
     ].filter((query) => query.length >= 5))].slice(0, 4);
-    const specialty = typeof verificationOutput?.specialty === 'string'
-      ? verificationOutput.specialty
-      : typeof selectedPath?.field === 'string' ? selectedPath.field : '';
+    // The researcher's broad and precise specialty steer which sources are searched.
+    const specialty = routingSpecialty(researcherProfileFromMetadata(access.user.user_metadata))
+      || (typeof selectedPath?.field === 'string' ? selectedPath.field : '');
 
     const result = await UnifiedResearchEngine.searchDetailed({ query: title, alternateQueries: queries.slice(1), specialty, limit: 40 });
     const availableProviders = result.providers.filter((provider) => provider.available);

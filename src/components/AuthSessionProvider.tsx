@@ -2,13 +2,9 @@
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
+import { toAuthUser, type AuthUser } from '@/lib/auth/auth-user';
 
-export type AuthUser = {
-  id: string;
-  email: string | null;
-  fullName: string | null;
-  specialty: string | null;
-};
+export type { AuthUser };
 
 type AuthSessionContextValue = {
   user: AuthUser | null;
@@ -18,26 +14,6 @@ type AuthSessionContextValue = {
 };
 
 const AuthSessionContext = createContext<AuthSessionContextValue | null>(null);
-
-function normalizeUser(user: {
-  id: string;
-  email?: string;
-  user_metadata?: Record<string, unknown>;
-} | null): AuthUser | null {
-  if (!user) return null;
-  const metadata = user.user_metadata ?? {};
-  const fullName = typeof metadata.full_name === 'string'
-    ? metadata.full_name
-    : typeof metadata.name === 'string'
-      ? metadata.name
-      : null;
-  return {
-    id: user.id,
-    email: user.email ?? null,
-    fullName,
-    specialty: typeof metadata.specialty === 'string' ? metadata.specialty : null,
-  };
-}
 
 export default function AuthSessionProvider({
   children,
@@ -54,12 +30,12 @@ export default function AuthSessionProvider({
     let active = true;
     void supabase.auth.getUser().then(({ data }) => {
       if (!active) return;
-      setUser(normalizeUser(data.user));
+      setUser(toAuthUser(data.user));
       if (!signingOutRef.current) setAuthResolved(true);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!active) return;
-      setUser(normalizeUser(session?.user ?? null));
+      setUser(toAuthUser(session?.user ?? null));
       if (!signingOutRef.current) setAuthResolved(true);
     });
     return () => {

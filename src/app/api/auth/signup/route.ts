@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { passwordStrength } from '@/lib/password-policy';
-import { isSupportedCountry } from '@/lib/researcher-profile';
+import { PROFILE_LIMITS, isSupportedCountry, optionalText } from '@/lib/researcher-profile';
 import { safeAuthRedirect } from '@/lib/auth/safe-redirect';
 import { isCompromisedPassword } from '@/lib/pwned-password';
 
@@ -10,6 +10,7 @@ type SignupPayload = {
   password?: unknown;
   fullName?: unknown;
   specialty?: unknown;
+  specialtyDetail?: unknown;
   university?: unknown;
   level?: unknown;
   country?: unknown;
@@ -33,8 +34,12 @@ export async function POST(request: Request) {
     } catch {
       return NextResponse.json({ error: 'تعذر إكمال فحص أمان كلمة المرور الآن. حاول مجدداً أو تابع باستخدام Google.' }, { status: 503 });
     }
-    if (!isText(body.fullName, 120) || !isText(body.specialty, 160) || !isText(body.university, 160) || !isText(body.level, 80) || !isSupportedCountry(body.country)) {
+    if (!isText(body.fullName, PROFILE_LIMITS.fullName) || !isText(body.specialty, PROFILE_LIMITS.specialty) || !isText(body.university, PROFILE_LIMITS.university) || !isText(body.level, PROFILE_LIMITS.level) || !isSupportedCountry(body.country)) {
       return NextResponse.json({ error: 'أكمل بيانات الحساب والملف الأكاديمي.' }, { status: 400 });
+    }
+    const specialtyDetail = optionalText(body.specialtyDetail, PROFILE_LIMITS.specialtyDetail);
+    if (specialtyDetail === undefined) {
+      return NextResponse.json({ error: `اكتب التخصص الدقيق في ${PROFILE_LIMITS.specialtyDetail} حرفًا على الأكثر.` }, { status: 400 });
     }
     const fullName = body.fullName.trim();
     const specialty = body.specialty.trim();
@@ -53,7 +58,7 @@ export async function POST(request: Request) {
       email,
       password,
       options: {
-        data: { full_name: fullName, specialty, university, level, country },
+        data: { full_name: fullName, specialty, ...(specialtyDetail ? { specialty_detail: specialtyDetail } : {}), university, level, country },
         emailRedirectTo: `${origin}/auth/callback?next=${encodeURIComponent(confirmationDestination)}`,
       },
     });

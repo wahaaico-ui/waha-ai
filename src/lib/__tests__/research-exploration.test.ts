@@ -94,6 +94,7 @@ describe('research exploration evidence model', () => {
       countryCode: 'SA',
       countryName: 'المملكة العربية السعودية',
       specialty: 'التربية وعلم النفس',
+      specialtyDetail: null,
       university: 'جامعة الملك سعود',
       level: 'phd',
     }, 2026);
@@ -104,5 +105,13 @@ describe('research exploration evidence model', () => {
     expect(paths[0].rationale).toContain('1');
     expect(paths[0].supportingReferences[0].title).toBe(papers[0].title);
     expect(paths.every((path) => path.evidenceLevel === 'suggestion')).toBe(true);
+  });
+
+  test('frames the disciplinary path with the precise specialty when the researcher gave one', () => {
+    const context = { countryCode: null, countryName: null, specialty: 'العلوم الشرعية والإسلامية', specialtyDetail: 'أصول الفقه', university: null, level: null };
+    const lens = (specialtyDetail: string | null) => buildResearchPaths('المقاصد في المعاملات المالية', papers, { ...context, specialtyDetail }, 2026)
+      .find((path) => path.id === 'disciplinary-lens');
+    expect(lens('أصول الفقه')?.title).toBe('المقاصد في المعاملات المالية من منظور أصول الفقه');
+    expect(lens(null)?.title).toBe('المقاصد في المعاملات المالية من منظور العلوم الشرعية والإسلامية');
   });
 });

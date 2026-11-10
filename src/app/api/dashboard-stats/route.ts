@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { buildDashboardProjects, type DashboardProjectSource } from '@/lib/dashboard-resume';
 import { readDashboardPages, readDashboardWork } from '@/lib/dashboard-resume-server';
+import { researcherProfileFromMetadata, specialtyLabel } from '@/lib/researcher-profile';
 
 const privateHeaders = { 'Cache-Control': 'private, no-store' };
 
@@ -30,12 +31,8 @@ export async function GET() {
     const avg = total ? Math.round(history.reduce((sum, r) => sum + r.report_score, 0) / total) : 0;
     const best = history.reduce((score, row) => Math.max(score, row.report_score), 0);
 
-    const metadata = access.user.user_metadata || {};
-    const displayName = typeof metadata.full_name === 'string' && metadata.full_name.trim()
-      ? metadata.full_name.trim()
-      : typeof metadata.name === 'string' && metadata.name.trim()
-        ? metadata.name.trim()
-        : access.user.email?.split('@')[0] || 'باحث';
+    const researcher = researcherProfileFromMetadata(access.user.user_metadata);
+    const displayName = researcher.fullName || access.user.email?.split('@')[0] || 'باحث';
 
     return NextResponse.json({
       success: true,
@@ -45,7 +42,7 @@ export async function GET() {
       latestProject: projects[0] || null,
       researcher: {
         displayName,
-        specialty: typeof metadata.specialty === 'string' ? metadata.specialty : null,
+        specialty: specialtyLabel(researcher),
       },
     }, { headers: privateHeaders });
   } catch (error) {

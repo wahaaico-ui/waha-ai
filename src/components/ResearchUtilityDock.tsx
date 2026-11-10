@@ -40,7 +40,7 @@ export default function ResearchUtilityDock() {
   }, [fontSize]);
 
   const name = user?.fullName || user?.email?.split('@')[0] || ui('باحث');
-  const specialty = user?.specialty || '';
+  const specialty = user?.specialtyDetail || user?.specialty || '';
 
   const changeFont = () => {
     const currentIndex = FONT_SIZES.indexOf(fontSize as (typeof FONT_SIZES)[number]);
