@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { AlignmentType, BorderStyle, Document as WordDocument, Footer, HeadingLevel, LevelFormat, LevelSuffix, Packer, PageNumber, Paragraph, Table, TableCell, TableLayoutType, TableRow, TextRun, WidthType, type ILevelsOptions } from 'docx';
+import { AlignmentType, BorderStyle, Document as WordDocument, Footer, Header, HeadingLevel, LevelFormat, LevelSuffix, Packer, PageNumber, Paragraph, Table, TableCell, TableLayoutType, TableRow, TextRun, WidthType, type ILevelsOptions } from 'docx';
 import PDFDocument from 'pdfkit';
 import type { ProjectExportModel } from '@/lib/project-export';
 import { documentLogicalRuns, pdfVisualStyledRuns } from './pdf-text-runs';
@@ -62,6 +62,14 @@ function richDocumentParagraph(block: WritingRenderBlock, listReference?: string
       })),
     ])),
   });
+}
+
+/** Page number where an approved guide rule puts it; centred footer otherwise. */
+function pageNumberPlacement(position?: string) {
+  const [vertical, horizontal] = (position || 'bottom-center').split('-');
+  const alignment = horizontal === 'right' ? AlignmentType.RIGHT : horizontal === 'left' ? AlignmentType.LEFT : AlignmentType.CENTER;
+  const paragraph = new Paragraph({ alignment, children: [new TextRun('WAHA - '), new TextRun({ children: [PageNumber.CURRENT] })] });
+  return vertical === 'top' ? { headers: { default: new Header({ children: [paragraph] }) } } : { footers: { default: new Footer({ children: [paragraph] }) } };
 }
 
 export async function buildProjectDocx(model: ProjectExportModel): Promise<Buffer> {
@@ -141,7 +149,7 @@ export async function buildProjectDocx(model: ProjectExportModel): Promise<Buffe
     sections: [{
       properties: { page: { margin: pageMargins } },
       children,
-      footers: { default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun('WAHA - '), new TextRun({ children: [PageNumber.CURRENT] })] })] }) },
+      ...pageNumberPlacement(profile?.document_rules?.page_numbering?.value),
     }],
   });
   return Buffer.from(await Packer.toBuffer(document));

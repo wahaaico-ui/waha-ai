@@ -1,4 +1,4 @@
-import { extractAcademicStyleProfile, type AcademicStyleProfile } from './academic-style-profile';
+import { extractAcademicStyleProfile, PAGE_NUMBER_POSITIONS, type AcademicStyleProfile } from './academic-style-profile';
 import { normalizeUniversityPolicy } from './university-policy';
 
 const PREFIX = 'WAHA_GUIDE_V1:';
@@ -6,6 +6,7 @@ export const GUIDE_RULE_KEYS = [
   'university_or_journal_name', 'arabic_font_family', 'arabic_font_size_body', 'arabic_font_size_heading_1',
   'english_font_family', 'english_font_size_body', 'line_spacing', 'paragraph_indentation',
   'margin_top', 'margin_bottom', 'margin_binding_side', 'margin_other_side', 'system', 'in_text_format',
+  'max_words', 'abstract_max_words', 'page_numbering',
 ] as const;
 export type GuideRuleKey = typeof GUIDE_RULE_KEYS[number];
 export type ReviewedGuideRule = { key: GuideRuleKey; value: string; evidence: string; status: 'approved' | 'review' };
@@ -48,6 +49,7 @@ function flatRule(profile: AcademicStyleProfile, key: GuideRuleKey) {
   if (key === 'university_or_journal_name') return profile.university_or_journal_name;
   if (key in profile.language_rules) return profile.language_rules[key as keyof typeof profile.language_rules];
   if (key in profile.page_layout) return profile.page_layout[key as keyof typeof profile.page_layout];
+  if (key in profile.document_rules) return profile.document_rules[key as keyof typeof profile.document_rules];
   return profile.citation_style[key as keyof typeof profile.citation_style];
 }
 
@@ -56,6 +58,9 @@ function validRuleValue(key: GuideRuleKey, value: string): boolean {
   if (key === 'line_spacing') return ['1', '1.5', '2'].includes(value);
   if (['paragraph_indentation', 'margin_top', 'margin_bottom', 'margin_binding_side', 'margin_other_side'].includes(key)) return /^\d(?:\.\d{1,2})?$/u.test(value) && +value >= (key === 'paragraph_indentation' ? 0 : 0.5) && +value <= (key === 'paragraph_indentation' ? 5 : 8);
   if (key === 'system') return ['APA 7', 'Harvard', 'IEEE', 'Chicago'].includes(value);
+  if (key === 'max_words') return /^\d{4,6}$/u.test(value) && +value >= 1000 && +value <= 300000;
+  if (key === 'abstract_max_words') return /^\d{2,4}$/u.test(value) && +value >= 50 && +value <= 2000;
+  if (key === 'page_numbering') return (PAGE_NUMBER_POSITIONS as readonly string[]).includes(value);
   if (key.includes('font_family')) return ['Simplified Arabic', 'Traditional Arabic', 'Arial', 'Noto Naskh Arabic', 'Amiri', 'Times New Roman', 'Calibri', 'Noto Sans'].includes(value);
   return value.trim().length >= 3 && value.length <= 120 && !/[<>\u0000-\u001f]/u.test(value);
 }
@@ -71,6 +76,7 @@ export function approvedStyleProfile(guide: SavedGuide): AcademicStyleProfile {
     if (key === 'university_or_journal_name') output.university_or_journal_name = updated as typeof output.university_or_journal_name;
     else if (key in output.language_rules) (output.language_rules as Record<string, unknown>)[key] = updated;
     else if (key in output.page_layout) (output.page_layout as Record<string, unknown>)[key] = updated;
+    else if (key in output.document_rules) (output.document_rules as Record<string, unknown>)[key] = updated;
     else (output.citation_style as Record<string, unknown>)[key] = updated;
   }
   return output;
@@ -104,6 +110,11 @@ export const GUIDE_RULE_EXPORT: Record<GuideRuleKey, { word: RuleApplication; pd
   // Export is refused while the draft uses a different citation style.
   system: { word: 'applied', pdf: 'applied' },
   in_text_format: { word: 'not_applied', pdf: 'not_applied' },
+  // Limits are checked against the draft, not applied as formatting.
+  max_words: { word: 'not_applied', pdf: 'not_applied' },
+  abstract_max_words: { word: 'not_applied', pdf: 'not_applied' },
+  // Word places the page number where the guide asks; the PDF keeps its centred footer.
+  page_numbering: { word: 'applied', pdf: 'not_applied' },
 };
 
 /** Approved rules that Word or PDF does not fully apply, in guide order. */

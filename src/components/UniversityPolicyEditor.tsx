@@ -33,6 +33,9 @@ export default function UniversityPolicyEditor({ projectId, onComplete, onSkip }
     ['الهامش المقابل', styleProfile.page_layout.margin_other_side],
     ['نظام التوثيق', styleProfile.citation_style.system],
     ['توثيق المتن', styleProfile.citation_style.in_text_format],
+    ['حد كلمات الرسالة', styleProfile.document_rules.max_words],
+    ['حد كلمات الملخص', styleProfile.document_rules.abstract_max_words],
+    ['موضع رقم الصفحة', styleProfile.document_rules.page_numbering],
   ] as const;
   const operation = useRef<AbortController | null>(null);
 
