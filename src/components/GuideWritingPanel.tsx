@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import UniversityPolicyEditor from './UniversityPolicyEditor';
+import { countWords } from '@/lib/journal-template';
 import { auditAcademicText } from '@/lib/academic-text-audit';
 import { approvedStyleProfile, GUIDE_RULE_KEYS, guideExportGaps, readSavedGuide, type GuideRuleKey, type RuleApplication } from '@/lib/guide-workflow';
 
@@ -9,7 +10,7 @@ const RULE_LABELS: Record<GuideRuleKey, [string, string]> = {
   university_or_journal_name: ['الجهة', 'Institution'], arabic_font_family: ['الخط العربي', 'Arabic font'], arabic_font_size_body: ['حجم المتن العربي', 'Arabic body size'],
   arabic_font_size_heading_1: ['حجم العنوان العربي', 'Arabic heading size'], english_font_family: ['الخط الإنجليزي', 'English font'], english_font_size_body: ['حجم المتن الإنجليزي', 'English body size'],
   line_spacing: ['تباعد الأسطر', 'Line spacing'], paragraph_indentation: ['المسافة البادئة', 'Paragraph indent'], margin_top: ['الهامش العلوي', 'Top margin'], margin_bottom: ['الهامش السفلي', 'Bottom margin'],
-  margin_binding_side: ['هامش التجليد', 'Binding margin'], margin_other_side: ['الهامش المقابل', 'Other margin'], system: ['نظام التوثيق', 'Citation system'], in_text_format: ['توثيق المتن', 'In-text format'],
+  margin_binding_side: ['هامش التجليد', 'Binding margin'], margin_other_side: ['الهامش المقابل', 'Other margin'], system: ['نظام التوثيق', 'Citation system'], in_text_format: ['توثيق المتن', 'In-text format'], max_words: ['حد كلمات الرسالة', 'Thesis word limit'], abstract_max_words: ['حد كلمات الملخص', 'Abstract word limit'], page_numbering: ['موضع رقم الصفحة', 'Page number position'],
 };
 const APPLICATION: Record<RuleApplication, [string, string]> = { applied: ['يُطبَّق', 'applied'], approximate: ['يُطبَّق تقريبيًا', 'approximated'], not_applied: ['لا يُطبَّق', 'not applied'] };
 
@@ -41,6 +42,9 @@ export default function GuideWritingPanel({ projectId, draftText, language, link
   const pick = (pair: [string, string]) => language === 'ar' ? pair[0] : pair[1];
   const legacyGuide = Boolean(stored && !stored.startsWith('WAHA_GUIDE_V1:'));
   const guideCitationStyle = profile?.citation_style.system?.value;
+  // The guide's word limit is a check against the draft, not formatting.
+  const maxWords = profile?.document_rules.max_words?.value ?? null;
+  const draftWords = useMemo(() => countWords(draftText), [draftText]);
   const citationMismatch = Boolean(guideCitationStyle && guideCitationStyle.toLowerCase().replace(/\s+/gu, '-') !== citationStyle);
   return <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5" aria-label={label('اكتب وفق دليل جهتك', 'Write to your institution guidelines')}>
     <div><h3 className="text-lg font-bold">{label('اكتب وفق دليل جهتك', 'Write to your institution guidelines')}</h3>
@@ -58,6 +62,7 @@ export default function GuideWritingPanel({ projectId, draftText, language, link
         <p>{label('غير قابل للتحقق: ', 'Cannot verify: ')}{GUIDE_RULE_KEYS.length - guide.rules.length}{draftText.length > 12_000 ? ` · ${label('فُحص أول ١٢ ألف حرف فقط', 'Only the first 12,000 characters were checked')}` : ''}.</p>
         {citationCount > linkedCount && <p>{label('توجد إحالات فقدت ارتباطها بموضع النص؛ راجعها.', 'Some citations lost their anchor in the draft; review them.')}</p>}
         {citationMismatch && <p className="text-amber-800">{label(`الدليل يطلب ${guideCitationStyle}، بينما المسودة مضبوطة على ${citationStyle}. راجع النمط قبل التصدير.`, `The guide asks for ${guideCitationStyle}, while the draft uses ${citationStyle}. Review the style before export.`)}<br />{profile?.citation_style.system?.evidence}</p>}
+        {maxWords !== null && <p className={draftWords > maxWords ? 'text-amber-800' : undefined}>{label(`المسودة ${draftWords} كلمة، وحد الدليل ${maxWords} كلمة.`, `The draft has ${draftWords} words; the guide allows ${maxWords}.`)}{draftWords > maxWords ? label(' تجاوزت الحد؛ اختصر قبل التصدير.', ' Over the limit; shorten before export.') : ''}</p>}
         {exportGaps.length > 0 && <div role="note" className="mt-2 rounded-xl bg-amber-50 p-3 text-amber-950"><p className="font-semibold">{label('قبل التنزيل: قواعد معتمدة لا يطبّقها الملف كاملًا', 'Before download: approved rules a file does not fully apply')}</p>
           <ul className="mt-1 list-disc space-y-1 ps-5">{exportGaps.map(gap => <li key={gap.key}><span className="font-semibold">{pick(RULE_LABELS[gap.key])}</span> <bdi dir="auto">({gap.value})</bdi>: Word {pick(APPLICATION[gap.word])} · PDF {pick(APPLICATION[gap.pdf])}</li>)}</ul>
           <p className="mt-1">{label('عدّل ما لا يُطبَّق يدويًا في ملف Word، أو راجع ملف PDF قبل التسليم.', 'Adjust what is not applied in the Word file, or review the PDF before submission.')}</p></div>}

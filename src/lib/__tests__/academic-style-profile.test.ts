@@ -118,3 +118,61 @@ test('does not take footnote, caption or table sizes as the body font size', () 
   expect(p.language_rules.english_font_size_body).toBeNull();
   expect(p.language_rules.english_font_family).toBeNull();
 });
+
+describe('document limits and page numbering', () => {
+  const ARABIC = [
+    'عدد الكلمات :',
+    '1 . يجب ألا يزيد عدد كلمات الرسالة عن ( 40000 ) كلمة باستثناء الملاحق.',
+    '2 . لا يتجاوز الملخص 300 كلمة باللغة العربية.',
+    'ترقيم الصفحات :',
+    'يكون ترقيم الصفحات في أسفل الصفحة في المنتصف.',
+  ].join('\n');
+  const ENGLISH = [
+    'The thesis must not exceed 80,000 words, excluding references and appendices.',
+    'The abstract should be no more than 350 words.',
+    'Page numbers must be placed at the bottom right of each page.',
+  ].join('\n');
+
+  test('reads word limits and the page number position from an Arabic guide with their source lines', () => {
+    const p = extractAcademicStyleProfile(ARABIC);
+    expect(p.document_rules.max_words).toEqual({ value: 40000, evidence: '1 . يجب ألا يزيد عدد كلمات الرسالة عن ( 40000 ) كلمة باستثناء الملاحق.' });
+    expect(p.document_rules.abstract_max_words).toEqual({ value: 300, evidence: '2 . لا يتجاوز الملخص 300 كلمة باللغة العربية.' });
+    expect(p.document_rules.page_numbering).toEqual({ value: 'bottom-center', evidence: 'يكون ترقيم الصفحات في أسفل الصفحة في المنتصف.' });
+  });
+
+  test('reads the same rules from an English guide', () => {
+    const p = extractAcademicStyleProfile(ENGLISH);
+    expect(p.document_rules.max_words?.value).toBe(80000);
+    expect(p.document_rules.abstract_max_words?.value).toBe(350);
+    expect(p.document_rules.page_numbering?.value).toBe('bottom-right');
+  });
+
+  test('never takes the abstract limit as the thesis limit, and guesses nothing that is not stated', () => {
+    const p = extractAcademicStyleProfile('لا يتجاوز الملخص 250 كلمة.\nتُرقّم الصفحات.');
+    expect(p.document_rules.max_words).toBeNull();
+    expect(p.document_rules.abstract_max_words?.value).toBe(250);
+    expect(p.document_rules.page_numbering).toBeNull();
+  });
+});
+
+test('an approved page number position moves the Word page number', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'waha-numbering-'));
+  const docx = async (guide: string) => {
+    const file = join(dir, `${Math.random()}.docx`);
+    writeFileSync(file, await buildProjectDocx({ title: 'عنوان', notice: 'نص', language: 'ar', styleProfile: extractAcademicStyleProfile(guide), sections: [] }));
+    const parts = execFileSync('unzip', ['-Z1', file], { encoding: 'utf8' });
+    const read = (name: string) => execFileSync('unzip', ['-p', file, name], { encoding: 'utf8' });
+    return { parts, read };
+  };
+  try {
+    const top = await docx('Page numbers must be placed at the top right of each page.');
+    expect(top.parts).toMatch(/word\/header\d*\.xml/u);
+    const header = top.parts.split('\n').find(name => /word\/header\d*\.xml/u.test(name))!;
+    expect(top.read(header)).toMatch(/<w:jc w:val="(?:right|end)"\/>/u);
+    expect(top.read(header)).toContain('PAGE');
+
+    const fallback = await docx('Arabic font: Simplified Arabic');
+    const footer = fallback.parts.split('\n').find(name => /word\/footer\d*\.xml/u.test(name))!;
+    expect(fallback.read(footer)).toMatch(/<w:jc w:val="center"\/>/u);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

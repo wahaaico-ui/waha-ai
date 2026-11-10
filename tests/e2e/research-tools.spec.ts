@@ -1,4 +1,8 @@
+import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test, type APIRequestContext } from '@playwright/test';
 
 // Release gate for the research tools added after the 2 Oct 2026 gate:
@@ -131,6 +135,29 @@ test.describe('research tools on the live site', () => {
     const savedReview = await request.post(`/api/projects/${projectId}/journal-review`, { data: round });
     expect(savedReview.status(), await savedReview.text()).toBe(200);
     expect(await (await request.get(`/api/projects/${projectId}/journal-review`)).text()).toContain(comment);
+  });
+
+  test('an approved guide rule moves the page number in the live Word export', async () => {
+    const sentence = 'Page numbers must be placed at the top right of each page.';
+    const current = await (await request.get(`/api/academic/projects/policy?projectId=${projectId}`)).json() as { storedPolicy?: string; universityPolicy?: string | null };
+    const saved = await request.patch('/api/academic/projects/policy', { data: {
+      projectId, universityPolicy: `Arabic body font size: 14 pt\n${sentence}`,
+      expectedPolicy: current.storedPolicy ?? current.universityPolicy ?? null,
+      rules: [{ key: 'page_numbering', value: 'top-right', evidence: sentence, status: 'approved' }],
+    } });
+    expect(saved.status(), await saved.text()).toBe(200);
+
+    const exported = await request.post('/api/academic/export', { data: { projectId, format: 'docx' }, timeout: 60_000 });
+    expect(exported.status(), await exported.text()).toBe(200);
+    const file = join(tmpdir(), `waha-gate-${marker}.docx`);
+    writeFileSync(file, await exported.body());
+    try {
+      const header = execFileSync('unzip', ['-Z1', file], { encoding: 'utf8' }).split('\n').find(name => /^word\/header\d*\.xml$/.test(name));
+      expect(header, 'the page number moved into the page header').toBeTruthy();
+      const xml = execFileSync('unzip', ['-p', file, header!], { encoding: 'utf8' });
+      expect(xml).toMatch(/<w:jc w:val="(?:right|end)"\/>/);
+      expect(xml).toContain('PAGE');
+    } finally { rmSync(file, { force: true }); }
   });
 
   test('evidence writing saves a draft and returns it', async () => {

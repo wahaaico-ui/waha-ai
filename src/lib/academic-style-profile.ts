@@ -18,7 +18,36 @@ export type AcademicStyleProfile = {
     margin_other_side: SourcedRule<number>;
   };
   citation_style: { system: SourcedRule<'APA 7' | 'Harvard' | 'IEEE' | 'Chicago'>; in_text_format: SourcedRule<string> };
+  document_rules: {
+    max_words: SourcedRule<number>;
+    abstract_max_words: SourcedRule<number>;
+    page_numbering: SourcedRule<PageNumberPosition>;
+  };
 };
+
+export const PAGE_NUMBER_POSITIONS = ['bottom-center', 'bottom-right', 'bottom-left', 'top-center', 'top-right', 'top-left'] as const;
+export type PageNumberPosition = typeof PAGE_NUMBER_POSITIONS[number];
+
+const ABSTRACT = /ملخص|المستخلص|abstract/iu;
+const toNumber = (digits: string) => Number(digits.replace(/[,٬\s]/gu, ''));
+
+/** «لا يزيد / لا يتجاوز … 40000 كلمة», «must not exceed 80,000 words», «no more than 350 words». */
+function wordLimit(line: string, min: number, max: number): number | null {
+  const match = line.match(/(?:(?:لا|ألا|الا)\s*(?:يزيد|يتجاوز|تزيد|تتجاوز)|حد(?:ا|ًا)?\s*أقصى|not\s+exceed|no\s+more\s+than|maximum\s+of|at\s+most|up\s+to)[^\d]{0,60}?(\d{2,3}(?:[,٬]\d{3})+|\d{2,6})\s*\)?\s*(?:كلمة|كلمات|words?)/iu);
+  if (!match) return null;
+  const value = toNumber(match[1]);
+  return value >= min && value <= max ? value : null;
+}
+
+function pageNumbering(lines: string[]): SourcedRule<PageNumberPosition> {
+  for (const line of lines) {
+    if (!/ترقيم\s*الصفحات|رقم\s*الصفحة|أرقام\s*الصفحات|page\s*numb/iu.test(line)) continue;
+    const vertical = /أسفل|bottom|footer/iu.test(line) ? 'bottom' : /أعلى|top|header/iu.test(line) ? 'top' : null;
+    const horizontal = /منتصف|وسط|cent(?:er|re)|middle/iu.test(line) ? 'center' : /يمين|right/iu.test(line) ? 'right' : /يسار|left/iu.test(line) ? 'left' : null;
+    if (vertical && horizontal) return { value: `${vertical}-${horizontal}` as PageNumberPosition, evidence: line };
+  }
+  return null;
+}
 
 function matchingRule<T>(lines: string[], pattern: RegExp, parse: (match: RegExpMatchArray) => T | null): SourcedRule<T> {
   for (const line of lines) {
@@ -157,5 +186,11 @@ export function extractAcademicStyleProfile(text: string): AcademicStyleProfile 
       margin_binding_side: margin('binding') || sentences.binding, margin_other_side: margin('other') || sentences.other,
     },
     citation_style: { system: citation, in_text_format: matchingRule(lines, /(?:in.text citation|التوثيق داخل المتن)\s*[:：-]\s*(.{3,120})/iu, match => match[1].trim()) },
+    document_rules: {
+      // The abstract carries its own limit; it is never read as the thesis limit.
+      max_words: firstRule(lines, text => ABSTRACT.test(text) ? null : wordLimit(text, 1000, 300000)),
+      abstract_max_words: firstRule(lines, text => ABSTRACT.test(text) ? wordLimit(text, 50, 2000) : null),
+      page_numbering: pageNumbering(lines),
+    },
   };
 }
