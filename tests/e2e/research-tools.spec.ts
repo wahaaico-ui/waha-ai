@@ -103,13 +103,34 @@ test.describe('research tools on the live site', () => {
   });
 
   test('idea timing uses five complete years of real OpenAlex counts', async () => {
-    const response = await request.post('/api/idea-insights', { data: { query: 'generative artificial intelligence in higher education' }, timeout: 60_000 });
+    // OpenAlex throttles anonymous traffic under load; the service then answers
+    // 503 instead of a guessed indicator. Wait out a short throttle, but still
+    // fail if OpenAlex stays unavailable.
+    let response = await request.post('/api/idea-insights', { data: { query: 'generative artificial intelligence in higher education' }, timeout: 60_000 });
+    for (let attempt = 1; attempt < 3 && response.status() === 503; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 20_000));
+      response = await request.post('/api/idea-insights', { data: { query: 'generative artificial intelligence in higher education' }, timeout: 60_000 });
+    }
     expect(response.status(), await response.text()).toBe(200);
     const { insights } = await response.json() as { insights: { timing: { stage: string; years: Array<{ year: number; count: number }> }; directions: unknown[] } };
     const currentYear = new Date().getUTCFullYear();
     expect(insights.timing.years.map(y => y.year)).toEqual([1, 2, 3, 4, 5].map(i => currentYear - 6 + i));
     expect(['insufficient', 'emerging', 'peak', 'saturated', 'limited']).toContain(insights.timing.stage);
     expect(insights.directions.length).toBeLessThanOrEqual(20);
+  });
+
+  test('journal template and reviewer comments save and read back', async () => {
+    const template = { preset: 'imrad', sections: ['introduction', 'methods', 'results', 'discussion', 'conclusion'], wordLimit: 6000, abstractMaxWords: 200, keywordsMin: 3, keywordsMax: 5, referenceLimit: 40 };
+    const savedTemplate = await request.put(`/api/projects/${projectId}/journal-template`, { data: template });
+    expect(savedTemplate.status(), await savedTemplate.text()).toBe(200);
+    const loadedTemplate = await (await request.get(`/api/projects/${projectId}/journal-template`)).json() as { template: unknown };
+    expect(loadedTemplate.template).toEqual(template);
+
+    const comment = `Clarify how the sample was drawn (${marker}).`;
+    const round = { journal: 'Gate Journal', round: 1, decision: 'major', comments: [{ id: randomUUID(), reviewer: 'reviewer-1', comment, location: 'Methods', response: 'Sampling frame and selection added.', status: 'addressed' }] };
+    const savedReview = await request.post(`/api/projects/${projectId}/journal-review`, { data: round });
+    expect(savedReview.status(), await savedReview.text()).toBe(200);
+    expect(await (await request.get(`/api/projects/${projectId}/journal-review`)).text()).toContain(comment);
   });
 
   test('evidence writing saves a draft and returns it', async () => {
