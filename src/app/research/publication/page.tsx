@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import SiteHeader from '@/components/SiteHeader';
 import ProjectExportButton from '@/components/ProjectExportButton';
+import { JournalReviewPanel, JournalTemplatePanel } from '@/components/JournalPublicationPanels';
 import JourneyProgress from '@/components/JourneyProgress';
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import {
@@ -163,6 +164,8 @@ export default function ResearchPublicationPage() {
           <button type="button" onClick={() => void save()} disabled={Boolean(validationIssue) || status === 'saving'} className="mt-5 w-full rounded-xl bg-blue-600 py-3.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">{status === 'saving' ? ui("جارٍ فحص الحزمة وحفظها…") : ui("اعتماد الجاهزية وإنهاء الرحلة")}</button>
           {status === 'saved' && !validationIssue ? <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-center text-sm font-bold leading-7 text-emerald-900">{ui("اكتملت المراحل السبع عشرة وحُفظت حزمة النشر.")}<Link href={`/research/seminar?projectId=${encodeURIComponent(projectId)}`} className="underline">{ui("افتح التقرير النهائي")}</Link></div> : null}
         </section>
+        {journey && form && <JournalTemplatePanel projectId={projectId} outputs={journey.outputs} publication={form} />}
+        <JournalReviewPanel projectId={projectId} journalName={form?.targetName || ''} />
       </> : null}
     </main>
   </div>;

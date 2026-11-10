@@ -119,6 +119,20 @@ test.describe('research tools on the live site', () => {
     expect(insights.directions.length).toBeLessThanOrEqual(20);
   });
 
+  test('journal template and reviewer comments save and read back', async () => {
+    const template = { preset: 'imrad', sections: ['introduction', 'methods', 'results', 'discussion', 'conclusion'], wordLimit: 6000, abstractMaxWords: 200, keywordsMin: 3, keywordsMax: 5, referenceLimit: 40 };
+    const savedTemplate = await request.put(`/api/projects/${projectId}/journal-template`, { data: template });
+    expect(savedTemplate.status(), await savedTemplate.text()).toBe(200);
+    const loadedTemplate = await (await request.get(`/api/projects/${projectId}/journal-template`)).json() as { template: unknown };
+    expect(loadedTemplate.template).toEqual(template);
+
+    const comment = `Clarify how the sample was drawn (${marker}).`;
+    const round = { journal: 'Gate Journal', round: 1, decision: 'major', comments: [{ id: randomUUID(), reviewer: 'reviewer-1', comment, location: 'Methods', response: 'Sampling frame and selection added.', status: 'addressed' }] };
+    const savedReview = await request.post(`/api/projects/${projectId}/journal-review`, { data: round });
+    expect(savedReview.status(), await savedReview.text()).toBe(200);
+    expect(await (await request.get(`/api/projects/${projectId}/journal-review`)).text()).toContain(comment);
+  });
+
   test('evidence writing saves a draft and returns it', async () => {
     const text = `Generative AI changes how universities assess students (${marker}).`;
     const saved = await request.post(`/api/projects/${projectId}/writing`, { data: { text, citations: [] } });
