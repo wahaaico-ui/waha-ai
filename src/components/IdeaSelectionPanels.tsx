@@ -60,17 +60,18 @@ export function TopicTimingPanel({ query }: { query: string }) {
           <span className="text-end tabular-nums text-slate-600">{count.toLocaleString('en-US')}</span>
         </li>)}
       </ol>
-      <p className="mt-3 text-xs leading-6 text-slate-500">{ui('المصدر: OpenAlex. السنوات المكتملة فقط؛ النمو = آخر سنتين ÷ أول سنتين')}: {timing.growth}</p>
+      <p className="mt-3 text-xs leading-6 text-slate-500">{ui(state.insights.basis === 'title' ? 'عُدّت الدراسات التي يرد الموضوع في عناوينها.' : 'عناوين الدراسات قليلة، فعُدّت الدراسات التي يرد الموضوع في نصوصها؛ هذا العدّ يميل قليلًا إلى السنوات الحديثة.')}</p>
+      <p className="mt-1 text-xs leading-6 text-slate-500">{ui('المصدر: OpenAlex، السنوات المكتملة فقط. نمو حصة الموضوع من كل الأبحاث')}: {timing.growth} ({ui('نمو الموضوع')} {timing.rawGrowth} ÷ {ui('نمو كل الأبحاث')} {timing.baseGrowth})</p>
     </div>
 
     <div className="rounded-2xl border border-slate-200 bg-white p-6">
       <h3 className="font-bold text-slate-900">{ui('أحدث الاتجاهات حول فكرتك')}</h3>
-      <p className="mt-1 text-xs leading-6 text-slate-500">{ui('الموضوعات الفرعية الأكثر نموًا')} ({recentYears[0]}–{recentYears[1]} {ui('مقارنة بـ')} {priorYears[0]}–{priorYears[1]})</p>
+      <p className="mt-1 text-xs leading-6 text-slate-500">{ui('الموضوعات الفرعية التي نمت أسرع من الأبحاث عمومًا')} ({recentYears[0]}–{recentYears[1]} {ui('مقارنة بـ')} {priorYears[0]}–{priorYears[1]})</p>
       {directions.length === 0
         ? <p className="mt-4 text-sm text-slate-600">{ui('لا توجد موضوعات فرعية نمت بوضوح في هذه الفترة.')}</p>
         : <ol className="mt-4 grid gap-2 sm:grid-cols-2">{directions.map(direction => <li key={direction.id} className="rounded-xl border border-slate-200 p-3 text-sm">
           <a href={direction.id} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-700 hover:underline" dir="auto">{direction.name}</a>
-          <p className="mt-1 text-xs text-slate-500 tabular-nums">{direction.prior.toLocaleString('en-US')} → {direction.recent.toLocaleString('en-US')} (+{direction.increase.toLocaleString('en-US')})</p>
+          <p className="mt-1 text-xs text-slate-500 tabular-nums">{direction.prior.toLocaleString('en-US')} → {direction.recent.toLocaleString('en-US')} ({ui('زيادة فوق المتوقع')} +{direction.increase.toLocaleString('en-US')})</p>
         </li>)}</ol>}
     </div>
   </section>;

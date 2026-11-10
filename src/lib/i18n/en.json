@@ -2535,5 +2535,12 @@
   "تعذر حفظ قالب المجلة. ما أدخلته باقٍ في الصفحة؛ أعد المحاولة.": "The journal template could not be saved. What you entered is still on the page; please retry.",
   "تعذر استرجاع ملاحظات المحكمين. أعد المحاولة.": "Reviewer comments could not be loaded. Please retry.",
   "أضف ملاحظة واحدة على الأقل، واختر قرار المجلة. الملاحظة المعالجة أو غير المعدّلة تحتاج ردك.": "Add at least one comment and choose the journal's decision. A revised or declined comment needs your response.",
-  "تعذر حفظ ملاحظات المحكمين. ما أدخلته باقٍ في الصفحة؛ أعد المحاولة.": "Reviewer comments could not be saved. What you entered is still on the page; please retry."
+  "تعذر حفظ ملاحظات المحكمين. ما أدخلته باقٍ في الصفحة؛ أعد المحاولة.": "Reviewer comments could not be saved. What you entered is still on the page; please retry.",
+  "عُدّت الدراسات التي يرد الموضوع في عناوينها.": "Studies were counted where the topic appears in the title.",
+  "عناوين الدراسات قليلة، فعُدّت الدراسات التي يرد الموضوع في نصوصها؛ هذا العدّ يميل قليلًا إلى السنوات الحديثة.": "Too few titles matched, so studies were counted where the topic appears in their text; this count leans slightly towards recent years.",
+  "المصدر: OpenAlex، السنوات المكتملة فقط. نمو حصة الموضوع من كل الأبحاث": "Source: OpenAlex, complete years only. Growth of the topic's share of all research",
+  "نمو الموضوع": "topic growth",
+  "نمو كل الأبحاث": "growth of all research",
+  "الموضوعات الفرعية التي نمت أسرع من الأبحاث عمومًا": "Subtopics that grew faster than research overall",
+  "زيادة فوق المتوقع": "above expected"
 }

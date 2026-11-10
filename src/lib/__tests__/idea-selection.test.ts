@@ -37,7 +37,34 @@ describe('classifyTiming', () => {
   });
 });
 
+describe('classifyTiming against overall publication growth', () => {
+  const series = (...counts: number[]) => counts.map((count, i) => ({ year: 2021 + i, count }));
+  // OpenAlex as a whole grew about 1.26x between 2021-22 and 2024-25.
+  const base = series(10426605, 10092578, 10799780, 11049078, 14743061);
+
+  test('a topic growing only as fast as all research is not at its peak', () => {
+    const timing = classifyTiming(series(399, 389, 413, 434, 635), base);
+    expect(timing.stage).toBe('saturated');
+    expect(timing.growth).toBeCloseTo(1.08, 1);
+  });
+  test('a topic growing much faster than all research is still detected', () => {
+    expect(classifyTiming(series(0, 0, 16, 104, 183), base).stage).toBe('emerging');
+  });
+  test('reports raw and overall growth alongside the share growth', () => {
+    const timing = classifyTiming(series(97, 108, 108, 135, 214), base);
+    expect(timing.rawGrowth).toBeCloseTo(1.7, 1);
+    expect(timing.baseGrowth).toBeCloseTo(1.26, 1);
+  });
+});
+
 describe('rankDirections', () => {
+  test('a topic that grew only as much as all research is not a direction', () => {
+    const directions = rankDirections([{ id: 'S', name: 'Same pace', count: 126 }, { id: 'F', name: 'Faster', count: 200 }],
+      [{ id: 'S', name: 'Same pace', count: 100 }, { id: 'F', name: 'Faster', count: 100 }], 1.26);
+    expect(directions.map(d => d.id)).toEqual(['F']);
+    expect(directions[0].increase).toBe(74);
+  });
+
   test('ranks topics by the increase in works and keeps at most twenty', () => {
     const recent = Array.from({ length: 25 }, (_, i) => ({ id: `T${i}`, name: `Topic ${i}`, count: 100 + i }));
     const prior = recent.map(t => ({ id: t.id, name: t.name, count: 100 }));
