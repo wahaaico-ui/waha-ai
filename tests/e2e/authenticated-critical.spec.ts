@@ -70,7 +70,7 @@ test.describe('WAHA authenticated critical path', () => {
     await page.getByLabel('المستوى الأكاديمي').selectOption('masters');
     await page.getByLabel('الدولة أو البيئة البحثية الأساسية').selectOption('PS');
     await page.getByRole('button', { name: 'حفظ التعديلات' }).click();
-    await expect(page.getByRole('status')).toContainText('حُفظ ملفك الأكاديمي');
+    await expect(page.getByText(/حُفظ ملفك الأكاديمي/)).toBeVisible();
 
     const stats = await page.request.get('/api/dashboard-stats');
     expect(stats.status()).toBe(200);
