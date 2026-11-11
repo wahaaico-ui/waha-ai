@@ -229,4 +229,15 @@ test('@critical completes and renders the full research journey', async ({ page 
   await page.getByRole('button', { name: /^الهدف 1/ }).first().click();
   await expect(page.getByText(/اخترت الهدف 1/)).toBeVisible();
   await expect(page.getByText('متأثرة بما اخترته').first()).toBeVisible();
+
+  // DOC-38-01: this project has no guide and no journal template, so those
+  // indicators are not assessed instead of scored; all stages are finished.
+  const indicatorsResponse = await page.request.get(`/api/projects/${projectId}/indicators`);
+  expect(indicatorsResponse.status(), await indicatorsResponse.text()).toBe(200);
+  const { indicators } = await indicatorsResponse.json() as { indicators: Array<{ id: string; state: string; missing: Array<{ text: string }> }> };
+  expect(indicators.map(indicator => [indicator.id, indicator.state])).toEqual([['guide', 'not_assessed'], ['time', 'met'], ['publication', 'not_assessed']]);
+  await page.goto(`/research/journey?projectId=${projectId}`, { waitUntil: 'load' });
+  const panel = page.getByRole('region', { name: 'مؤشرات المشروع' });
+  await expect(panel.getByRole('article', { name: 'الالتزام بدليل الجامعة' }).getByText('غير مُقيَّم')).toBeVisible();
+  await expect(panel.getByText('اكتملت المراحل كلها.')).toBeVisible();
 });
