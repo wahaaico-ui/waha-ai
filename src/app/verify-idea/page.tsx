@@ -11,6 +11,7 @@ import { saveJourneyStage } from '@/lib/research-journey';
 import { buildProvidedTitlesPath, type ResearchPath, type ResearchScenario, type VerifyReport } from '@/lib/research-exploration';
 import { useAuthSession } from '@/components/AuthSessionProvider';
 import { IdeaQuestionsAndMatrix, TopicTimingPanel } from '@/components/IdeaSelectionPanels';
+import { specialtyLabel } from '@/lib/researcher-profile';
 import { Check, Lightbulb, Search, MessageSquare, Copy, LibraryBig } from 'lucide-react';
 
 // ============================================================
@@ -539,7 +540,7 @@ export default function VerifyIdeaPage() {
                   </div>
                   <div className="space-y-2 text-sm leading-7 text-slate-700">
                     <p><strong>{ui("الدولة:")}</strong> {report.researcherContext.countryName}</p>
-                    {report.researcherContext.specialty && <p><strong>{ui("التخصص:")}</strong> {report.researcherContext.specialty}</p>}
+                    {specialtyLabel(report.researcherContext) && <p><strong>{ui("التخصص:")}</strong> {specialtyLabel(report.researcherContext)}</p>}
                     {report.researcherContext.university && <p><strong>{ui("المؤسسة:")}</strong> {report.researcherContext.university}</p>}
                     <p className="text-xs text-slate-500">{report.contextMatch.note}</p>
                   </div>

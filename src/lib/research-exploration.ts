@@ -63,6 +63,8 @@ export type ResearcherContext = {
   countryCode: string | null;
   countryName: string | null;
   specialty: string | null;
+  /** The researcher's precise specialty, when given (DOC-21-01). */
+  specialtyDetail: string | null;
   university: string | null;
   level: string | null;
 };
@@ -287,10 +289,11 @@ export function buildResearchPaths(
     supportingReferences: references(highImpact),
   });
 
-  if (context.specialty) {
+  const lens = context.specialtyDetail || context.specialty;
+  if (lens) {
     paths.push({
       id: 'disciplinary-lens',
-      title: `${topic} من منظور ${context.specialty}`,
+      title: `${topic} من منظور ${lens}`,
       rationale: `هذا مسار تخصيص أولي مبني على تخصص الباحث المسجل. لا يعتمد كعنوان نهائي قبل التحقق من المفاهيم والفجوة وتوافر الأدلة داخل التخصص.`,
       evidenceLevel: 'suggestion',
       supportingReferences: references(ranked),

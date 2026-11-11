@@ -29,7 +29,8 @@ test.describe('WAHA public launch path', () => {
     await expect(page.getByLabel('البريد الإلكتروني')).toHaveValue('e2e@example.com');
     await page.getByRole('button', { name: 'متابعة ←' }).click();
 
-    await expect(page.getByLabel('التخصص الأكاديمي')).toBeVisible();
+    await expect(page.getByLabel('التخصص العام')).toBeVisible();
+    await expect(page.getByLabel('التخصص الدقيق (اختياري)')).toBeVisible();
     await expect(page.getByLabel('الدولة أو البيئة البحثية الأساسية')).toBeVisible();
     await expect(page.getByLabel('الجامعة أو المؤسسة')).toBeVisible();
     await expect(page.getByLabel('المستوى الأكاديمي')).toBeVisible();

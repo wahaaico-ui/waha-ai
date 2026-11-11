@@ -54,4 +54,35 @@ test.describe('WAHA authenticated critical path', () => {
       expect(body.length).toBeGreaterThan(1_000);
     }
   });
+
+  // DOC-21-01: the precise specialty is kept in the account, read back after a
+  // new sign-in, and reaches the server-side readers that steer research.
+  test('@critical precise specialty is saved in the profile and survives a new sign-in', async ({ page }) => {
+    const detail = `أصول الفقه ${Date.now()}`;
+    await login(page);
+    await expect(page).toHaveURL(/\/dashboard/);
+    await page.goto('/dashboard/profile');
+
+    await page.getByLabel('الاسم الكامل').fill('اختبار إنتاج الملف');
+    await page.getByLabel('التخصص العام').selectOption('العلوم الشرعية والإسلامية');
+    await page.getByLabel('التخصص الدقيق').fill(detail);
+    await page.getByLabel('الجامعة / المؤسسة الأكاديمية').fill('جامعة اختبار الإنتاج');
+    await page.getByLabel('المستوى الأكاديمي').selectOption('masters');
+    await page.getByLabel('الدولة أو البيئة البحثية الأساسية').selectOption('PS');
+    await page.getByRole('button', { name: 'حفظ التعديلات' }).click();
+    await expect(page.getByText(/حُفظ ملفك الأكاديمي/)).toBeVisible();
+
+    const stats = await page.request.get('/api/dashboard-stats');
+    expect(stats.status()).toBe(200);
+    expect((await stats.json()).researcher.specialty).toBe(`العلوم الشرعية والإسلامية — ${detail}`);
+
+    await page.context().clearCookies();
+    await login(page);
+    await expect(page).toHaveURL(/\/dashboard/);
+    await page.goto('/dashboard/profile');
+    await expect(page.getByLabel('التخصص الدقيق')).toHaveValue(detail);
+    await expect(page.getByLabel('التخصص العام')).toHaveValue('العلوم الشرعية والإسلامية');
+    await expect(page.getByLabel('المستوى الأكاديمي')).toHaveValue('masters');
+    await expect(page.getByLabel('الدولة أو البيئة البحثية الأساسية')).toHaveValue('PS');
+  });
 });

@@ -14,7 +14,7 @@ test.describe('WAHA signup confirmation path', () => {
     await page.getByLabel('البريد الإلكتروني').fill(email);
     await page.locator('#password').fill(password);
     await page.getByRole('button', { name: 'متابعة ←' }).click();
-    await page.getByLabel('التخصص الأكاديمي').selectOption({ label: 'علوم الحاسوب والذكاء الاصطناعي' });
+    await page.getByLabel('التخصص العام').selectOption({ label: 'علوم الحاسوب والذكاء الاصطناعي' });
     await page.getByLabel('الدولة أو البيئة البحثية الأساسية').selectOption({ index: 1 });
     await page.getByLabel('الجامعة أو المؤسسة').fill('مؤسسة اختبار WAHA');
     await page.getByLabel('المستوى الأكاديمي').selectOption('researcher');

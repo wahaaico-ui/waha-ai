@@ -2542,5 +2542,21 @@
   "نمو الموضوع": "topic growth",
   "نمو كل الأبحاث": "growth of all research",
   "الموضوعات الفرعية التي نمت أسرع من الأبحاث عمومًا": "Subtopics that grew faster than research overall",
-  "زيادة فوق المتوقع": "above expected"
+  "زيادة فوق المتوقع": "above expected",
+  "التخصص الدقيق (اختياري)": "Precise specialization (optional)",
+  "التخصص الدقيق": "Precise specialization",
+  "التخصص العام": "General field",
+  "مثال: أصول الفقه، أو تعليم العربية للناطقين بغيرها": "Example: principles of Islamic jurisprudence, or teaching Arabic to speakers of other languages",
+  "يوجّه البحث والمسارات المقترحة نحو مجالك، ويمكنك تعديله لاحقًا من ملفك الأكاديمي.": "It steers searches and suggested paths towards your field; you can change it later in your academic profile.",
+  "يوجّه البحث والمسارات المقترحة نحو مجالك. اتركه فارغًا إن لم يكن لك تخصص دقيق.": "It steers searches and suggested paths towards your field. Leave it empty if you have no precise specialization.",
+  "تُحفظ هذه البيانات في حسابك، وتُستخدم في توجيه البحث والتقارير.": "These details are saved in your account and used to steer searches and reports.",
+  "حُفظ ملفك الأكاديمي، وسيُستخدم في البحث والمسارات المقترحة من الآن.": "Your academic profile is saved and will be used in searches and suggested paths from now on.",
+  "تعذر حفظ الملف الأكاديمي الآن. حاول مجددًا.": "Could not save the academic profile now. Try again.",
+  "تعذر قراءة بيانات الملف.": "Could not read the profile details.",
+  "اكتب اسمك الكامل (حتى 120 حرفًا).": "Write your full name (up to 120 characters).",
+  "اختر التخصص العام.": "Choose the general field.",
+  "اكتب التخصص الدقيق في 160 حرفًا على الأكثر.": "Write the precise specialization in 160 characters at most.",
+  "اكتب الجامعة أو المؤسسة (حتى 160 حرفًا).": "Write the university or institution (up to 160 characters).",
+  "اختر المستوى الأكاديمي.": "Choose the academic level.",
+  "اختر الدولة أو البيئة البحثية.": "Choose the country or research environment."
 }

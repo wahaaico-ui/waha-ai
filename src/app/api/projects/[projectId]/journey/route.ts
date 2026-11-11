@@ -17,6 +17,7 @@ import { evaluateGate, isStage, nextAllowedStage, type WorkflowOutput, type Work
 import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
 import { createServiceClient } from '@/lib/supabase/service';
 import { buildLiteratureSelection } from '@/lib/research-search-results';
+import { researcherProfileFromMetadata, specialtyLabel } from '@/lib/researcher-profile';
 import {
   deriveAnalysisStageContent,
   deriveVerifyStageContent,
@@ -173,8 +174,7 @@ export async function GET(request: Request, context: { params: Promise<{ project
       .filter((document) => isStage(document.type?.replace('journey:', '')))
       .sort((first, second) => new Date(second.created_at || 0).getTime() - new Date(first.created_at || 0).getTime())[0];
     const latestStage = latestStageDocument?.type?.replace('journey:', '');
-    const metadata = access.user.user_metadata || {};
-    const metadataText = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
+    const researcher = researcherProfileFromMetadata(access.user.user_metadata);
     const trust = outputTrust(outputs);
     if (outputs.literature) outputs.literature = { ...outputs.literature, papers: withoutClientVerification(outputs.literature.papers) };
     return respond({
@@ -186,8 +186,8 @@ export async function GET(request: Request, context: { params: Promise<{ project
       gate: nextStage ? evaluateGate(nextStage, outputs) : null,
       lastActivity: latestStageDocument && isStage(latestStage) ? { stage: latestStage, at: latestStageDocument.created_at } : null,
       researcher: {
-        displayName: metadataText(metadata.full_name) || metadataText(metadata.name) || access.user.email?.split('@')[0] || 'باحث',
-        specialty: metadataText(metadata.specialty),
+        displayName: researcher.fullName || access.user.email?.split('@')[0] || 'باحث',
+        specialty: specialtyLabel(researcher),
       },
     }, 200);
   } catch { return respond({ error: 'Unable to load research journey' }, 500, 'unhandled_error'); }

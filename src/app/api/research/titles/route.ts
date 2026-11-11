@@ -32,7 +32,7 @@ function parseVerification(content: string | null): VerificationOutput | null {
 
 function asResearcherContext(value: unknown): ResearcherContext {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { countryCode: null, countryName: null, specialty: null, university: null, level: null };
+    return { countryCode: null, countryName: null, specialty: null, specialtyDetail: null, university: null, level: null };
   }
   const context = value as Record<string, unknown>;
   const text = (field: string) => typeof context[field] === 'string' && context[field].trim() ? context[field].trim() : null;
@@ -40,6 +40,7 @@ function asResearcherContext(value: unknown): ResearcherContext {
     countryCode: text('countryCode'),
     countryName: text('countryName'),
     specialty: text('specialty'),
+    specialtyDetail: text('specialtyDetail'),
     university: text('university'),
     level: text('level'),
   };

@@ -15,7 +15,7 @@ import {
   type ResearcherContext,
   type VerifyReport,
 } from '@/lib/research-exploration';
-import { countryName } from '@/lib/researcher-profile';
+import { countryName, researcherProfileFromMetadata } from '@/lib/researcher-profile';
 import { planIdeaSearchQueries } from '@/lib/idea-query-planning';
 import { SemanticScholarService } from '@/lib/academic/services/SemanticScholarService';
 import {
@@ -517,15 +517,15 @@ export async function POST(request: NextRequest) {
     if (!access && usageCount >= FREE_LIMIT) {
       return respond({ error: 'استخدمت الاستكشافات المجانية الثلاثة اليوم. سجّل الدخول لتتابع داخل مشروعك، أو عد بعد 24 ساعة.' }, 429, 'daily_limit');
     }
-    const metadata = access?.user.user_metadata || {};
-    const asMetadataText = (value: unknown) => typeof value === 'string' && value.trim() ? value.trim() : null;
-    const researcherCountryCode = asMetadataText(metadata.country)?.toUpperCase() || null;
+    const profile = researcherProfileFromMetadata(access?.user.user_metadata);
+    const researcherCountryCode = profile.country;
     const researcherContext: ResearcherContext = {
       countryCode: researcherCountryCode,
       countryName: countryName(researcherCountryCode),
-      specialty: asMetadataText(metadata.specialty),
-      university: asMetadataText(metadata.university),
-      level: asMetadataText(metadata.level),
+      specialty: profile.specialty,
+      specialtyDetail: profile.specialtyDetail,
+      university: profile.university,
+      level: profile.level,
     };
 
     // Provider-routed planning: Gemini -> OpenAI -> Groq, then a safe raw fallback.
