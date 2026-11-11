@@ -16,6 +16,7 @@ import type {
 import { evaluateGate, isStage, nextAllowedStage, type WorkflowOutput, type WorkflowStage, WORKFLOW_STAGES } from '@/lib/research-workflow';
 import { completeOperationalRequest, operationalHeaders, startOperationalRequest } from '@/lib/observability';
 import { createServiceClient } from '@/lib/supabase/service';
+import { journeyOutputs as extractOutputs, parseJourneyOutput as parseOutput } from '@/lib/journey-outputs';
 import { buildLiteratureSelection } from '@/lib/research-search-results';
 import { researcherProfileFromMetadata, specialtyLabel } from '@/lib/researcher-profile';
 import {
@@ -33,25 +34,6 @@ type ConsistencyEvaluation = {
   warnings: ResearchObjectViewWarning[];
 };
 
-function parseOutput(content: StoredDocument['content']): WorkflowOutput | null {
-  if (!content) return null;
-  if (typeof content === 'object' && !Array.isArray(content)) return content as WorkflowOutput;
-  if (typeof content !== 'string') return null;
-  try {
-    const value: unknown = JSON.parse(content);
-    return value && typeof value === 'object' && !Array.isArray(value) ? value as WorkflowOutput : null;
-  } catch { return null; }
-}
-
-function extractOutputs(documents: StoredDocument[]) {
-  const outputs: Partial<Record<WorkflowStage, WorkflowOutput>> = {};
-  for (const stage of WORKFLOW_STAGES) {
-    const document = documents.find((item) => item.type === `journey:${stage}`);
-    const output = parseOutput(document?.content ?? null);
-    if (output) outputs[stage] = output;
-  }
-  return outputs;
-}
 
 async function readJourney(projectId: string, supabase: SupabaseClient) {
   const { data, error } = await supabase.from('documents').select('id, project_id, type, content, version, created_at').eq('project_id', projectId).like('type', 'journey:%').order('version', { ascending: false }).order('created_at', { ascending: false });

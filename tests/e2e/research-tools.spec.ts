@@ -243,4 +243,18 @@ test.describe('research tools on the live site', () => {
     expect(body.output?.trim().length).toBeGreaterThan(20);
     expect(body.output).not.toBe(text);
   });
+
+  // DOC-38-01: the indicators read what this file saved earlier (an approved
+  // guide rule, a journal template, a time answer) and say what is missing.
+  test('project indicators read the saved guide, time answer and journal template', async () => {
+    const response = await request.get(`/api/projects/${projectId}/indicators`);
+    expect(response.status(), await response.text()).toBe(200);
+    const { indicators } = await response.json() as { indicators: Array<{ id: string; state: string; missing: Array<{ text: string }> }> };
+    expect(indicators.map(indicator => indicator.id)).toEqual(['guide', 'time', 'publication']);
+    const [guide, time, publication] = indicators;
+    expect(guide.state).not.toBe('not_assessed');
+    expect(publication.state).not.toBe('not_assessed');
+    expect(time.state).toBe('not_assessed');
+    expect(time.missing).toContainEqual({ text: 'لا تكفي المراحل المنجزة لتقدير الوتيرة؛ يلزم إنجاز ثلاث مراحل على الأقل.' });
+  });
 });
