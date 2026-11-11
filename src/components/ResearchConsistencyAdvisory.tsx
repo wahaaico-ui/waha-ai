@@ -1,6 +1,8 @@
 'use client';
 
+import Link from 'next/link';
 import { useUiTranslation } from '@/lib/use-ui-translation';
+import { useProjectId } from '@/lib/use-project-id';
 import type { ResearchObjectViewWarning } from '@/lib/research-objects/types';
 
 export type ConsistencyPanelStatus = 'idle' | 'loading' | 'ready' | 'stale' | 'error';
@@ -16,6 +18,7 @@ export default function ResearchConsistencyAdvisory({
   status, warnings, error, onRetry, hasReport, relationship, prompts,
 }: AdvisoryProps & { hasReport: boolean; relationship: string; prompts: string[] }) {
   const { text: ui, direction: uiDirection } = useUiTranslation();
+  const projectId = useProjectId();
 
   if (status === 'idle') return null;
   return (
@@ -23,6 +26,7 @@ export default function ResearchConsistencyAdvisory({
       <h2 className="text-lg font-black text-slate-950">{ui("مراجعة أولية للعلاقات البحثية")}</h2>
       <p className="mt-2 text-sm font-bold text-blue-700">{ui(relationship)}</p>
       <p className="mt-3 text-sm leading-7 text-slate-600">{ui("هذه مراجعة آلية أولية، وليست قياساً لجودة البحث أو إثباتاً لصلاحية تصميمه.")}</p>
+      {projectId && <Link href={`/research/consistency-map?projectId=${encodeURIComponent(projectId)}`} className="mt-3 inline-flex text-sm font-bold text-blue-700 underline">{ui("اعرض خريطة الاتساق للبحث كله")}</Link>}
       {status === 'loading' ? <p className="mt-4 text-sm text-slate-500">{ui("جارٍ تحميل المراجعة…")}</p>
         : status === 'error' || !hasReport ? (
           <div role="alert" className="mt-4">
