@@ -53,3 +53,13 @@ For each research path in the exploration report, the researcher rates passion (
 3. OpenAlex fetcher, `/api/idea-insights`, project route, route tests.
 4. Page sections, translations.
 5. tsc, eslint, jest, build; publish after approval; production gate check for `/api/idea-insights`.
+
+## 5. Answers that steer the choice (2026-11-11)
+
+The answers and ratings were saved but used nowhere, so neither acceptance test could pass: DOC-23-03 (a change in the time constraint changes the order, with a reason) and DOC-23-04 (the five answers affect the narrowing suggestions).
+
+- The five questions stay open. The access, data and time questions also take a quick answer: yes, partly or no; under six months, six months to a year or over a year. They are saved as `constraints` in the same snapshot; older snapshots read as unanswered.
+- What each path kind usually needs is a stated table, not a model: `local-context` and `replication` need field data and six months to a year; `geographic-comparison` needs field data and over a year; `recent-evidence`, `scope-refinement` and `provided-title-comparison` rely on published studies; `disciplinary-lens` and unknown kinds do not say.
+- Order: each step of time shortfall adds 1; partial or no access, or partial or no data, adds 1 or 2 for paths that need field data. Paths are ordered by that weight, then by the researcher's passion rating (unrated counts as 3), then by the report's order. Each path lists the reasons for its place. The researcher's ratings and quadrants are unchanged.
+- Initial narrowing: the problem and interest answers, the country and specialty from the profile, and the access, data and time answers, with one piece of advice chosen by the constraints.
+- Acceptance: component render tests show that moving the time from over a year to under six months reorders the paths with the time reason, and that the five answers and the profile appear in the narrowing; the live gate saves and reads back the answers, quick answers and ratings.

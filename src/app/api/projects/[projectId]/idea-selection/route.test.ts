@@ -34,7 +34,25 @@ describe('idea selection route', () => {
 
   test('returns empty answers and ratings before anything is saved', async () => {
     const body = await (await GET(new Request('https://waha.systems/x'), context)).json();
-    expect(body).toEqual({ answers: {}, ratings: [], savedAt: null });
+    expect(body).toEqual({ answers: {}, constraints: {}, ratings: [], savedAt: null });
+  });
+
+  test('saves the quick access, data and time answers with the snapshot', async () => {
+    const constraints = { access: 'partly', data: 'no', time: 'short' };
+    expect((await put({ answers: { time: 'فصل دراسي' }, constraints, ratings: [] })).status).toBe(200);
+    expect(JSON.parse(insert.mock.calls[0][0].content)).toMatchObject({ answers: { time: 'فصل دراسي' }, constraints });
+  });
+
+  test('rejects a quick answer that was not offered, without saving', async () => {
+    expect((await put({ answers: {}, constraints: { time: 'forever' }, ratings: [] })).status).toBe(400);
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  test('reads back the quick answers, and an older snapshot without them as unanswered', async () => {
+    latest = { content: JSON.stringify({ answers: {}, constraints: { access: 'yes' }, ratings: [], savedAt: '2026-11-11T10:00:00.000Z' }) };
+    expect((await (await GET(new Request('https://waha.systems/x'), context)).json()).constraints).toEqual({ access: 'yes' });
+    latest = { content: JSON.stringify({ answers: { time: 'سنة' }, ratings: [], savedAt: '2026-11-06T10:00:00.000Z' }) };
+    expect((await (await GET(new Request('https://waha.systems/x'), context)).json()).constraints).toEqual({});
   });
 
   test('saves valid answers and ratings as a server-written snapshot', async () => {

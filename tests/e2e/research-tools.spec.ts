@@ -144,6 +144,30 @@ test.describe('research tools on the live site', () => {
     expect(insights.directions.length).toBeLessThanOrEqual(20);
   });
 
+  // DOC-23-03, DOC-23-04: the five answers, the quick access, data and time
+  // answers and the path ratings are kept in the project; the page orders the
+  // paths and builds the narrowing from them (covered by component tests).
+  test('idea questions, quick answers and path ratings save and read back', async () => {
+    const answers = {
+      interest: `أثر التطبيقات التفاعلية على الفهم (${marker})`,
+      problem: 'ضعف فهم الطلبة للمفاهيم المجردة',
+      access: 'أدرّس في مدرسة حكومية',
+      data: 'لا توجد بيانات منشورة عن المدرسة',
+      time: 'فصل دراسي واحد',
+    };
+    const constraints = { access: 'yes', data: 'no', time: 'short' };
+    const ratings = [{ pathId: 'recent-evidence', passion: 4, feasibility: 5 }];
+    const saved = await request.put(`/api/projects/${projectId}/idea-selection`, { data: { answers, constraints, ratings } });
+    expect(saved.status(), await saved.text()).toBe(200);
+
+    const read = await request.get(`/api/projects/${projectId}/idea-selection`);
+    expect(read.status()).toBe(200);
+    expect(await read.json()).toMatchObject({ answers, constraints, ratings });
+
+    const rejected = await request.put(`/api/projects/${projectId}/idea-selection`, { data: { answers, constraints: { time: 'forever' }, ratings } });
+    expect(rejected.status()).toBe(400);
+  });
+
   test('journal template and reviewer comments save and read back', async () => {
     const template = { preset: 'imrad', sections: ['introduction', 'methods', 'results', 'discussion', 'conclusion'], wordLimit: 6000, abstractMaxWords: 200, keywordsMin: 3, keywordsMax: 5, referenceLimit: 40 };
     const savedTemplate = await request.put(`/api/projects/${projectId}/journal-template`, { data: template });
