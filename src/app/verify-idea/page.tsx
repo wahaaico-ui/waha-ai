@@ -684,7 +684,7 @@ export default function VerifyIdeaPage() {
             )}
 
             {/* FIVE QUESTIONS AND PASSION-FEASIBILITY MATRIX (DOC-23-04, DOC-23-03) */}
-            {!referencesOnly && !comparisonScenario && <IdeaQuestionsAndMatrix paths={report.researchPaths} projectId={projectId} isAuthenticated={isAuthenticated} />}
+            {!referencesOnly && !comparisonScenario && <IdeaQuestionsAndMatrix paths={report.researchPaths} projectId={projectId} isAuthenticated={isAuthenticated} context={{ countryName: report.researcherContext.countryName, specialty: specialtyLabel(report.researcherContext) }} />}
 
             {/* PROCEED CTA (if strong) */}
             {referencesOnly ? (
