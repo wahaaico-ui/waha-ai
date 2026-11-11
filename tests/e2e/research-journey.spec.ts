@@ -211,4 +211,22 @@ test('@critical completes and renders the full research journey', async ({ page 
   await expect(page).toHaveURL(new RegExp(`/research/seminar\\?projectId=${projectId}$`));
   await expect(page.getByRole('heading', { name: titleText })).toBeVisible();
   await expect(page.getByText('WAHA · تقرير سيمنار بحثي')).toBeVisible();
+
+  // DOC-26-01: the consistency map of the saved stages has a signal on every
+  // link, and choosing an objective marks the relationships it affects.
+  const mapResponse = await page.request.get(`/api/projects/${projectId}/consistency/map`);
+  expect(mapResponse.status(), await mapResponse.text()).toBe(200);
+  const { map } = await mapResponse.json() as { map: {
+    chains: Array<{ objective: { number: number } | null; problemLink: { signal: string } | null; questions: Array<{ objectiveLink: { signal: string } | null; methodologyLink: { signal: string } | null }> }>;
+    hypothesesDecision: { signal: string } | null;
+  } };
+  expect(map.chains.map(chain => chain.objective?.number)).toEqual([1, 2]);
+  expect(map.chains.every(chain => chain.problemLink && chain.questions.length > 0 && chain.questions.every(step => step.objectiveLink && step.methodologyLink))).toBe(true);
+  expect(map.hypothesesDecision).not.toBeNull();
+
+  await page.goto(`/research/consistency-map?projectId=${projectId}`, { waitUntil: 'load' });
+  await expect(page.getByRole('heading', { name: 'خريطة الاتساق' })).toBeVisible();
+  await page.getByRole('button', { name: /^الهدف 1/ }).first().click();
+  await expect(page.getByText(/اخترت الهدف 1/)).toBeVisible();
+  await expect(page.getByText('متأثرة بما اخترته').first()).toBeVisible();
 });
