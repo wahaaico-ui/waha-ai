@@ -54,3 +54,12 @@ Unit tests for normalisation (Arabic forms), shingle matching, passage merging, 
 4. Replace the stub route; rate limit; MVP_SCOPE entry.
 5. Page, navigation entry, English catalog entries.
 6. Production gate check; tsc, eslint, jest, build; gate run.
+
+## Deliverable report file (2026-11-11, DOC-39-02)
+
+- Each check is saved as an immutable project document of type `journey:originality_report`, written with the service client after the owner check, as supervisor reviews are. The full project export, the journey and the dashboard read only stage types, so they skip it. A failed save fails the check: the page never shows a report that cannot be downloaded.
+- The saved report adds what a reviewer needs to trace each match: every checked source, numbered (`sources`); each match's `sourceNumber`; each passage's paragraph and word range; the input kind and, for a draft, the time the draft was saved.
+- `POST /api/academic/export { projectId, task: 'originality', documentId, format }` renders it with the existing Word, PDF and Markdown builders. Sections: report data (number, check time, project, researcher, checked text, words), summary (share of matched words with its definition, passages, uncited), scope (counts, open providers, licensed service), checked sources (numbered, kind, year, link, passages matched), matching rules, matches (location, text, each source number and cited state), limits.
+- Privacy: the file holds only the project's own sources and public records; the export reads the document with the owner's session after the ownership check.
+- Page: the shared `TaskExportButtons` under the report.
+- Gate: the existing similarity check downloads the Word file and finds the report number, the copied sentence and the PDF source in it; the PDF download must be a real PDF.

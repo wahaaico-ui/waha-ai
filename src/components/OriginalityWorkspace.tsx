@@ -4,17 +4,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, ScanSearch } from 'lucide-react';
 import SiteHeader from '@/components/SiteHeader';
+import TaskExportButtons from '@/components/TaskExportButtons';
 import { useUiTranslation } from '@/lib/use-ui-translation';
 import { useProjectId } from '@/lib/use-project-id';
-import type { OriginalityReport } from '@/lib/originality/report';
+import { ORIGIN_LABELS, type OriginalityReport } from '@/lib/originality/report';
 
 type Input = 'draft' | 'text';
-
-const ORIGIN_LABELS = {
-  'project-pdf': 'ملف PDF في المشروع',
-  'project-reference': 'مرجع في مكتبة المشروع',
-  'open-source': 'مصدر علمي مفتوح',
-} as const;
 
 export default function OriginalityWorkspace() {
   const { text: ui, direction } = useUiTranslation();
@@ -25,12 +20,14 @@ export default function OriginalityWorkspace() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [report, setReport] = useState<OriginalityReport | null>(null);
+  // The saved copy of the report on screen, downloadable as a file.
+  const [documentId, setDocumentId] = useState<string | null>(null);
 
   const canRun = Boolean(projectId) && status !== 'loading' && (input === 'draft' || text.trim().length >= 50);
 
   async function runCheck() {
     if (!projectId) return;
-    setStatus('loading'); setMessage(''); setReport(null);
+    setStatus('loading'); setMessage(''); setReport(null); setDocumentId(null);
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 120_000);
     try {
@@ -38,9 +35,9 @@ export default function OriginalityWorkspace() {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: controller.signal,
         body: JSON.stringify({ projectId, input, ...(input === 'text' ? { text } : {}), includeOpenSources }),
       });
-      const data = await response.json() as { report?: OriginalityReport; error?: string };
+      const data = await response.json() as { report?: OriginalityReport; documentId?: string; error?: string };
       if (!response.ok || !data.report) { setMessage(data.error || 'تعذر إكمال الفحص.'); setStatus('error'); return; }
-      setReport(data.report); setStatus('idle');
+      setReport(data.report); setDocumentId(data.documentId || null); setStatus('idle');
     } catch {
       setMessage('تعذر الاتصال بالخادم. حاول مرة أخرى.'); setStatus('error');
     } finally { window.clearTimeout(timeout); }
@@ -88,6 +85,7 @@ export default function OriginalityWorkspace() {
         <div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs text-slate-500">{ui('مقاطع غير موثّقة')}</p><p className="mt-1 text-2xl font-black">{report.uncitedPassages}</p></div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5"><p className="text-xs text-slate-500">{ui('المصادر المفحوصة')}</p><p className="mt-1 text-sm leading-6">{ui('مصادر المشروع')}: {report.checked.projectSources}<br />{ui('مصادر مفتوحة')}: {report.checked.openSources}</p></div>
       </div>
+      {documentId && projectId && <TaskExportButtons projectId={projectId} task="originality" documentId={documentId} />}
 
       {report.passages.length === 0
         ? <p className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm">{ui('لم يُعثر على مقاطع تتطابق حرفيًا مع المصادر المفحوصة.')}</p>

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 const email = process.env.E2E_TEST_EMAIL?.trim();
@@ -84,5 +85,25 @@ test.describe('WAHA authenticated critical path', () => {
     await expect(page.getByLabel('التخصص العام')).toHaveValue('العلوم الشرعية والإسلامية');
     await expect(page.getByLabel('المستوى الأكاديمي')).toHaveValue('masters');
     await expect(page.getByLabel('الدولة أو البيئة البحثية الأساسية')).toHaveValue('PS');
+  });
+
+  // DOC-39-02: the check page saves its report, and the researcher downloads it as a file.
+  test('@critical similarity report downloads as a PDF from the check page', async ({ page }) => {
+    if (!projectId) throw new Error('Similarity gate requires E2E_TEST_PROJECT_ID owned by the temporary user.');
+    await login(page);
+    await expect(page).toHaveURL(/\/dashboard/);
+    await page.goto(`/research/originality?projectId=${projectId}`);
+
+    await page.getByRole('radio', { name: /نص ألصقه هنا/ }).check();
+    await page.locator('#originality-text').fill(`هذه فقرة كتبها الباحث بنفسه لاختبار تنزيل تقرير التطابق من صفحة الفحص (${Date.now()}).`);
+    await page.getByRole('button', { name: 'ابدأ الفحص' }).click();
+
+    const exports = page.getByRole('region', { name: 'تصدير النتيجة المحفوظة' });
+    await expect(exports).toBeVisible({ timeout: 60_000 });
+    const download = page.waitForEvent('download');
+    await exports.getByRole('button', { name: 'PDF' }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toBe('waha-originality.pdf');
+    expect(readFileSync((await file.path())!).subarray(0, 4).toString()).toBe('%PDF');
   });
 });

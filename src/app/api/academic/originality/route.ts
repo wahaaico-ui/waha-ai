@@ -1,6 +1,9 @@
+import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { createServiceClient } from '@/lib/supabase/service';
 import { buildOriginalityReport, type ReportCitation } from '@/lib/originality/report';
+import { ORIGINALITY_DOCUMENT_TYPE, type SavedOriginalityReport } from '@/lib/originality/saved-report';
 import { loadOpenSources, loadProjectSources, readLatestWritingDraft } from '@/lib/originality/sources-server';
 import type { OverlapSource } from '@/lib/originality/text-match';
 
@@ -34,10 +37,11 @@ export async function POST(request: Request) {
   try {
     let text: string;
     let citations: ReportCitation[] = [];
+    let draftSavedAt: string | null = null;
     if (fields.input === 'draft') {
       const draft = await readLatestWritingDraft(access.supabase, projectId);
       if (!draft) return response({ error: 'لا توجد مسودة محفوظة في الكتابة بالدليل لهذا المشروع.' }, 404);
-      ({ text, citations } = draft);
+      ({ text, citations, savedAt: draftSavedAt } = draft);
     } else {
       text = typeof fields.text === 'string' ? fields.text.trim() : '';
     }
@@ -55,7 +59,15 @@ export async function POST(request: Request) {
       text, citations, sources: [...projectSources, ...openSources],
       checked: { projectSources: projectSources.length, openSources: openSources.length, openSourceProviders },
     });
-    return response({ success: true, input: fields.input, report }, 200);
+    // The report shown is the report saved for download: written once by the
+    // server after the ownership check, never edited afterwards.
+    const saved: SavedOriginalityReport = { version: 1, input: fields.input, draftSavedAt, report };
+    const documentId = randomUUID();
+    const stored = await createServiceClient().from('documents').insert({
+      id: documentId, project_id: projectId, type: ORIGINALITY_DOCUMENT_TYPE, content: JSON.stringify(saved), version: 1,
+    });
+    if (stored.error) throw stored.error;
+    return response({ success: true, input: fields.input, report, documentId }, 200);
   } catch {
     return response({ error: 'تعذر إكمال الفحص الآن. لم يُحفظ أي تقرير؛ أعد المحاولة.' }, 503);
   }

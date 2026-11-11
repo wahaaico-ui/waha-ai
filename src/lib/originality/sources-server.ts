@@ -11,16 +11,18 @@ export const MAX_OPEN_QUERIES = 3;
 const QUERY_WORDS = 12;
 const MISSING_ABSTRACT = /^(?:المستخلص غير متوفر|no abstract available)?$/i;
 
-/** The latest saved evidence-writing draft, with its server-held citations. */
-export async function readLatestWritingDraft(db: SupabaseClient, projectId: string): Promise<{ text: string; citations: ReportCitation[] } | null> {
-  const result = await db.from('documents').select('content').eq('project_id', projectId).eq('type', WRITING_DOCUMENT_TYPE)
+/** The latest saved evidence-writing draft, with its server-held citations and the time it was saved. */
+export async function readLatestWritingDraft(db: SupabaseClient, projectId: string): Promise<{ text: string; citations: ReportCitation[]; savedAt: string | null } | null> {
+  const result = await db.from('documents').select('content, created_at').eq('project_id', projectId).eq('type', WRITING_DOCUMENT_TYPE)
     .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(1).maybeSingle();
   if (result.error) throw result.error;
   const draft = result.data ? readSavedWriting(result.data.content) : null;
   if (!draft) return null;
+  const savedAt = result.data?.created_at;
   return {
     text: draft.text,
     citations: draft.citations.map(c => ({ sourceKind: c.sourceKind, sourceId: c.sourceId, claimStart: c.claimStart, claimEnd: c.claimEnd })),
+    savedAt: typeof savedAt === 'string' && !Number.isNaN(Date.parse(savedAt)) ? savedAt : null,
   };
 }
 

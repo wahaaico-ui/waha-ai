@@ -3,7 +3,9 @@ const ownsProject = jest.fn();
 const loadProjectSources = jest.fn();
 const loadOpenSources = jest.fn();
 const readLatestWritingDraft = jest.fn();
+const insert = jest.fn();
 
+jest.mock('@/lib/supabase/service', () => ({ createServiceClient: () => ({ from: () => ({ insert: (...args: unknown[]) => insert(...args) }) }) }));
 jest.mock('@/lib/supabase/authorization', () => ({
   requireAuthenticatedUser: (...args: unknown[]) => requireAuthenticatedUser(...args),
   ownsProject: (...args: unknown[]) => ownsProject(...args),
@@ -32,6 +34,7 @@ describe('academic originality route', () => {
     loadProjectSources.mockResolvedValue([pdf]);
     loadOpenSources.mockResolvedValue({ sources: [], providers: [] });
     readLatestWritingDraft.mockResolvedValue(null);
+    insert.mockResolvedValue({ error: null });
   });
 
   test('requires authentication', async () => {
@@ -65,6 +68,11 @@ describe('academic originality route', () => {
     // Project-only checks never send the text outside.
     expect(loadOpenSources).not.toHaveBeenCalled();
     expect(fetchSpy).not.toHaveBeenCalled();
+    // The report on screen is the report saved for download.
+    expect(insert).toHaveBeenCalledTimes(1);
+    const [row] = insert.mock.calls[0] as [{ id: string; project_id: string; type: string; content: string }];
+    expect(row).toMatchObject({ id: body.documentId, project_id: projectId, type: 'journey:originality_report', version: 1 });
+    expect(JSON.parse(row.content)).toEqual({ version: 1, input: 'text', draftSavedAt: null, report: body.report });
   });
 
   test('uses the saved draft and its citations when asked to check the draft', async () => {

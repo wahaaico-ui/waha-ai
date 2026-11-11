@@ -1,10 +1,34 @@
-import { findOverlaps, tokenise, type OverlapMatch, type OverlapSource } from '@/lib/originality/text-match';
+import { findOverlaps, tokenise, type OverlapMatch, type OverlapOrigin, type OverlapSource, type Token } from '@/lib/originality/text-match';
 import { licensedSimilarityStatus, type LicensedSimilarityStatus } from '@/lib/originality/licensed-service';
+
+/** How each kind of source is named on the page and in the report file. */
+export const ORIGIN_LABELS: Record<OverlapOrigin, string> = {
+  'project-pdf': 'ملف PDF في المشروع',
+  'project-reference': 'مرجع في مكتبة المشروع',
+  'open-source': 'مصدر علمي مفتوح',
+};
 
 /** The part of a saved evidence-writing citation the report needs. */
 export type ReportCitation = { sourceKind: 'reference' | 'pdf'; sourceId: string; claimStart: number; claimEnd: number };
 
-export type ReportMatch = OverlapMatch & { cited: boolean };
+/** A match points at its source's number in `OriginalityReport.sources`. */
+export type ReportMatch = OverlapMatch & { cited: boolean; sourceNumber: number };
+
+export type ReportPassage = {
+  /** Character range in the checked text. */
+  start: number;
+  end: number;
+  text: string;
+  wordCount: number;
+  /** Where a reviewer finds the passage: paragraph and word positions, counted from 1. */
+  paragraph: number;
+  firstWord: number;
+  lastWord: number;
+  matches: ReportMatch[];
+};
+
+/** A source the text was compared with, numbered so every match can be traced to it. */
+export type CheckedSource = { number: number; origin: OverlapOrigin; title: string; year: number | null; url: string | null; passages: number };
 
 export type OriginalityReport = {
   checkedAt: string;
@@ -13,14 +37,18 @@ export type OriginalityReport = {
   /** Share of words inside passages that match a checked source, one decimal. */
   coveragePercent: number;
   uncitedPassages: number;
-  passages: Array<{ start: number; end: number; text: string; wordCount: number; matches: ReportMatch[] }>;
+  passages: ReportPassage[];
   checked: { projectSources: number; openSources: number; openSourceProviders: string[] };
+  /** Every source the text was compared with, matched or not. */
+  sources: CheckedSource[];
   licensedService: LicensedSimilarityStatus;
   limitations: string[];
 };
 
 const kindOf = (origin: OverlapMatch['origin']): ReportCitation['sourceKind'] | null =>
   origin === 'project-pdf' ? 'pdf' : origin === 'project-reference' ? 'reference' : null;
+
+const sourceKey = (origin: OverlapOrigin, id: string) => `${origin}:${id.toLowerCase()}`;
 
 /** A match is cited when a citation to that same project source covers the passage. */
 function isCited(match: OverlapMatch, start: number, end: number, citations: ReportCitation[]) {
@@ -30,6 +58,17 @@ function isCited(match: OverlapMatch, start: number, end: number, citations: Rep
     && c.claimStart < end && c.claimEnd > start);
 }
 
+/** Paragraphs are separated by line breaks; blank lines between them count once. */
+function paragraphAt(text: string, start: number) {
+  const before = text.slice(0, start).trimStart();
+  return before ? before.split(/\n\s*/).length : 1;
+}
+
+/** Word positions of a passage, counted the same way as `totalWords`. */
+function wordRange(tokens: Token[], start: number, end: number) {
+  return { firstWord: tokens.findIndex(token => token.start === start) + 1, lastWord: tokens.findIndex(token => token.end === end) + 1 };
+}
+
 export function buildOriginalityReport(input: {
   text: string;
   sources: OverlapSource[];
@@ -37,11 +76,26 @@ export function buildOriginalityReport(input: {
   checked: OriginalityReport['checked'];
   now?: Date;
 }): OriginalityReport {
-  const passages = findOverlaps(input.text, input.sources).map(passage => ({
+  // One entry per source, so each keeps a single number.
+  const unique = [...new Map(input.sources.map(source => [sourceKey(source.origin, source.id), source])).values()];
+  const numbers = new Map(unique.map((source, index) => [sourceKey(source.origin, source.id), index + 1]));
+  const tokens = tokenise(input.text);
+
+  const passages: ReportPassage[] = findOverlaps(input.text, unique).map(passage => ({
     ...passage,
-    matches: passage.matches.map(match => ({ ...match, cited: isCited(match, passage.start, passage.end, input.citations) })),
+    paragraph: paragraphAt(input.text, passage.start),
+    ...wordRange(tokens, passage.start, passage.end),
+    matches: passage.matches.map(match => ({
+      ...match,
+      cited: isCited(match, passage.start, passage.end, input.citations),
+      sourceNumber: numbers.get(sourceKey(match.origin, match.sourceId)) ?? 0,
+    })),
   }));
-  const totalWords = tokenise(input.text).length;
+  const sources: CheckedSource[] = unique.map((source, index) => ({
+    number: index + 1, origin: source.origin, title: source.title, year: source.year, url: source.url,
+    passages: passages.filter(passage => passage.matches.some(match => match.sourceNumber === index + 1)).length,
+  }));
+  const totalWords = tokens.length;
   const matchedWords = passages.reduce((sum, passage) => sum + passage.wordCount, 0);
   const licensedService = licensedSimilarityStatus();
 
@@ -66,6 +120,7 @@ export function buildOriginalityReport(input: {
     uncitedPassages: passages.filter(passage => passage.matches.some(match => !match.cited)).length,
     passages,
     checked: input.checked,
+    sources,
     licensedService,
     limitations,
   };
