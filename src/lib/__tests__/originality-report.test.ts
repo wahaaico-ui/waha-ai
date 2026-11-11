@@ -45,6 +45,26 @@ describe('buildOriginalityReport', () => {
     expect(report.coveragePercent).toBe(Math.round((copied.split(' ').length / total) * 1000) / 10);
   });
 
+  test('numbers every checked source and points each match at its number', () => {
+    const unmatched: OverlapSource = { id: 'ref-2', origin: 'project-reference', title: 'Unmatched reference', url: 'https://example.org/r', year: null, text: 'نص لا يشترك مع المسودة في أي سلسلة من الكلمات' };
+    const report = buildOriginalityReport({ text: `هذا نص الباحث. ${copied}.`, sources: [pdf, unmatched, open], citations: [], checked });
+    expect(report.sources).toEqual([
+      { number: 1, origin: 'project-pdf', title: 'Study A', year: 2023, url: null, passages: 1 },
+      { number: 2, origin: 'project-reference', title: 'Unmatched reference', year: null, url: 'https://example.org/r', passages: 0 },
+      { number: 3, origin: 'open-source', title: 'Open study', year: 2022, url: 'https://doi.org/10.1/x', passages: 1 },
+    ]);
+    expect(report.passages[0].matches.map(m => m.sourceNumber)).toEqual([1, 3]);
+  });
+
+  test('locates each passage by its paragraph and word range in the checked text', () => {
+    const text = `الفقرة الأولى من كلام الباحث.\n\n\nالفقرة الثانية تبدأ هنا ثم ${copied}.`;
+    const report = buildOriginalityReport({ text, sources: [pdf], citations: [], checked });
+    const firstWord = text.split(/\s+/).indexOf('تشير') + 1;
+    expect(report.passages[0]).toMatchObject({ paragraph: 2, firstWord, lastWord: firstWord + copied.split(' ').length - 1 });
+    expect(buildOriginalityReport({ text: `\n${copied}`, sources: [pdf], citations: [], checked }).passages[0])
+      .toMatchObject({ paragraph: 1, firstWord: 1 });
+  });
+
   test('states what was not checked, including the licensed service', () => {
     const report = buildOriginalityReport({ text: copied, sources: [pdf, open], citations: [], checked: { projectSources: 1, openSources: 1, openSourceProviders: ['openalex'] } });
     expect(report.licensedService).toBe('not_configured');

@@ -95,15 +95,36 @@ test.describe('research tools on the live site', () => {
     expect(await comparison.text()).toContain(String(body.sourceId));
   });
 
-  test('similarity check traces an uncited copied sentence to the project PDF', async () => {
+  test('similarity check traces an uncited copied sentence to the project PDF, in the downloaded report too', async () => {
     const text = `This paragraph is the researcher's own framing of the study (${marker}). ${pdfSentence}.`;
     const response = await request.post('/api/academic/originality', { data: { projectId, input: 'text', text, includeOpenSources: false }, timeout: 60_000 });
     expect(response.status(), await response.text()).toBe(200);
-    const { report } = await response.json() as { report: { passages: Array<{ text: string; matches: Array<{ origin: string; cited: boolean }> }>; licensedService: string } };
+    const { report, documentId } = await response.json() as {
+      documentId: string;
+      report: { passages: Array<{ text: string; matches: Array<{ origin: string; cited: boolean; title: string; sourceNumber: number }> }>; licensedService: string };
+    };
     const passage = report.passages.find(item => item.text.includes('generative tools'));
     expect(passage, 'the copied sentence is reported').toBeTruthy();
-    expect(passage!.matches).toContainEqual(expect.objectContaining({ origin: 'project-pdf', cited: false }));
+    const match = passage!.matches.find(item => item.origin === 'project-pdf' && !item.cited);
+    expect(match, 'the copied sentence is traced to the project PDF, uncited').toBeTruthy();
     expect(report.licensedService).toBe('not_configured');
+
+    // DOC-39-02: the saved report downloads as a file in which a reviewer can trace the match.
+    const pdfFile = await request.post('/api/academic/export', { data: { projectId, task: 'originality', documentId, format: 'pdf' }, timeout: 60_000 });
+    expect(pdfFile.status()).toBe(200);
+    expect((await pdfFile.body()).subarray(0, 4).toString()).toBe('%PDF');
+    const word = await request.post('/api/academic/export', { data: { projectId, task: 'originality', documentId, format: 'docx' }, timeout: 60_000 });
+    expect(word.status()).toBe(200);
+    const file = join(tmpdir(), `waha-gate-originality-${marker}.docx`);
+    writeFileSync(file, await word.body());
+    try {
+      const xml = execFileSync('unzip', ['-p', file, 'word/document.xml'], { encoding: 'utf8' });
+      const paragraphs = [...xml.matchAll(/<w:p[ >][\s\S]*?<\/w:p>/g)]
+        .map(([paragraph]) => [...paragraph.matchAll(/<w:t(?: [^>]*)?>([^<]*)<\/w:t>/g)].map(([, run]) => run).join('').replace(/[‎‏]/g, ''));
+      expect(paragraphs).toContain(`رقم التقرير: ${documentId}`);
+      expect(paragraphs.some(paragraph => paragraph.includes(pdfSentence)), 'the copied sentence is quoted in the file').toBe(true);
+      expect(paragraphs).toContain(`وُجد في المصدر ${match!.sourceNumber}: ${match!.title} — غير موثّق`);
+    } finally { rmSync(file, { force: true }); }
   });
 
   test('idea timing uses five complete years of real OpenAlex counts', async () => {

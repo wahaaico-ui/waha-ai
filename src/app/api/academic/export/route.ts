@@ -8,6 +8,8 @@ import { resolveLibrarySelection } from '@/lib/research-search-results';
 import { normaliseResearchAnalysis, researchAnalysisEvidenceIssue } from '@/lib/research-analysis';
 import { availableAbstract } from '@/lib/research-abstracts';
 import { readSupervisorReview, supervisorExportModel, SUPERVISOR_DOCUMENT_TYPE } from '@/lib/supervisor-review';
+import { ORIGINALITY_DOCUMENT_TYPE, originalityExportModel, readSavedOriginalityReport } from '@/lib/originality/saved-report';
+import { researcherProfileFromMetadata } from '@/lib/researcher-profile';
 import { CITATION_STYLES, type CitationStyle } from '@/lib/citations/types';
 import { readCompleteExportRows } from '@/lib/complete-export-rows';
 import { verifyProjectExportEvidence } from '@/lib/project-export-evidence';
@@ -60,6 +62,19 @@ export async function POST(request: Request) {
         const review = readSupervisorReview(result.data?.content);
         if (result.error || !review) return NextResponse.json({ error: 'Saved review not found' }, { status: 404 });
         model = supervisorExportModel(review, language);
+      } else if (body.task === 'originality') {
+        if (typeof body.documentId !== 'string' || !/^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i.test(body.documentId)) return NextResponse.json({ error: 'اختر تقريرًا محفوظًا للتصدير.' }, { status: 400 });
+        const [result, project] = await Promise.all([
+          access.supabase.from('documents').select('content').eq('id', body.documentId).eq('project_id', projectId).eq('type', ORIGINALITY_DOCUMENT_TYPE).maybeSingle(),
+          access.supabase.from('projects').select('title').eq('id', projectId).eq('user_id', access.user.id).maybeSingle(),
+        ]);
+        const saved = readSavedOriginalityReport(result.data?.content);
+        if (result.error || !saved) return NextResponse.json({ error: 'التقرير المحفوظ غير موجود في هذا المشروع.' }, { status: 404 });
+        if (project.error || !project.data) throw new Error('Project unavailable');
+        model = originalityExportModel({
+          documentId: body.documentId, projectTitle: project.data.title,
+          researcherName: researcherProfileFromMetadata(access.user.user_metadata).fullName, saved,
+        }, language);
       } else if (body.task === 'analysis') {
         const result = await access.supabase.from('research_stage_drafts').select('stage, content').eq('project_id', projectId).in('stage', ['analysis', 'literature']);
         if (result.error) throw result.error;
