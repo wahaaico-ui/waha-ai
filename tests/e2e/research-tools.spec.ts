@@ -203,6 +203,15 @@ test.describe('research tools on the live site', () => {
       expect(xml).toMatch(/<w:jc w:val="(?:right|end)"\/>/);
       expect(xml).toContain('PAGE');
     } finally { rmSync(file, { force: true }); }
+
+    // DOC-40-03: the same saved project as a LaTeX source for XeLaTeX.
+    const latex = await request.post('/api/academic/export', { data: { projectId, format: 'latex' }, timeout: 60_000 });
+    expect(latex.status(), await latex.text()).toBe(200);
+    expect(latex.headers()['content-type']).toContain('application/x-tex');
+    const tex = await latex.text();
+    expect(tex).toContain('\\documentclass[12pt,a4paper]{article}');
+    expect(tex).toContain('\\setmainlanguage{arabic}');
+    expect(tex.trimEnd().endsWith('\\end{document}')).toBe(true);
   });
 
   test('evidence writing saves a draft and returns it', async () => {

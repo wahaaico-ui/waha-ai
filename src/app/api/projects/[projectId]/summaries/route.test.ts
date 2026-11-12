@@ -66,6 +66,11 @@ test('each summary downloads as a Word file for the owner, and not for anyone el
   expect(response.status).toBe(200);
   expect(response.headers.get('content-disposition')).toContain('waha-decision_summary.docx');
   expect(Buffer.from(await response.arrayBuffer()).subarray(0, 2).toString()).toBe('PK');
+  const latex = await exportFile(new Request('https://waha.systems/api/academic/export', { method: 'POST', body: JSON.stringify({ projectId: PROJECT, task: 'decision_summary', format: 'latex' }) }));
+  expect(latex.status).toBe(200);
+  expect(latex.headers.get('content-type')).toContain('application/x-tex');
+  expect(latex.headers.get('content-disposition')).toContain('waha-decision_summary.tex');
+  expect(await latex.text()).toContain('\\section*{حدود النتائج}');
   mockAccess = () => ({ user: { id: 'stranger', user_metadata: {} }, supabase: db.session });
   expect((await exportFile(request('journal_summary'))).status).toBe(404);
 });
