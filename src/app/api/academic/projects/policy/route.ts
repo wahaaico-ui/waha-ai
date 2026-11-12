@@ -88,7 +88,9 @@ export async function POST(request: Request) {
     if (!owned.data) return json({ error: 'تعذر العثور على المشروع.' }, 404);
     const file = form.get('file');
     if (!(file instanceof File) || file.type !== 'application/pdf' || !file.size || file.size > UNIVERSITY_GUIDE_MAX_BYTES) return json({ error: 'اختر دليل PDF نصيًا حتى 4 ميجابايت.' }, 422);
-    const result = await extractUniversityGuide(new Uint8Array(await file.arrayBuffer()));
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (Buffer.from(bytes.subarray(0, 5)).toString() !== '%PDF-') return json({ error: 'اختر دليل PDF نصيًا حتى 4 ميجابايت.' }, 422);
+    const result = await extractUniversityGuide(bytes);
     return json({ ...result, projectId, saved: false });
   } catch (error) {
     if (error instanceof Error && error.message === 'guide_no_text') return json({ error: 'لم نجد نصًا قابلًا للقراءة في الملف؛ يبدو أنه صور ممسوحة ضوئيًا. الواحة لا تقرأ الصور (OCR) حاليًا، فالصق نص التعليمات هنا أو ارفع نسخة PDF نصية.', code: 'no_text_layer' }, 422);

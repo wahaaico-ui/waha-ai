@@ -2819,5 +2819,6 @@
   "{0} استشهادًا في عام {1}": "{0} citations in {1}",
   "{0} استشهادًا من مجلة {1}": "{0} citations from the journal {1}",
   "{0} استشهادًا من {1}": "{0} citations from {1}",
-  "{0} دراسة استشهدت بعملك في موضوع لم تنشر فيه بعد، انطلاقًا من: {2}. الموضوع: {1}": "{0} studies citing your work are on a topic you have not published on yet, drawn from: {2}. Topic: {1}"
+  "{0} دراسة استشهدت بعملك في موضوع لم تنشر فيه بعد، انطلاقًا من: {2}. الموضوع: {1}": "{0} studies citing your work are on a topic you have not published on yet, drawn from: {2}. Topic: {1}",
+  "هذه الخدمة غير متاحة الآن.": "This service is not available right now."
 }

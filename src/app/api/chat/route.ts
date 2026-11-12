@@ -22,6 +22,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, reply: aiResponse });
   } catch (error: unknown) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'حدث خطأ غير متوقع' }, { status: 500 });
+    console.error('/api/chat failed', error);
+    return NextResponse.json({ error: 'حدث خطأ غير متوقع' }, { status: 500 });
   }
 }

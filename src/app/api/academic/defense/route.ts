@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'مفتاح Gemini API غير متوفر في البيئة' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'هذه الخدمة غير متاحة الآن.' }, { status: 503 });
     }
 
     if (!researchDetails || !researchDetails.trim()) {
@@ -57,6 +57,7 @@ export async function POST(req: Request) {
     }
 
   } catch (err: unknown) {
-    return NextResponse.json({ success: false, error: err instanceof Error && err.message ? err.message : 'خطأ في الخادم' }, { status: 500 });
+    console.error('/api/academic/defense failed', err);
+    return NextResponse.json({ success: false, error: 'خطأ في الخادم' }, { status: 500 });
   }
 }
