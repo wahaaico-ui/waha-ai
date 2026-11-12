@@ -8,6 +8,8 @@ import { normalizeOrcid } from '@/lib/orcid';
 import type { Career } from '@/lib/scholarly-career';
 
 const card = 'rounded-3xl border border-[#27272a] bg-[#18181b] p-6';
+/** Keeps an iD or a date on one line and in its own direction inside Arabic text. */
+const nowrap = (value: string) => `\u2066${value.replace(/-/g, '\u2011')}\u2069`;
 const list = (rows: Array<{ name: string; count: number }>) => rows.map(row => `${row.name} (${row.count})`).join(' · ');
 
 /** What OpenAlex holds for the researcher's ORCID iD: works, what cites them and where that leads (DOC-30-01..03). */
@@ -18,9 +20,9 @@ export function CareerView({ career }: { career: Career }) {
       <h2 className="text-xl font-bold">{ui('الباحث')}</h2>
       {career.author
         ? <><p dir="auto" className="mt-2 text-lg">{career.author.name}</p>
-          <p className="mt-1 text-sm text-gray-400">{ui('الأعمال: {0}، الاستشهادات: {1}، مؤشر h: {2}.', [career.author.works, career.author.citations, career.author.hIndex ?? ui('غير معروف')])}</p></>
+          <p className="mt-1 text-sm text-gray-400">{ui('الأعمال: {0}، الاستشهادات: {1}، مؤشر هيرش: {2}.', [career.author.works, career.author.citations, career.author.hIndex ?? ui('غير معروف')])}</p></>
         : <p className="mt-2 text-sm text-gray-400">{ui('لم يُعثر على ملف باحث بهذا المعرّف في OpenAlex.')}</p>}
-      <p className="mt-3 text-xs text-gray-500">{ui('من بيانات OpenAlex المرتبطة بمعرّف ORCID {0} بتاريخ {1}. الأعمال تُعرف بمعرفاتها لا بعناوينها.', [career.orcid, career.checkedAt.slice(0, 10)])}</p>
+      <p className="mt-3 text-xs text-gray-500">{ui('من بيانات OpenAlex المرتبطة بمعرّف ORCID {0} بتاريخ {1}. الأعمال تُعرف بمعرفاتها لا بعناوينها.', [nowrap(career.orcid), nowrap(career.checkedAt.slice(0, 10))])}</p>
     </section>
 
     <section className={card}>
@@ -32,7 +34,7 @@ export function CareerView({ career }: { career: Career }) {
           <p dir="auto" className="font-bold">{item.title}</p>
           <p className="mt-1 text-sm text-cyan-300">{ui('{0}: {1} استشهادًا.', [ui('المجموع'), item.citations])}</p>
           <dl className="mt-2 space-y-1 text-xs leading-6 text-gray-300">
-            <div><dt className="inline text-gray-500">{ui('حسب السنة')}: </dt><dd className="inline">{item.byYear.map(year => `${year.year}: ${year.count}`).join(' · ') || '—'}</dd></div>
+            <div><dt className="inline text-gray-500">{ui('حسب السنة')}: </dt><dd dir="ltr" className="inline-block">{item.byYear.map(year => `${year.year}: ${year.count}`).join(' · ') || '—'}</dd></div>
             <div><dt className="inline text-gray-500">{ui('أكثر المجلات استشهادًا')}: </dt><dd dir="auto" className="inline">{list(item.journals) || '—'}</dd></div>
             <div><dt className="inline text-gray-500">{ui('أكثر الدول استشهادًا')}: </dt><dd dir="auto" className="inline">{list(item.countries) || '—'}</dd></div>
             <div><dt className="inline text-gray-500">{ui('سياقات الاستشهاد')}: </dt><dd className="inline">{ui('غير متاحة؛ لا تنشرها OpenAlex')}</dd></div>

@@ -124,26 +124,28 @@ export async function loadCareer(orcid: string, now = new Date()): Promise<Caree
 export function careerExportModel(career: Career, language: UiLanguage = 'ar'): ProjectExportModel {
   const ui = (message: string, values?: readonly unknown[]) => translateUiText(message, language, values);
   const date = career.checkedAt.slice(0, 10);
+  const titles = language === 'en' ? '; ' : ' — ';
+  // One item per line: the PDF writer misorders numbers around separators and brackets in Arabic lines (see saved-report.ts).
   return {
     language, documentDirection: language === 'en' ? 'ltr' : 'rtl',
     title: ui('المسيرة البحثية'),
     notice: ui('من بيانات OpenAlex المرتبطة بمعرّف ORCID {0} بتاريخ {1}. الأعمال تُعرف بمعرفاتها لا بعناوينها.', [career.orcid, date]),
     sections: [
       { title: ui('الباحث'), paragraphs: career.author
-        ? [career.author.name, ui('الأعمال: {0}، الاستشهادات: {1}، مؤشر h: {2}.', [career.author.works, career.author.citations, career.author.hIndex ?? ui('غير معروف')])]
+        ? [career.author.name, ui('الأعمال: {0}، الاستشهادات: {1}، مؤشر هيرش: {2}.', [career.author.works, career.author.citations, career.author.hIndex ?? ui('غير معروف')])]
         : [ui('لم يُعثر على ملف باحث بهذا المعرّف في OpenAlex.')] },
       { title: ui('الأعمال المنشورة'), paragraphs: career.timeline.length
-        ? career.timeline.map(item => [item.year ?? '—', item.title, item.venue, item.doi, ui('الاستشهادات: {0}', [item.citations])].filter(Boolean).join(' — '))
+        ? career.timeline.map(item => ui('نُشر عام {0} واستُشهد به {1} مرة: {2}', [item.year ?? ui('غير معروف'), item.citations, [item.title, item.venue, item.doi].filter(Boolean).join(' — ')]))
         : [ui('لا توجد أعمال مرتبطة بهذا المعرّف في OpenAlex.')] },
       { title: ui('تتبع الاستشهادات'), paragraphs: career.citations.length ? career.citations.flatMap(item => [
-        ui('{0}: {1} استشهادًا.', [item.title, item.citations]),
-        ui('حسب السنة: {0}', [item.byYear.map(year => `${year.year}: ${year.count}`).join('، ') || '—']),
-        ui('أكثر المجلات استشهادًا: {0}', [item.journals.map(row => `${row.name} (${row.count})`).join('، ') || '—']),
-        ui('أكثر الدول استشهادًا: {0}', [item.countries.map(row => `${row.name} (${row.count})`).join('، ') || '—']),
+        ui('استُشهد بهذا العمل {0} مرة: {1}', [item.citations, item.title]),
+        ...(item.byYear.length ? item.byYear.map(year => ui('{0} استشهادًا في عام {1}', [year.count, year.year])) : [ui('حسب السنة: {0}', ['—'])]),
+        ...item.journals.map(row => ui('{0} استشهادًا من مجلة {1}', [row.count, row.name])),
+        ...item.countries.map(row => ui('{0} استشهادًا من {1}', [row.count, row.name])),
         ui('سياقات الاستشهاد: غير متاحة؛ لا تنشرها OpenAlex.'),
       ]) : [ui('لا توجد استشهادات مسجلة لأعمالك بعد.')] },
       { title: ui('اتجاهات تالية مقترحة'), paragraphs: career.directions.length
-        ? career.directions.map(item => ui('{0}: {1} دراسة استشهدت بعملك في هذا الموضوع، ولم تنشر فيه بعد. انطلاقًا من: {2}.', [item.topic, item.citingWorks, item.fromWorks.map(work => work.title).join('؛ ')]))
+        ? career.directions.map(item => ui('{0} دراسة استشهدت بعملك في موضوع لم تنشر فيه بعد، انطلاقًا من: {2}. الموضوع: {1}', [item.citingWorks, item.topic, item.fromWorks.map(work => work.title).join(titles)]))
         : [ui('لا تكفي الاستشهادات الحالية لاقتراح اتجاه.')] },
     ],
   };

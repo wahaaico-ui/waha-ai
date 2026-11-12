@@ -106,4 +106,28 @@ test.describe('WAHA authenticated critical path', () => {
     expect(file.suggestedFilename()).toBe('waha-originality.pdf');
     expect(readFileSync((await file.path())!).subarray(0, 4).toString()).toBe('%PDF');
   });
+
+  // DOC-30-01..03: the career page reads works by the saved ORCID iD and exports them as a file.
+  test('@critical research career from a saved ORCID iD shows citations and downloads as a PDF', async ({ page }) => {
+    test.setTimeout(180_000);
+    await login(page);
+    await expect(page).toHaveURL(/\/dashboard/);
+    await page.goto('/dashboard/profile');
+    await page.getByRole('link', { name: /مسيرتي البحثية/ }).click();
+    await expect(page).toHaveURL(/\/dashboard\/career/);
+    await expect(page.getByRole('heading', { name: 'مسيرتي البحثية' })).toBeVisible();
+
+    await page.getByLabel('معرّف ORCID').fill('0000-0003-1613-5981');
+    await page.getByRole('button', { name: 'احفظ المعرّف' }).click();
+    await expect(page.getByRole('heading', { name: 'تتبع الاستشهادات' })).toBeVisible({ timeout: 120_000 });
+    await expect(page.getByText('غير متاحة؛ لا تنشرها OpenAlex').first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'الأعمال المنشورة' })).toBeVisible();
+
+    const exports = page.getByRole('region', { name: 'تصدير المسيرة' });
+    const download = page.waitForEvent('download', { timeout: 120_000 });
+    await exports.getByRole('button', { name: 'PDF' }).click();
+    const file = await download;
+    expect(file.suggestedFilename()).toBe('waha-career.pdf');
+    expect(readFileSync((await file.path())!).subarray(0, 4).toString()).toBe('%PDF');
+  });
 });

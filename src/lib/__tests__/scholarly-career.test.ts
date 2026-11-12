@@ -1,4 +1,4 @@
-import { normalizeOrcid, toCitationProfile, toNextDirections, toTimeline } from '@/lib/scholarly-career';
+import { careerExportModel, normalizeOrcid, toCitationProfile, toNextDirections, toTimeline } from '@/lib/scholarly-career';
 
 describe('ORCID iD', () => {
   test('accepts a valid iD in any common form and rejects a wrong checksum', () => {
@@ -53,5 +53,31 @@ describe('next directions from the researcher\'s own works (DOC-30-02)', () => {
       { topicId: 'T9', topic: 'Library Science and Information', citingWorks: 107, fromWorks: [{ id: 'W1', title: 'The state of OA' }, { id: 'W2', title: 'OpenAlex index' }] },
       { topicId: 'T8', topic: 'Research Data Management', citingWorks: 40, fromWorks: [{ id: 'W2', title: 'OpenAlex index' }] },
     ]);
+  });
+});
+
+describe('career file (DOC-30-03)', () => {
+  const career = {
+    orcid: '0000-0003-1613-5981', author: null, checkedAt: '2026-11-12T10:00:00.000Z', source: 'openalex' as const,
+    timeline: toTimeline(works),
+    citations: [{ workId: 'W1', title: 'The state of OA', citations: 1510, byYear: [{ year: 2026, count: 241 }], journals: [{ name: 'Scientometrics', count: 63 }], countries: [], contexts: null }],
+    directions: [{ topicId: 'T9', topic: 'Library Science and Information', citingWorks: 107, fromWorks: [{ id: 'W1', title: 'The state of OA' }, { id: 'W2', title: 'OpenAlex index' }] }],
+  };
+
+  test('every section states its basis, and contexts are said to be unavailable', () => {
+    const model = careerExportModel(career);
+    expect(model.title).toBe('المسيرة البحثية');
+    expect(model.notice).toContain('0000-0003-1613-5981');
+    expect(model.sections.map(section => section.title)).toEqual(['الباحث', 'الأعمال المنشورة', 'تتبع الاستشهادات', 'اتجاهات تالية مقترحة']);
+    const text = JSON.stringify(model.sections);
+    expect(text).toContain('لم يُعثر على ملف باحث بهذا المعرّف في OpenAlex.');
+    expect(text).toContain('سياقات الاستشهاد: غير متاحة؛ لا تنشرها OpenAlex.');
+    expect(text).toContain('انطلاقًا من: The state of OA — OpenAlex index. الموضوع: Library Science and Information');
+  });
+
+  test('the English file carries no Arabic', () => {
+    const model = careerExportModel(career, 'en');
+    expect(model.documentDirection).toBe('ltr');
+    expect(JSON.stringify(model)).not.toMatch(/[؀-ۿ]/);
   });
 });
