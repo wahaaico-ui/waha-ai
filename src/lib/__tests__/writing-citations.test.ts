@@ -74,7 +74,9 @@ test.each(CITATION_STYLES)('uses an actual CSL processor for %s with 50 sources 
   const plan = buildWritingCitationPlan(draft, {}, style);
   expect(plan.bibliography).toHaveLength(50);
   expect(plan.segments.filter(s => s.inText)).toHaveLength(52);
-  expect(plan.segments.filter(s => s.inText)[0].inText).toBe(plan.segments.filter(s => s.inText)[50].inText);
+  // Heritage notes are numbered per occurrence; the CSL styles repeat the same marker for a repeated source.
+  if (style === 'heritage') expect(plan.notes?.[50]).toMatch(/^Jane Family1، Formatting fixture study 1/);
+  else expect(plan.segments.filter(s => s.inText)[0].inText).toBe(plan.segments.filter(s => s.inText)[50].inText);
   expect(plan.bibliography.some(b => b.text.toLowerCase().includes('formatting fixture study 50'))).toBe(true);
   expect(plan.issues).toEqual([]);
 });

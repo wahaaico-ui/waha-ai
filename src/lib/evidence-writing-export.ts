@@ -13,6 +13,7 @@ export function writingExportModel(draft: SavedWritingDraft, language: 'ar' | 'e
   const relations = ar ? { supports: 'يدعم', contradicts: 'يعارض', contextual: 'سياق', unclear: 'غير محسوم' } : { supports: 'Supports', contradicts: 'Contradicts', contextual: 'Context', unclear: 'Unclear' };
   return { language, documentDirection: inferDocumentDirection(draft.text), citationStyle: plan.style, title: ar ? 'الكتابة المرتبطة بالدليل' : 'Evidence-linked writing', notice: ar ? 'المقاطع مرتبطة بالنصوص المحفوظة؛ علاقة الدليل بالادعاء يحددها الباحث.' : 'Passages link to saved source text; the researcher determines how each passage relates to the claim.', sections: [
     { title: ar ? 'المسودة' : 'Draft', paragraphs: [draftText], ...(draft.richText ? { blocks: richWritingCitationBlocks(draft.richText, plan) } : {}) },
+    ...(plan.notes?.length ? [{ title: ar ? 'الحواشي' : 'Notes', paragraphs: plan.notes.map((note, index) => `(${index + 1}) ${note}`) }] : []),
     ...(plan.bibliography.length ? [{ title: `${ar ? 'المراجع المستشهد بها في المسودة' : 'References cited in the draft'} — ${WRITING_STYLE_LABELS[plan.style]}`, paragraphs: plan.bibliography.map(entry => entry.text) }] : []),
     ...(plan.issues.length ? [{ title: ar ? 'بيانات مراجع تحتاج مراجعة' : 'Reference details to review', paragraphs: plan.issues.map(issue => citationIssueText(issue, language)) }] : []),
     ...draft.citations.map((c, i) => ({ title: `${label(i)} — ${c.source.title}`, paragraphs: [

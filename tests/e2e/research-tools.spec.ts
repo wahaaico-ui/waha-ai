@@ -75,6 +75,14 @@ test.describe('research tools on the live site', () => {
     expect(await listed.text()).toContain(title);
   });
 
+  // DOC-35-02: the saved reference also appears in the heritage list of sources.
+  test('the library lists saved references in the heritage citation style', async () => {
+    const listed = await request.get(`/api/research/library?projectId=${projectId}`);
+    expect(listed.status(), await listed.text()).toBe(200);
+    const { bibliographies } = await listed.json() as { bibliographies: Record<string, { entries?: Array<{ text: string }> } | Array<{ text: string }>> };
+    expect(JSON.stringify(bibliographies.heritage)).toContain(marker);
+  });
+
   test('study comparison reads the saved references', async () => {
     const response = await request.get(`/api/projects/${projectId}/writing/comparison?kind=reference&language=ar&offset=0`);
     expect(response.status(), await response.text()).toBe(200);

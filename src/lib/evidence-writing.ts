@@ -14,6 +14,8 @@ export type WritingCitation = {
   sourceKind: WritingSourceKind; sourceId: string; sourceHash: string;
   quoteStart: number; quoteEnd: number; quoteText: string;
   relation: SupportRelation; note: string;
+  /** Volume and page of the printed book, as the researcher read them; never taken from PDF page numbers. */
+  volume?: string; page?: string;
 };
 export type WritingDraft = { text: string; citations: WritingCitation[]; citationStyle?: CitationStyle; richText?: WritingRichDocument };
 export type SavedWritingCitation = WritingCitation & { source: Omit<WritingSource, 'text' | 'hash' | 'pdf'>; firstLine: number; lastLine: number; pdfPages?: { first: number; last: number; fileHash: string } };
@@ -21,6 +23,10 @@ export type SavedWritingDraft = Omit<WritingDraft, 'citations'> & { citations: S
 
 function isText(value: unknown, max: number): value is string {
   return typeof value === 'string' && value.length <= max && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(value);
+}
+/** A volume or page: Western or Arabic-Indic digits, or a range of them. */
+export function isLocator(value: unknown): value is string {
+  return typeof value === 'string' && value.length <= 20 && /^[0-9\u0660-\u0669]+(?:\s*[-–]\s*[0-9\u0660-\u0669]+)?$/.test(value);
 }
 function range(start: unknown, end: unknown): start is number {
   return Number.isSafeInteger(start) && Number.isSafeInteger(end) && Number(start) >= 0 && Number(end) > Number(start);
@@ -51,13 +57,15 @@ export function parseWritingDraft(value: unknown): WritingDraft | null {
       || !range(c.claimStart, c.claimEnd) || !range(c.quoteStart, c.quoteEnd)
       || !isText(c.claimText, 4000) || !c.claimText.trim() || Number(c.claimEnd) - Number(c.claimStart) !== c.claimText.length
       || !isText(c.quoteText, 4000) || !c.quoteText.trim() || Number(c.quoteEnd) - Number(c.quoteStart) !== c.quoteText.length
-      || !SUPPORT_RELATIONS.includes(c.relation as SupportRelation) || !isText(c.note, 2000)) return null;
+      || !SUPPORT_RELATIONS.includes(c.relation as SupportRelation) || !isText(c.note, 2000)
+      || (c.volume !== undefined && !isLocator(c.volume)) || (c.page !== undefined && !isLocator(c.page))) return null;
     const link = JSON.stringify([c.claimStart, c.claimEnd, c.sourceKind, c.sourceId.toLowerCase(), c.quoteStart, c.quoteEnd]);
     if (links.has(link)) return null;
     links.add(link); ids.add(c.id.toLowerCase());
     citations.push({ id: c.id, sourceId: c.sourceId, sourceKind: c.sourceKind as WritingSourceKind, sourceHash: c.sourceHash,
       claimStart: c.claimStart, claimEnd: Number(c.claimEnd), claimText: c.claimText,
-      quoteStart: c.quoteStart, quoteEnd: Number(c.quoteEnd), quoteText: c.quoteText, relation: c.relation as SupportRelation, note: c.note });
+      quoteStart: c.quoteStart, quoteEnd: Number(c.quoteEnd), quoteText: c.quoteText, relation: c.relation as SupportRelation, note: c.note,
+      ...(c.volume ? { volume: c.volume as string } : {}), ...(c.page ? { page: c.page as string } : {}) });
   }
   // Several sources may support the same passage. Partially overlapping
   // anchored passages would make the inline reading ambiguous.

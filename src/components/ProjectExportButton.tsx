@@ -2,7 +2,7 @@
 
 import { useUiTranslation } from '@/lib/use-ui-translation';
 import { useState } from 'react';
-import { CITATION_STYLES, type CitationStyle } from '@/lib/citations/types';
+import { CITATION_STYLES, WRITING_STYLE_LABELS, type CitationStyle } from '@/lib/citations/types';
 import { projectExportEvidenceMessage } from '@/lib/project-export-errors';
 
 type ExportFormat = 'docx' | 'pdf' | 'latex';
@@ -54,7 +54,7 @@ export default function ProjectExportButton({ projectId, citationStyle: selected
   return <section className="rounded-2xl border border-slate-200 bg-white p-5">
     <h2 className="text-lg font-bold">{ui("تنزيل المخرجات المحفوظة")}</h2>
     <p className="mt-2 text-sm leading-7 text-slate-600">{ui("ملف Word قابل للتحرير، أو PDF جاهز للمراجعة، أو LaTeX يُبنى بمحرك XeLaTeX، ويجمع آخر نسخة محفوظة من كل مرحلة. راجع المحتوى والمراجع قبل التسليم الأكاديمي.")}</p>
-    {!selectedStyle && <label className="mt-4 block text-sm font-bold">{ui("نمط قائمة المراجع في الملف")}<select aria-label={ui("نمط مراجع الملف")} value={citationStyle} disabled={Boolean(busy)} onChange={(event) => setCitationStyle(event.target.value as CitationStyle)} className="ms-3 rounded-xl border bg-white p-2">{CITATION_STYLES.map((style) => <option key={style} value={style}>{style === 'apa-7' ? 'APA 7' : style.toUpperCase()}</option>)}</select></label>}
+    {!selectedStyle && <label className="mt-4 block text-sm font-bold">{ui("نمط قائمة المراجع في الملف")}<select aria-label={ui("نمط مراجع الملف")} value={citationStyle} disabled={Boolean(busy)} onChange={(event) => setCitationStyle(event.target.value as CitationStyle)} className="ms-3 rounded-xl border bg-white p-2">{CITATION_STYLES.map((style) => <option key={style} value={style}>{ui(WRITING_STYLE_LABELS[style])}</option>)}</select></label>}
     <div className="mt-4 flex flex-wrap gap-3">
       <button type="button" disabled={Boolean(busy)} onClick={() => void download('docx')} className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{busy === 'docx' ? ui("جارٍ تجهيز Word…") : ui("تنزيل Word (.docx)")}</button>
       <button type="button" disabled={Boolean(busy)} onClick={() => void download('pdf')} className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 disabled:opacity-50">{busy === 'pdf' ? ui("جارٍ تجهيز PDF…") : ui("تنزيل PDF (.pdf)")}</button>

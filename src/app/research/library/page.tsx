@@ -17,7 +17,7 @@ import { useLibraryBibliography } from '@/lib/use-library-bibliography';
 type LibrarySnapshot = { requestKey: string; items: ProjectLibraryItem[]; error: string };
 const EMPTY: ProjectLibraryItem[] = [];
 const DISPLAY_BATCH = 50;
-const STYLE_LABELS: Record<CitationStyle, string> = { 'apa-7': 'APA 7', ieee: 'IEEE', harvard: 'Harvard', vancouver: 'Vancouver', chicago: 'Chicago', mla: 'MLA' };
+const STYLE_LABELS: Record<CitationStyle, string> = { 'apa-7': 'APA 7', ieee: 'IEEE', harvard: 'Harvard', vancouver: 'Vancouver', chicago: 'Chicago', mla: 'MLA', heritage: 'التوثيق التراثي (حواشٍ)' };
 
 export default function ResearchLibraryPage() {
   const { text: ui, direction: uiDirection } = useUiTranslation();
