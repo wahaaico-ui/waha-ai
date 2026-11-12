@@ -247,6 +247,27 @@ test.describe('research tools on the live site', () => {
     expect(body.output).not.toBe(text);
   });
 
+  // DOC-29-02, DOC-29-03: real journals for a topic, never an acceptance rate,
+  // and up to three angles from one journal's own topics.
+  test('journal matching lists real journals without acceptance rates and plans angles from one', async () => {
+    const ask = async (data: Record<string, string>) => {
+      let response = await request.post('/api/journals', { data, timeout: 60_000 });
+      // OpenAlex throttles anonymous traffic under load; wait out a short throttle.
+      for (let attempt = 1; attempt < 3 && response.status() === 503; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 20_000));
+        response = await request.post('/api/journals', { data, timeout: 60_000 });
+      }
+      expect(response.status(), await response.text()).toBe(200);
+      return response.json();
+    };
+    const { matches } = await ask({ query: 'simulation in nursing education' }) as { matches: { journals: Array<{ id: string; topicWorks: number; acceptanceRate: unknown }> } };
+    expect(matches.journals.length).toBeGreaterThan(0);
+    expect(matches.journals.every(journal => journal.acceptanceRate === null && journal.topicWorks > 0)).toBe(true);
+    const { angles } = await ask({ journalId: matches.journals[0].id }) as { angles: { angles: Array<{ topic: string; journalWorks: number }> } };
+    expect(angles.angles.length).toBeLessThanOrEqual(3);
+    expect(new Set(angles.angles.map(angle => angle.topic)).size).toBe(angles.angles.length);
+  });
+
   // DOC-38-01: the indicators read what this file saved earlier (an approved
   // guide rule, a journal template, a time answer) and say what is missing.
   test('project indicators read the saved guide, time answer and journal template', async () => {
