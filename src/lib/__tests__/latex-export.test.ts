@@ -14,6 +14,13 @@ describe('LaTeX text is data, never commands (DOC-40-03)', () => {
   test('Latin words inside Arabic text are marked as English so they read left to right', () => {
     expect(latexText('دراسة على 80 طالبًا في BMC Nursing.', 'ar')).toBe('دراسة على 80 طالبًا في \\textenglish{BMC Nursing}.');
   });
+
+  test('a citation or an English reference stays one piece with its punctuation and numbers', () => {
+    expect(latexText('وفق APA 7 (Smith & Jones, 2020).', 'ar')).toBe('وفق \\textenglish{APA 7 (Smith \\& Jones, 2020)}.');
+    expect(latexText('Smith, J. (2020). Simulation. https://doi.org/10.1/a_b', 'ar')).toBe('\\textenglish{Smith, J. (2020). Simulation. https://doi.org/10.1/a\\_b}');
+    expect(latexText('عام 2025، بنسبة 95%', 'ar')).toBe('عام 2025، بنسبة 95\\%');
+    expect(latexText('A sample (عينة واحدة) here.', 'en')).toBe('A sample \\textarabic{(عينة واحدة)} here.');
+  });
 });
 
 const run = (text: string, marks?: Array<'bold' | 'italic' | 'underline' | 'strike'>) => ({ text, ...(marks ? { marks } : {}) });

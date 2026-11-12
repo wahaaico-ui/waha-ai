@@ -12,11 +12,19 @@ const SPECIAL: Record<string, string> = {
   '%': '\\%', '_': '\\_', '^': '\\textasciicircum{}', '~': '\\textasciitilde{}',
 };
 const CONTROL = /[\u0000-\u0009\u000b-\u001f\u007f]/g;
-/** A run of Latin words inside Arabic text, or of Arabic words inside English text. */
-const OTHER_SCRIPT = {
-  ar: /[A-Za-z][A-Za-z0-9'’-]*(?:[ ]+[A-Za-z0-9][A-Za-z0-9'’-]*)*/g,
-  en: /[\u0600-\u06FF][\u0600-\u06FF\u064B-\u065F0-9]*(?:[ ]+[\u0600-\u06FF0-9][\u0600-\u06FF\u064B-\u065F0-9]*)*/g,
+const ARABIC = '\\u0600-\\u06FF\\u0750-\\u077F\\uFB50-\\uFDFF\\uFE70-\\uFEFF';
+/**
+ * A stretch in the other script: everything between two pieces of the main
+ * script, so a whole citation such as "(Smith & Jones, 2020)" or an English
+ * reference stays one left-to-right piece with its punctuation and numbers.
+ */
+const STRETCH = {
+  ar: new RegExp(`[^${ARABIC}\\n]+`, 'g'),
+  en: new RegExp(`[^A-Za-z\\n]+`, 'g'),
 } as const;
+const HAS_OTHER = { ar: /[A-Za-z]/, en: new RegExp(`[${ARABIC}]`) } as const;
+/** Spaces around the stretch and sentence punctuation after it belong to the surrounding text. */
+const EDGES = /^(\s*)(.*?)([\s.,;:!?]*)$/s;
 
 const escape = (text: string) => text.replace(/[\\{}$&#%_^~]/g, char => SPECIAL[char]);
 
@@ -25,8 +33,10 @@ export function latexText(text: string, language: UiLanguage): string {
   const clean = text.replace(CONTROL, '');
   const wrap = language === 'ar' ? '\\textenglish' : '\\textarabic';
   let result = '', last = 0;
-  for (const match of clean.matchAll(OTHER_SCRIPT[language])) {
-    result += escape(clean.slice(last, match.index)) + `${wrap}{${escape(match[0])}}`;
+  for (const match of clean.matchAll(STRETCH[language])) {
+    const [, before, core, after] = EDGES.exec(match[0])!;
+    if (!core || !HAS_OTHER[language].test(core)) continue;
+    result += escape(clean.slice(last, match.index)) + escape(before) + `${wrap}{${escape(core)}}` + escape(after);
     last = match.index! + match[0].length;
   }
   return (result + escape(clean.slice(last))).replace(/\r?\n/g, '\\\\\n');
