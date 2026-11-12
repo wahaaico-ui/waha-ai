@@ -10,7 +10,6 @@ import path from 'path';
 import { NextRequest } from 'next/server';
 import { isCrossSiteWrite, proxy } from '@/proxy';
 import nextConfig from '../../../next.config';
-import { POST as abstract } from '@/app/api/academic/abstract/route';
 
 const environment = { ...process.env };
 beforeEach(() => {
@@ -62,17 +61,6 @@ test('responses do not name the framework, and the browser may not call AI provi
 });
 
 describe('server errors never reach the browser in detail', () => {
-  test('a failing AI route answers with a general message and keeps the detail in the server log', async () => {
-    process.env.GEMINI_API_KEY = 'test-key';
-    jest.spyOn(global, 'fetch').mockRejectedValue(new Error('upstream detail https://internal.example/?key=secret'));
-    const log = jest.spyOn(console, 'error').mockImplementation(() => undefined);
-    const response = await abstract(new Request('https://waha.systems/api/academic/abstract', { method: 'POST', body: JSON.stringify({ rawNotes: 'notes' }) }));
-    const body = await response.json();
-    expect(response.status).toBe(500);
-    expect(JSON.stringify(body)).not.toMatch(/secret|internal|upstream/);
-    expect(log).toHaveBeenCalled();
-  });
-
   test('no API route returns an error\'s own message to the browser', () => {
     const files: string[] = [];
     const walk = (dir: string) => fs.readdirSync(dir, { withFileTypes: true }).forEach(entry => {

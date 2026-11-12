@@ -1,61 +1,6 @@
-import { NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
+import { retiredAiRoute } from '@/lib/retired-ai-route';
 
-export async function POST(req: Request) {
-  try {
-    if (!(await requireAuthenticatedUser())) return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    const { topic, papersNotes } = await req.json();
-    const apiKey = process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'هذه الخدمة غير متاحة الآن.' }, { status: 503 });
-    }
-
-    if (!topic || !papersNotes) {
-      return NextResponse.json({ success: false, error: 'الموضوع أو ملخصات الأبحاث مفقودة' }, { status: 400 });
-    }
-
-    const prompt = `أنت بروفيسور وخبير أكاديمي محترف في كتابة مراجعات الأدبيات (Literature Reviews).
-    بناءً على موضوع البحث الرئيسي (${topic})، وملخصات الدراسات والأبحاث التالية:
-
-    "${papersNotes}"
-
-    قم بكتابة فصل مراجعة أدبيات أكاديمي متكامل ومترابط يتبع الأصول العلمية، متضمنًا العناصر التالية:
-    1. مقدمة مراجعة الأدبيات وتأطير الموضوع.
-    2. التخليق الموضوعي (Thematic Synthesis) للدراسات ومقارنة المنهجيات والنتائج.
-    3. تحديد الفجوات البحثية المشتركة التي لم تعالجها الدراسات السابقة.
-    4. الخاتمة والتوجه البحثي المقترح.
-
-    أرجع النتيجة ككائن JSON صالح حصراً (بدون أي نصوص خارج الـ JSON) بالشكل التالي:
-    {
-      "introduction": "...",
-      "thematicSynthesis": "...",
-      "researchGapsIdentified": ["..."],
-      "conclusion": "..."
-    }`;
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          response_mime_type: "application/json"
-        }
-      }),
-    });
-
-    const data = await response.json();
-
-    if (data.candidates && data.candidates[0]?.content?.parts[0]?.text) {
-      const parsedData = JSON.parse(data.candidates[0].content.parts[0].text);
-      return NextResponse.json({ success: true, literatureReview: parsedData });
-    } else {
-      return NextResponse.json({ success: false, error: 'فشل توليد مراجعة الأدبيات عبر نموذج Gemini' }, { status: 500 });
-    }
-
-  } catch (err: unknown) {
-    console.error('/api/academic/literature-synth failed', err);
-    return NextResponse.json({ success: false, error: 'خطأ في الخادم' }, { status: 500 });
-  }
+/** Retired: see `src/lib/retired-ai-route.ts`. */
+export async function POST() {
+  return retiredAiRoute('/api/academic/literature-synth');
 }
