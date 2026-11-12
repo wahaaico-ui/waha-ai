@@ -9,7 +9,7 @@ import { academicRecordLabel } from '@/lib/academic-record-labels';
 import { loadJourney, saveJourneyDraft } from '@/lib/research-journey';
 
 type SearchPaper = { publicationType?: string; resultId: string; id: string; title: string; authorsLabel: string; year: number | string; abstract: string; citationCount: number; pdfUrl?: string | null; relevanceScore: number; item: CitationItem };
-const STYLE_LABELS: Record<CitationStyle, string> = { 'apa-7': 'APA 7', ieee: 'IEEE', harvard: 'Harvard', vancouver: 'Vancouver', chicago: 'Chicago', mla: 'MLA' };
+const STYLE_LABELS: Record<CitationStyle, string> = { 'apa-7': 'APA 7', ieee: 'IEEE', harvard: 'Harvard', vancouver: 'Vancouver', chicago: 'Chicago', mla: 'MLA', heritage: 'التوثيق التراثي (حواشٍ)' };
 
 export default function ResearchEvidenceSidebar({ projectId, initialQuery = '', onSaved }: { projectId: string; initialQuery?: string; onSaved?: () => void }) {
   const { text: ui, direction: uiDirection } = useUiTranslation();

@@ -2925,5 +2925,6 @@
   "يظهر لك تذكير في لوحة مشاريعك، ويصلك بالبريد مرة واحدة قبل المناقشة بأسبوعين. تغيير الموعد يعيد ضبط التذكير ويبدأ الخطة من جديد.": "A reminder appears on your projects dashboard and is emailed to you once, two weeks before the defense. Changing the date resets the reminder and restarts the plan.",
   "جارٍ تجهيز LaTeX…": "Preparing LaTeX…",
   "تنزيل LaTeX (.tex)": "Download LaTeX (.tex)",
-  "ملف Word قابل للتحرير، أو PDF جاهز للمراجعة، أو LaTeX يُبنى بمحرك XeLaTeX، ويجمع آخر نسخة محفوظة من كل مرحلة. راجع المحتوى والمراجع قبل التسليم الأكاديمي.": "An editable Word file, a PDF ready for review, or LaTeX to build with XeLaTeX, gathering the latest saved version of every stage. Review the content and references before academic submission."
+  "ملف Word قابل للتحرير، أو PDF جاهز للمراجعة، أو LaTeX يُبنى بمحرك XeLaTeX، ويجمع آخر نسخة محفوظة من كل مرحلة. راجع المحتوى والمراجع قبل التسليم الأكاديمي.": "An editable Word file, a PDF ready for review, or LaTeX to build with XeLaTeX, gathering the latest saved version of every stage. Review the content and references before academic submission.",
+  "التوثيق التراثي (حواشٍ)": "Heritage citation (notes)"
 }

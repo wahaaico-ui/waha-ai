@@ -3,6 +3,7 @@ import csl from './csl/data.json';
 import type { CitationStyle } from './types';
 import type { WritingCitation, WritingDraft, WritingSource, SavedWritingCitation } from '@/lib/evidence-writing';
 import { normaliseDoi } from '@/lib/academic/integrations/normalization';
+import { heritageBibliography, heritageNotes, type HeritageSource } from './heritage';
 
 export { WRITING_STYLE_LABELS } from './types';
 type Snapshot = Omit<WritingSource, 'text' | 'hash'>;
@@ -12,6 +13,8 @@ export type WritingCitationPlan = {
   segments: { text: string; citationIds: string[]; inText: string }[];
   bibliography: { sourceKeys: string[]; text: string }[];
   issues: CitationIssue[];
+  /** Numbered footnotes, only in the heritage style; the text carries their numbers. */
+  notes?: string[];
 };
 function anchored(text: string, c: WritingCitation) { return text.slice(c.claimStart, c.claimEnd) === c.claimText; }
 function sourceKey(source: Snapshot) {
@@ -32,6 +35,13 @@ function item(id: string, source: Snapshot): Record<string, unknown> {
     ...(b ? { 'container-title': b.journal || undefined, publisher: b.publisher || undefined, volume: b.volume || undefined, issue: b.issue || undefined, page: pageField(b.pages), DOI: doi || undefined } : {}),
     ...(source.url || doi ? { URL: source.url || `https://doi.org/${doi}` } : {}),
   };
+}
+
+function heritageSource(key: string, source: Snapshot): HeritageSource {
+  const b = source.bibliography;
+  return { key, title: source.title, year: source.year, authors: b?.authors || [], editors: b?.editors || [],
+    edition: b?.edition || null, place: b?.place || null, publisher: b?.publisher || null,
+    link: normaliseDoi(b?.doi) ? `https://doi.org/${normaliseDoi(b?.doi)}` : source.url };
 }
 
 function registerSource(sources: Map<string, Snapshot>, issues: Map<string, CitationIssue>, source: Snapshot) {
@@ -78,6 +88,10 @@ export function buildSourceBibliography(input: Snapshot[], style: CitationStyle)
   const sources = new Map<string, Snapshot>(), issues = new Map<string, CitationIssue>();
   for (const source of input) registerSource(sources, issues, source);
   if (!sources.size) return { bibliography: [] as WritingCitationPlan['bibliography'], issues: [] as CitationIssue[] };
+  if (style === 'heritage') {
+    const bibliography = heritageBibliography([...sources].map(([key, source]) => heritageSource(key, source))).map(entry => ({ sourceKeys: [entry.key], text: entry.text }));
+    return { bibliography, issues: [...issues.values()] };
+  }
   const processor = new Engine({ retrieveLocale: () => csl.locale, retrieveItem: id => item(id, sources.get(id)!) }, csl.styles[style], 'en-US');
   processor.setOutputFormat('text');
   // These are library entries, not one giant in-text citation. The public
@@ -89,6 +103,7 @@ export function buildSourceBibliography(input: Snapshot[], style: CitationStyle)
 
 export function formatSourceCitation(source: Snapshot, style: CitationStyle, locator?: string | null): string {
   const key = sourceKey(source);
+  if (style === 'heritage') return heritageNotes([{ sources: [{ source: heritageSource(key, source), page: locator?.trim().match(/^(?:pp?\.?\s*)?(\S+)$/i)?.[1] ?? null }] }])[0];
   const processor = new Engine({ retrieveLocale: () => csl.locale, retrieveItem: () => item(key, source) }, csl.styles[style], 'en-US');
   processor.setOutputFormat('text');
   const page = locator?.trim().match(/^(?:pp?\.?\s*)?(\d+(?:\s*[-–]\s*\d+)?)$/i);
@@ -127,6 +142,18 @@ export function buildWritingCitationPlan(draft: WritingDraft, knownSources: Reco
   if (cursor < draft.text.length) plan.segments.push({ text: draft.text.slice(cursor), citationIds: [], inText: '' });
   plan.issues = [...issueMap.values()];
   if (!sources.size) return plan;
+  if (style === 'heritage') {
+    // One note per cited passage, numbered in reading order; the locator is the one the researcher typed.
+    const byId = new Map(citations.map(c => [c.id, c]));
+    const clusters = plan.segments.flatMap((segment, index) => {
+      const cited = segment.citationIds.flatMap(id => (ids.has(id) ? [byId.get(id)!] : []));
+      return cited.length ? [{ index, sources: cited.map(c => ({ source: heritageSource(ids.get(c.id)!, sources.get(ids.get(c.id)!)!), volume: c.volume ?? null, page: c.page ?? null })) }] : [];
+    });
+    plan.notes = heritageNotes(clusters);
+    clusters.forEach((cluster, number) => { plan.segments[cluster.index].inText = `(${number + 1})`; });
+    plan.bibliography = heritageBibliography([...sources].map(([key, source]) => heritageSource(key, source))).map(entry => ({ sourceKeys: [entry.key], text: entry.text }));
+    return plan;
+  }
   const processor = new Engine({ retrieveLocale: () => csl.locale, retrieveItem: id => item(id, sources.get(id)!) }, csl.styles[style], 'en-US');
   processor.setOutputFormat('text');
   const pre: [string, number][] = [], clusters: number[] = [];

@@ -5,6 +5,8 @@ export type WritingBibliography = {
   authors: BibliographicName[]; unstructuredNames: boolean;
   journal: string | null; publisher: string | null; volume: string | null;
   issue: string | null; pages: string | null; doi: string | null; type: string;
+  /** Optional; read for heritage citation. Earlier saves have none. */
+  editors?: BibliographicName[]; edition?: string | null; place?: string | null;
 };
 const object = (v: unknown): v is Record<string, unknown> => Boolean(v && typeof v === 'object' && !Array.isArray(v));
 const field = (v: unknown, max = 1000) => typeof v === 'string' && v.trim() && v.length <= max && !/[\u0000-\u001f\u007f]/.test(v) ? v.trim() : null;
@@ -13,6 +15,11 @@ const TYPES: Record<string, string> = { journalArticle: 'article-journal', artic
 export function bibliographyFromReference(row: { authors: unknown; publication_title: string | null; doi: string | null; citation_data: unknown }): WritingBibliography {
   const m = object(row.citation_data) ? row.citation_data : {};
   const creators = Array.isArray(m.creators) ? m.creators.filter(c => object(c) && c.creatorType === 'author') : null;
+  const editors: BibliographicName[] = (Array.isArray(m.creators) ? m.creators : []).flatMap((c): BibliographicName[] => {
+    if (!object(c) || c.creatorType !== 'editor') return [];
+    const family = field(c.lastName || c.family, 300), given = field(c.firstName || c.given, 300), literal = field(c.name || c.literal, 300);
+    return family ? [{ family, ...(given ? { given } : {}) }] : literal ? [{ literal }] : [];
+  });
   let unstructuredNames = false;
   const authors: BibliographicName[] = (creators || (Array.isArray(row.authors) ? row.authors : [])).flatMap((raw): BibliographicName[] => {
     if (object(raw)) {
@@ -29,7 +36,8 @@ export function bibliographyFromReference(row: { authors: unknown; publication_t
     if (parts.length === 2 && parts.every(Boolean)) return [{ family: parts[0], given: parts[1] }];
     unstructuredNames = true; return [{ literal: name }];
   });
-  return { authors, unstructuredNames, journal: field(row.publication_title), publisher: field(m.publisher), volume: field(m.volume, 100), issue: field(m.issue, 100), pages: field(m.pages || m.page, 200), doi: field(row.doi, 300), type: TYPES[String(m.itemType || m.type)] || 'article-journal' };
+  return { authors, unstructuredNames, journal: field(row.publication_title), publisher: field(m.publisher), volume: field(m.volume, 100), issue: field(m.issue, 100), pages: field(m.pages || m.page, 200), doi: field(row.doi, 300), type: TYPES[String(m.itemType || m.type)] || 'article-journal',
+    ...(editors.length ? { editors } : {}), ...(field(m.edition, 100) ? { edition: field(m.edition, 100) } : {}), ...(field(m.place, 300) ? { place: field(m.place, 300) } : {}) };
 }
 
 /** Stored snapshots are read with the same bounds as authoritative metadata. */
@@ -44,5 +52,16 @@ export function readWritingBibliography(value: unknown): WritingBibliography | n
     else return null;
   }
   for (const key of ['journal', 'publisher', 'volume', 'issue', 'pages', 'doi'] as const) if (value[key] !== null && !field(value[key], key === 'doi' ? 300 : key === 'volume' || key === 'issue' ? 100 : key === 'pages' ? 200 : 1000)) return null;
-  return { authors, unstructuredNames: value.unstructuredNames, journal: value.journal as string | null, publisher: value.publisher as string | null, volume: value.volume as string | null, issue: value.issue as string | null, pages: value.pages as string | null, doi: value.doi as string | null, type: value.type };
+  const editors: BibliographicName[] = [];
+  if (value.editors !== undefined) {
+    if (!Array.isArray(value.editors)) return null;
+    for (const name of value.editors) {
+      if (object(name) && field(name.literal, 300)) editors.push({ literal: field(name.literal, 300)! });
+      else if (object(name) && field(name.family, 300) && (name.given === undefined || field(name.given, 300))) editors.push({ family: field(name.family, 300)!, ...(name.given ? { given: field(name.given, 300)! } : {}) });
+      else return null;
+    }
+  }
+  for (const [key, max] of [['edition', 100], ['place', 300]] as const) if (value[key] !== undefined && value[key] !== null && !field(value[key], max)) return null;
+  return { authors, unstructuredNames: value.unstructuredNames, journal: value.journal as string | null, publisher: value.publisher as string | null, volume: value.volume as string | null, issue: value.issue as string | null, pages: value.pages as string | null, doi: value.doi as string | null, type: value.type,
+    ...(value.editors !== undefined ? { editors } : {}), ...(value.edition ? { edition: value.edition as string } : {}), ...(value.place ? { place: value.place as string } : {}) };
 }
