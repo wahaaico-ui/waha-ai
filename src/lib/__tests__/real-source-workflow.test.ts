@@ -6,7 +6,8 @@ import { buildProjectExportModel } from '@/lib/project-export';
 import { CITATION_STYLES } from '@/lib/citations/types';
 
 type Source = { id: string; title: string; abstract: string; authors: string; year: number; doi: string; source: string; journal: string | null; publicationType: string; url: string };
-const path = join(process.cwd(), 'output/qa/real-source-inputs.json');
+// Captured by scripts/capture-qa-fixtures.mjs from OpenAlex.
+const path = join(__dirname, 'fixtures', 'real-source-inputs.json');
 const dataset: { checkedAt: string; query: string; selected: Source[] } = JSON.parse(readFileSync(path, 'utf8'));
 
 test.each([20, 50])('%i actual public references survive context allocation and all six export styles', (count) => {
@@ -46,7 +47,7 @@ test('QA records distinguish heterogeneous indexed records from independent revi
     checks: ['20 and 50 sources retained without dropping selected IDs', 'Source excerpts remain prefixes of the actual supplied abstracts', '50 references exported under all six citation styles'],
     warning: 'Different identifiers and record counts do not establish independent studies, peer review, or a research gap. Review source type, possible reprints, full texts and topic relevance.',
   };
-  writeFileSync(join(process.cwd(), 'output/qa/real-source-workflow.json'), JSON.stringify(report, null, 2) + '\n');
+  if (process.env.WAHA_QA_ARTIFACT_DIR) writeFileSync(join(process.env.WAHA_QA_ARTIFACT_DIR, 'real-source-workflow.json'), JSON.stringify(report, null, 2) + '\n');
   expect(report.publicationTypes.article).toBeGreaterThan(0);
 });
 

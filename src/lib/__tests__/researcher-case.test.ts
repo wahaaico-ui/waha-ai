@@ -5,7 +5,7 @@ import { buildSynthesisPacket, SYNTHESIS_CHARACTER_BUDGET } from '@/lib/synthesi
 // Actual cached public-index metadata. No claim of peer review, full-text
 // verification, live application authentication or AI-provider evaluation.
 type Paper = { id: string; title: string; abstract: string; authors: string[]; year: number; source: string };
-const dataset: { papers: Paper[] } = JSON.parse(readFileSync(join(process.cwd(), 'output/qa/nursing-simulation-live.json'), 'utf8'));
+const dataset: { papers: Paper[] } = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'nursing-simulation.json'), 'utf8'));
 const papers = dataset.papers.map((paper) => ({ ...paper, authors: paper.authors.join(', ') }));
 
 test('all available abstract text fitting the budget survives a 50-record researcher selection', () => {
