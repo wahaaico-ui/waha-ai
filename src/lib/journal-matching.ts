@@ -69,11 +69,13 @@ export function toJournalAngles(topics: Group[], examples: Record<string, Journa
     .map(topic => ({ topicId: topic.topicId, topic: topic.topic!, journalWorks: topic.journalWorks, example: examples[topic.topicId] ?? null }));
 }
 
-function worksUrl(params: Record<string, string>) {
+/** Every OpenAlex call carries the platform key: shared server addresses are throttled without it. */
+export function openAlexUrl(path: 'works' | 'sources', params: Record<string, string>) {
   const query = new URLSearchParams({ ...params, mailto: APPLICATION_EMAIL });
   if (process.env.OPENALEX_API_KEY) query.set('api_key', process.env.OPENALEX_API_KEY);
-  return `https://api.openalex.org/works?${query}`;
+  return `https://api.openalex.org/${path}?${query}`;
 }
+const worksUrl = (params: Record<string, string>) => openAlexUrl('works', params);
 const cleanQuery = (query: string) => query.replace(/[,|:]/g, ' ').replace(/\s+/g, ' ').trim();
 
 /** Journals with the most works on the topic in the last five complete years. */
@@ -87,10 +89,11 @@ export async function loadJournalMatches(query: string, now = new Date()): Promi
       groups = (await fetchJson<GroupBy>(worksUrl({ filter: filters.join(','), search: cleanQuery(query), group_by: 'primary_location.source.id' }))).group_by || [];
     }
     const top = toJournalMatches(groups, []).map(match => match.id);
-    const sources = top.length ? (await fetchJson<{ results?: Source[] }>(`https://api.openalex.org/sources?${new URLSearchParams({
-      filter: `openalex:${top.join('|')}`, 'per-page': String(top.length), mailto: APPLICATION_EMAIL,
+    // Details are optional: without them the journals keep their names and counts, and the rest reads unknown.
+    const sources = top.length ? await fetchJson<{ results?: Source[] }>(openAlexUrl('sources', {
+      filter: `openalex:${top.join('|')}`, 'per-page': String(top.length),
       select: 'id,display_name,host_organization_name,issn_l,is_oa,is_in_doaj,apc_usd,homepage_url,summary_stats',
-    })}`)).results || [] : [];
+    })).then(data => data.results || []).catch(() => [] as Source[]) : [];
     return { query, years, journals: toJournalMatches(groups, sources), checkedAt: now.toISOString(), source: 'openalex' as const };
   });
 }
@@ -104,7 +107,9 @@ export async function loadJournalAngles(journalId: string, now = new Date()): Pr
     const chosen = toJournalAngles(topics, {}).map(angle => angle.topicId);
     const examples: Record<string, JournalAngle['example']> = {};
     await Promise.all(chosen.map(async topicId => {
-      const work = (await fetchJson<{ results?: Work[] }>(worksUrl({ filter: `${filter},primary_topic.id:${topicId}`, sort: 'publication_date:desc', 'per-page': '1', select: 'title,display_name,publication_year,doi' }))).results?.[0];
+      // An example is optional; a failed lookup leaves the angle without one.
+      const work = await fetchJson<{ results?: Work[] }>(worksUrl({ filter: `${filter},primary_topic.id:${topicId}`, sort: 'publication_date:desc', 'per-page': '1', select: 'title,display_name,publication_year,doi' }))
+        .then(data => data.results?.[0]).catch(() => undefined);
       const title = text(work?.title) || text(work?.display_name);
       examples[topicId] = title ? { title, year: Number.isInteger(work?.publication_year) ? work!.publication_year! : null, doi: text(work?.doi) } : null;
     }));

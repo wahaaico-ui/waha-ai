@@ -1,4 +1,4 @@
-import { toJournalAngles, toJournalMatches } from '@/lib/journal-matching';
+import { openAlexUrl, toJournalAngles, toJournalMatches } from '@/lib/journal-matching';
 
 const groups = [
   { key: 'https://openalex.org/S1', key_display_name: 'Clinical Simulation in Nursing', count: 53 },
@@ -46,5 +46,18 @@ describe('reverse planning from a journal (DOC-29-03)', () => {
 
   test('topics with too few works are not offered as angles', () => {
     expect(toJournalAngles([topics[0], topics[3]], examples).map(angle => angle.topicId)).toEqual(['T1']);
+  });
+});
+
+describe('OpenAlex requests', () => {
+  const original = process.env.OPENALEX_API_KEY;
+  afterEach(() => { if (original === undefined) delete process.env.OPENALEX_API_KEY; else process.env.OPENALEX_API_KEY = original; });
+
+  test.each(['works', 'sources'] as const)('a %s request carries the platform key when one is set', path => {
+    process.env.OPENALEX_API_KEY = 'test-key';
+    const url = new URL(openAlexUrl(path, { filter: 'openalex:S1' }));
+    expect(url.pathname).toBe(`/${path}`);
+    expect(url.searchParams.get('api_key')).toBe('test-key');
+    expect(url.searchParams.get('filter')).toBe('openalex:S1');
   });
 });
