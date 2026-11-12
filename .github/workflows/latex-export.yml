@@ -1,0 +1,41 @@
+name: latex-export
+
+# Compiles sample LaTeX exports with XeLaTeX, so a change to the writer is
+# proven to produce files that build, including Arabic and escaped input.
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/lib/latex-export.ts'
+      - 'src/lib/__tests__/latex-export.test.ts'
+      - '.github/workflows/latex-export.yml'
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npx jest --runInBand src/lib/__tests__/latex-export.test.ts
+        env:
+          LATEX_SAMPLE_DIR: ${{ runner.temp }}/latex
+      - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends texlive-xetex texlive-lang-arabic texlive-latex-extra texlive-plain-generic fonts-hosny-amiri lmodern poppler-utils
+      - name: Compile with XeLaTeX
+        working-directory: ${{ runner.temp }}/latex
+        run: |
+          for file in sample-ar sample-en; do
+            xelatex -interaction=nonstopmode -halt-on-error -no-shell-escape "$file.tex"
+            test -s "$file.pdf"
+          done
+      - name: Typed commands are printed, not run
+        working-directory: ${{ runner.temp }}/latex
+        run: pdftotext sample-ar.pdf - | grep -q 'write18'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: latex-samples
+          path: ${{ runner.temp }}/latex/*.pdf

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { buildProjectExportModel, buildProjectMarkdown } from '@/lib/project-export';
 import { buildProjectDocx, buildProjectPdf } from '@/lib/project-document-export';
+import { buildProjectLatex } from '@/lib/latex-export';
 import { languageExportModel, synthesisExportModel, taskMarkdown } from '@/lib/research-task-export';
 import { readLanguageTask } from '@/lib/language-task';
 import { resolveLibrarySelection } from '@/lib/research-search-results';
@@ -20,13 +21,14 @@ import { ProjectExportEvidenceError, projectExportEvidenceMessage } from '@/lib/
 export const runtime = 'nodejs';
 export const maxDuration = 120;
 
-const formats = ['markdown', 'docx', 'pdf'] as const;
+const formats = ['markdown', 'docx', 'pdf', 'latex'] as const;
 type ExportFormat = typeof formats[number];
 
 const formatResponse = {
   markdown: { contentType: 'text/markdown; charset=utf-8', filename: 'waha-project.md' },
   docx: { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', filename: 'waha-project.docx' },
   pdf: { contentType: 'application/pdf', filename: 'waha-project.pdf' },
+  latex: { contentType: 'application/x-tex; charset=utf-8', filename: 'waha-project.tex' },
 } satisfies Record<ExportFormat, { contentType: string; filename: string }>;
 
 function responseBody(content: string | Buffer): BodyInit {
@@ -99,8 +101,9 @@ export async function POST(request: Request) {
         if (!summaryReady(summary)) return NextResponse.json({ error: summary.kind === 'journal' ? 'اكتب الملخص المهيكل في مرحلة «جاهزية النشر» أولًا.' : 'لا يُصدَّر ملخص القرار قبل حفظ النتائج وحدودها.' }, { status: 409 });
         model = summaryExportModel(summary, language);
       } else return NextResponse.json({ error: 'Unsupported task' }, { status: 400 });
-      const content = format === 'docx' ? await buildProjectDocx(model) : format === 'pdf' ? await buildProjectPdf(model) : taskMarkdown(model);
-      return new NextResponse(responseBody(content), { headers: { 'Content-Type': formatResponse[format].contentType, 'Content-Disposition': `attachment; filename="waha-${body.task}.${format === 'markdown' ? 'md' : format}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
+      const content = format === 'docx' ? await buildProjectDocx(model) : format === 'pdf' ? await buildProjectPdf(model) : format === 'latex' ? buildProjectLatex(model) : taskMarkdown(model);
+      const extension = format === 'markdown' ? 'md' : format === 'latex' ? 'tex' : format;
+      return new NextResponse(responseBody(content), { headers: { 'Content-Type': formatResponse[format].contentType, 'Content-Disposition': `attachment; filename="waha-${body.task}.${extension}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
     }
 
     const [projectResult, documents, sources, references] = await Promise.all([
@@ -122,6 +125,7 @@ export async function POST(request: Request) {
     }
     const content = format === 'docx' ? await buildProjectDocx(model)
       : format === 'pdf' ? await buildProjectPdf(model)
+        : format === 'latex' ? buildProjectLatex(model)
         : buildProjectMarkdown(project, documents || [], sources || [], references || [], citationStyle, language);
     const metadata = formatResponse[format];
     return new NextResponse(responseBody(content), { headers: {
