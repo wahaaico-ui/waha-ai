@@ -282,4 +282,23 @@ test.describe('research tools on the live site', () => {
     // on the stages other files save in this shared project, so it is not asserted.
     expect(time.missing).not.toContainEqual({ text: 'لم تحدد الوقت المتاح في «خمسة أسئلة قبل أن تختار».' });
   });
+
+  // DOC-39-04: both summaries come from this project's saved outputs, word for
+  // word; what a stage has not saved is listed as missing, never filled in.
+  test('journal and decision-maker summaries are built from the saved project and download as files', async () => {
+    const response = await request.get(`/api/projects/${projectId}/summaries`);
+    expect(response.status(), await response.text()).toBe(200);
+    type Summary = { kind: string; sections: Array<{ heading: string; text: string }>; missing: Array<{ text: string }> };
+    const { journal, decision } = await response.json() as { journal: Summary; decision: Summary };
+    expect([journal.kind, decision.kind]).toEqual(['journal', 'decision']);
+    for (const summary of [journal, decision]) expect(summary.sections.length + summary.missing.length).toBeGreaterThan(0);
+    // The journal template saved earlier in this file is read.
+    expect(journal.missing).not.toContainEqual({ text: 'لم يُحفظ قالب المجلة بعد، فلم تُقارن حدود الملخص والكلمات المفتاحية.' });
+    // A decision summary is a file only with what was found and its limits; otherwise it is refused.
+    const headings = decision.sections.map(section => section.heading);
+    const ready = headings.includes('ما توصلت إليه الدراسة') && headings.includes('حدود النتائج');
+    const file = await request.post('/api/academic/export', { data: { projectId, task: 'decision_summary', format: 'docx' } });
+    expect(file.status(), await file.text()).toBe(ready ? 200 : 409);
+    if (ready) expect((await file.body()).subarray(0, 2).toString()).toBe('PK');
+  });
 });

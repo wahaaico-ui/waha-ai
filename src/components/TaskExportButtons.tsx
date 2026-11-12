@@ -2,7 +2,7 @@
 import { useUiTranslation } from '@/lib/use-ui-translation';
 import { useState } from 'react';
 
-export default function TaskExportButtons({ projectId, task, documentId }: { projectId: string; task: 'analysis' | 'language' | 'supervisor' | 'originality'; documentId?: string }) {
+export default function TaskExportButtons({ projectId, task, documentId }: { projectId: string; task: 'analysis' | 'language' | 'supervisor' | 'originality' | 'journal_summary' | 'decision_summary'; documentId?: string }) {
   const { text: ui, language } = useUiTranslation();
 
   const [error, setError] = useState('');
