@@ -20,6 +20,7 @@ const RATE_LIMITED_API_PREFIXES = new Map<string, { maxRequests: number; windowS
   ['/api/analyze-idea', { maxRequests: 5, windowSeconds: 60 }],
   ['/api/verify-idea', { maxRequests: 5, windowSeconds: 60 }],
   ['/api/idea-insights', { maxRequests: 10, windowSeconds: 60 }],
+  ['/api/journals', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/auth/signup', { maxRequests: 5, windowSeconds: 60 }],
   ['/api/auth/login', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/auth/logout', { maxRequests: 20, windowSeconds: 60 }],
