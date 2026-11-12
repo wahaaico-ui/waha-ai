@@ -2875,5 +2875,6 @@
   "منقول من مخرجات المشروع المعتمدة كما هي؛ لا يضيف نتيجة أو توصية ليست فيها.": "Taken word for word from the project's approved outputs; it adds no result or recommendation they do not contain.",
   "منقولان من مخرجات المشروع المحفوظة كما هي؛ لا يضيفان نتيجة أو توصية ليست فيها. عدّل المرحلة نفسها ليتغير الملخص.": "Both are taken word for word from the project's saved outputs; they add no result or recommendation they do not contain. Edit the stage itself to change a summary.",
   "اكتب الملخص المهيكل في مرحلة «جاهزية النشر» أولًا.": "Write the structured abstract in the Publication readiness stage first.",
-  "لا يُصدَّر ملخص القرار قبل حفظ النتائج وحدودها.": "A decision summary is not exported before the results and their limits are saved."
+  "لا يُصدَّر ملخص القرار قبل حفظ النتائج وحدودها.": "A decision summary is not exported before the results and their limits are saved.",
+  "هذا المسار متوقف: كان يكتب نصًا بالذكاء الاصطناعي دون مصادر مشروعك. استعمل الصفحة المذكورة.": "This route is retired: it wrote text with AI without your project's sources. Use the page named here."
 }
