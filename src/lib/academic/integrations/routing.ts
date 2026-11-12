@@ -19,9 +19,9 @@ export function providersForDomain(domain: AcademicDomain): AcademicProvider[] {
   const routed: Record<AcademicDomain, AcademicProvider[]> = {
     biomedical: [...BASE, 'pubmed', 'europe-pmc', 'plos', 'core'],
     computing: [...BASE, 'arxiv', 'core', 'datacite'],
-    'social-humanities': [...BASE, 'core', 'openaire', 'doab'],
+    'social-humanities': [...BASE, 'core', 'openaire', 'doab', 'doaj'],
     engineering: [...BASE, 'arxiv', 'core', 'openaire', 'datacite'],
-    general: [...BASE, 'core', 'openaire', 'datacite'],
+    general: [...BASE, 'core', 'openaire', 'datacite', 'doaj'],
   };
   return [...new Set(routed[domain])];
 }

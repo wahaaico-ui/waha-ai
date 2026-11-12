@@ -9,6 +9,7 @@ const checks = [
   ['OpenAIRE', 'https://api.openaire.eu/graph/v3/research-products?search=machine%20learning&page=1&pageSize=1'],
   ['PLOS', 'https://api.plos.org/search?q=machine%20learning&wt=json&rows=1'],
   ['DOAB', 'https://directory.doabooks.org/rest/search?query=education&limit=1'],
+  ['DOAJ', 'https://doaj.org/api/search/articles/education?pageSize=1'],
   ['DataCite', 'https://api.datacite.org/dois?query=machine%20learning&page%5Bsize%5D=1'],
   ['PubMed', `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=cancer&retmode=json&retmax=1&tool=WAHA_AI&email=${encodeURIComponent(email)}`],
   ['OpenCitations', 'https://opencitations.net/index/api/v2/citation-count/doi:10.1038/nature12373'],

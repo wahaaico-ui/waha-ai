@@ -1,6 +1,7 @@
 import { ArxivService } from '@/lib/academic/services/ArxivService';
 import { CoreService } from '@/lib/academic/services/CoreService';
 import { DOABService } from '@/lib/academic/services/DOABService';
+import { DOAJService } from '@/lib/academic/services/DOAJService';
 import { DataCiteService } from '@/lib/academic/services/DataCiteService';
 import { EuropePMCService } from '@/lib/academic/services/EuropePMCService';
 import { OpenAIREService } from '@/lib/academic/services/OpenAIREService';
@@ -17,6 +18,9 @@ import { detectAcademicDomain, providersForDomain } from '@/lib/academic/integra
 import type { AcademicPaper, SearchOptions } from '@/lib/academic/integrations/types';
 import { resilientFetch } from '@/lib/academic/integrations/http';
 import { clearAcademicCache } from '@/lib/academic/integrations/cache';
+import { providerDisplayName } from '@/lib/research-system-text';
+import { ResearchSourceRegistry } from '@/lib/academic/ResearchSourceRegistry';
+import { ResearchRouter } from '@/lib/academic/ResearchRouter';
 
 const options: SearchOptions = { query: 'machine learning', limit: 5, domain: 'computing' };
 const json = (value: unknown) => new Response(JSON.stringify(value), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -89,6 +93,41 @@ describe('academic provider adapters', () => {
     expect(paper).toMatchObject({ publicationType: 'book', doi: '10.1000/book', source: 'doab' });
   });
 
+  // DOC-31-04: DOAJ articles keep the name of their source and only what DOAJ states.
+  test('normalises DOAJ open-access articles with their journal and full-text link', async () => {
+    global.fetch = jest.fn().mockResolvedValue(json({ total: 1, results: [{ id: 'abc123', bibjson: {
+      title: 'Simulation in nursing education', abstract: '<p>Aims</p> <p>To describe a program.</p>', year: '2012',
+      author: [{ name: 'Cooper Simon' }, { name: '' }], identifier: [{ type: 'doi', id: '10.1186/1472-6955-11-18' }, { type: 'eissn', id: '1472-6955' }],
+      journal: { title: 'BMC Nursing', publisher: 'BMC', issns: ['1472-6955'], volume: '11', number: '1' }, start_page: '18', end_page: '25',
+      link: [{ type: 'fulltext', url: 'http://www.biomedcentral.com/1472-6955/11/18', content_type: 'HTML' }],
+      keywords: ['Simulation'], subject: [{ term: 'Nursing' }],
+    } }, { id: 'no-title', bibjson: { year: '2020' } }] }));
+    const papers = await new DOAJService().search({ query: 'simulation: "nursing" (education)', limit: 50, domain: 'general' });
+    const url = new URL(String((global.fetch as jest.Mock).mock.calls[0][0]));
+    expect(url.origin + url.pathname).toBe('https://doaj.org/api/search/articles/simulation%20nursing%20education');
+    expect(url.searchParams.get('pageSize')).toBe('20');
+    expect(papers).toEqual([expect.objectContaining({
+      id: 'doaj:abc123', title: 'Simulation in nursing education', abstract: 'Aims To describe a program.', year: 2012,
+      authors: ['Cooper Simon'], doi: '10.1186/1472-6955-11-18', url: 'http://www.biomedcentral.com/1472-6955/11/18', pdfUrl: null,
+      source: 'doaj', sources: ['doaj'], journal: 'BMC Nursing', publisher: 'BMC', issn: ['1472-6955'], volume: '11', issue: '1', pages: '18-25',
+      subjects: ['Nursing', 'Simulation'], publicationType: 'journal-article', openAccess: true,
+    })]);
+  });
+
+  test('a DOAJ full-text link marked as PDF becomes the PDF link', async () => {
+    global.fetch = jest.fn().mockResolvedValue(json({ results: [{ id: 'p1', bibjson: { title: 'Arabic study', year: '2024', link: [{ type: 'fulltext', url: 'https://journal.example/article.pdf', content_type: 'PDF' }] } }] }));
+    const [paper] = await new DOAJService().search({ query: 'التعليم', limit: 5, domain: 'social-humanities' });
+    expect(paper).toMatchObject({ pdfUrl: 'https://journal.example/article.pdf', url: 'https://journal.example/article.pdf', doi: null });
+  });
+
+  test('DOAJ is routed for humanities and general topics and shown by its own name', () => {
+    expect(ResearchSourceRegistry.get('doaj')).toMatchObject({ label: 'DOAJ', requiresKey: false, enabled: true });
+    expect(ResearchRouter.route('تاريخ التعليم في فلسطين').providers).toContain('doaj');
+    expect(ResearchRouter.route('clinical nursing intervention').providers).not.toContain('doaj');
+    expect(providerDisplayName('doaj')).toBe('DOAJ');
+    expect(providerDisplayName('doab')).toBe('DOAB');
+  });
+
   test('normalises DataCite research objects', async () => {
     global.fetch = jest.fn().mockResolvedValue(json({ data: [{ id: '10.1000/data', attributes: { doi: '10.1000/data', titles: [{ title: 'Dataset' }], creators: [{ name: 'Creator' }], publicationYear: 2026, types: { resourceTypeGeneral: 'Dataset' } } }] }));
     const [paper] = await new DataCiteService().search(options);
@@ -147,7 +186,8 @@ describe('routing and cross-source deduplication', () => {
   test('routes biomedical and humanities queries only to appropriate sources', () => {
     expect(detectAcademicDomain('clinical nursing intervention')).toBe('biomedical');
     expect(providersForDomain('biomedical')).toEqual(expect.arrayContaining(['pubmed', 'europe-pmc']));
-    expect(providersForDomain('social-humanities')).toEqual(expect.arrayContaining(['openaire', 'doab']));
+    expect(providersForDomain('social-humanities')).toEqual(expect.arrayContaining(['openaire', 'doab', 'doaj']));
+    expect(providersForDomain('general')).toContain('doaj');
     expect(providersForDomain('social-humanities')).not.toContain('pubmed');
   });
 
@@ -166,6 +206,7 @@ describe('routing and cross-source deduplication', () => {
     jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([paper]);
     jest.spyOn(OpenAIREService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(DOAJService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(DataCiteService.prototype, 'search').mockResolvedValue([]);
     const result = await UnifiedResearchEngine.searchDetailed({ query: 'reliable academic topic', limit: 5 });
     expect(result.papers).toHaveLength(1);
@@ -182,6 +223,7 @@ describe('routing and cross-source deduplication', () => {
     jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(OpenAIREService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(DOAJService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(DOABService.prototype, 'search').mockResolvedValue([]);
 
     const result = await UnifiedResearchEngine.searchDetailed({
@@ -204,6 +246,7 @@ describe('routing and cross-source deduplication', () => {
     jest.spyOn(CrossrefService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(CoreService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(OpenAIREService.prototype, 'search').mockResolvedValue([]);
+    jest.spyOn(DOAJService.prototype, 'search').mockResolvedValue([]);
     jest.spyOn(DOABService.prototype, 'search').mockResolvedValue([]);
 
     const result = await UnifiedResearchEngine.searchDetailed({

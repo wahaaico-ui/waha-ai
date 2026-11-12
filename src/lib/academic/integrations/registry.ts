@@ -8,6 +8,7 @@ import { EuropePMCService } from '../services/EuropePMCService';
 import { OpenAIREService } from '../services/OpenAIREService';
 import { PLOSService } from '../services/PLOSService';
 import { DOABService } from '../services/DOABService';
+import { DOAJService } from '../services/DOAJService';
 import { DataCiteService } from '../services/DataCiteService';
 import { PubMedService } from '../services/PubMedService';
 
@@ -21,6 +22,7 @@ const providers: Record<AcademicProvider, AcademicSearchProvider> = {
   openaire: new OpenAIREService(),
   plos: new PLOSService(),
   doab: new DOABService(),
+  doaj: new DOAJService(),
   datacite: new DataCiteService(),
   pubmed: new PubMedService(),
 };
