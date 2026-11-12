@@ -130,4 +130,35 @@ test.describe('WAHA authenticated critical path', () => {
     expect(file.suggestedFilename()).toBe('waha-career.pdf');
     expect(readFileSync((await file.path())!).subarray(0, 4).toString()).toBe('%PDF');
   });
+
+  // DOC-30-03: a share link shows only the chosen sections to a visitor, and a revoked link shows nothing.
+  test('@critical research career share link shows chosen sections and stops when revoked', async ({ page, browser }) => {
+    test.setTimeout(180_000);
+    await login(page);
+    await expect(page).toHaveURL(/\/dashboard/);
+    const status = await page.request.get('/api/career/share');
+    test.skip(status.status() === 503, 'The career_share_links migration is not applied in production yet.');
+    await page.goto('/dashboard/career');
+    await page.getByLabel('معرّف ORCID').fill('0000-0003-1613-5981');
+    await page.getByRole('button', { name: 'احفظ المعرّف' }).click();
+    const share = page.getByRole('region', { name: 'مشاركة المسيرة' });
+    await expect(share).toBeVisible({ timeout: 120_000 });
+    await share.getByRole('checkbox', { name: 'اتجاهات تالية مقترحة' }).uncheck();
+    await share.getByRole('button', { name: /أنشئ رابط/ }).click();
+    const url = await share.getByLabel('الرابط الحالي').inputValue();
+    expect(url).toMatch(/\/career\/[A-Za-z0-9_-]{32}$/);
+
+    const visitor = await browser.newContext();
+    const view = await visitor.newPage();
+    await view.goto(url);
+    await expect(view.getByRole('heading', { name: 'تتبع الاستشهادات' })).toBeVisible({ timeout: 120_000 });
+    await expect(view.getByRole('heading', { name: 'اتجاهات تالية مقترحة' })).toHaveCount(0);
+
+    page.once('dialog', dialog => void dialog.accept());
+    await share.getByRole('button', { name: 'ألغِ الرابط' }).click();
+    await expect(share.getByLabel('الرابط الحالي')).toHaveCount(0);
+    const revoked = await view.goto(url);
+    expect(revoked?.status()).toBe(404);
+    await visitor.close();
+  });
 });

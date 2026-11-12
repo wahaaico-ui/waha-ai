@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase/client';
 import { useUiTranslation } from '@/lib/use-ui-translation';
 import { normalizeOrcid } from '@/lib/orcid';
 import type { Career } from '@/lib/scholarly-career';
+import { SHARE_SECTIONS, type ShareSection } from '@/lib/career-share';
+import CareerSharePanel from '@/components/CareerSharePanel';
 
 const card = 'rounded-3xl border border-[#27272a] bg-[#18181b] p-6';
 /** Keeps an iD or a date on one line and in its own direction inside Arabic text. */
@@ -13,8 +15,10 @@ const nowrap = (value: string) => `\u2066${value.replace(/-/g, '\u2011')}\u2069`
 const list = (rows: Array<{ name: string; count: number }>) => rows.map(row => `${row.name} (${row.count})`).join(' · ');
 
 /** What OpenAlex holds for the researcher's ORCID iD: works, what cites them and where that leads (DOC-30-01..03). */
-export function CareerView({ career }: { career: Career }) {
+/** `shared` speaks about the researcher instead of to them, for the public page. */
+export function CareerView({ career, sections = SHARE_SECTIONS, shared = false }: { career: Career; sections?: readonly ShareSection[]; shared?: boolean }) {
   const { text: ui } = useUiTranslation();
+  const show = (section: ShareSection) => sections.includes(section);
   return <div className="space-y-6">
     <section className={card}>
       <h2 className="text-xl font-bold">{ui('الباحث')}</h2>
@@ -25,11 +29,11 @@ export function CareerView({ career }: { career: Career }) {
       <p className="mt-3 text-xs text-gray-500">{ui('من بيانات OpenAlex المرتبطة بمعرّف ORCID {0} بتاريخ {1}. الأعمال تُعرف بمعرفاتها لا بعناوينها.', [nowrap(career.orcid), nowrap(career.checkedAt.slice(0, 10))])}</p>
     </section>
 
-    <section className={card}>
+    {show('citations') && <section className={card}>
       <h2 className="text-xl font-bold">{ui('تتبع الاستشهادات')}</h2>
-      <p className="mt-1 text-sm text-gray-400">{ui('أكثر أعمالك استشهادًا، ومن يستشهد بها حسب السنة والمجلة والدولة.')}</p>
+      <p className="mt-1 text-sm text-gray-400">{ui(shared ? 'أكثر أعمال الباحث استشهادًا، ومن يستشهد بها حسب السنة والمجلة والدولة.' : 'أكثر أعمالك استشهادًا، ومن يستشهد بها حسب السنة والمجلة والدولة.')}</p>
       {career.citations.length === 0
-        ? <p className="mt-4 text-sm text-gray-300">{ui('لا توجد استشهادات مسجلة لأعمالك بعد.')}</p>
+        ? <p className="mt-4 text-sm text-gray-300">{ui(shared ? 'لا توجد استشهادات مسجلة لأعمال الباحث بعد.' : 'لا توجد استشهادات مسجلة لأعمالك بعد.')}</p>
         : <ul className="mt-4 space-y-4">{career.citations.map(item => <li key={item.workId} className="rounded-2xl border border-[#3f3f46] p-4">
           <p dir="auto" className="font-bold">{item.title}</p>
           <p className="mt-1 text-sm text-cyan-300">{ui('{0}: {1} استشهادًا.', [ui('المجموع'), item.citations])}</p>
@@ -40,21 +44,21 @@ export function CareerView({ career }: { career: Career }) {
             <div><dt className="inline text-gray-500">{ui('سياقات الاستشهاد')}: </dt><dd className="inline">{ui('غير متاحة؛ لا تنشرها OpenAlex')}</dd></div>
           </dl>
         </li>)}</ul>}
-    </section>
+    </section>}
 
-    <section className={card}>
+    {show('directions') && <section className={card}>
       <h2 className="text-xl font-bold">{ui('اتجاهات تالية مقترحة')}</h2>
-      <p className="mt-1 text-sm text-gray-400">{ui('موضوعات تتجه إليها الدراسات التي تستشهد بعملك، ولم تنشر فيها بعد.')}</p>
+      <p className="mt-1 text-sm text-gray-400">{ui(shared ? 'موضوعات تتجه إليها الدراسات التي تستشهد بأعمال الباحث، ولم ينشر فيها بعد.' : 'موضوعات تتجه إليها الدراسات التي تستشهد بعملك، ولم تنشر فيها بعد.')}</p>
       {career.directions.length === 0
         ? <p className="mt-4 text-sm text-gray-300">{ui('لا تكفي الاستشهادات الحالية لاقتراح اتجاه.')}</p>
         : <ol className="mt-4 space-y-3">{career.directions.map((item, index) => <li key={item.topicId} className="rounded-2xl border border-[#3f3f46] p-4 text-sm">
           <p className="font-bold">{index + 1}. <span dir="auto">{item.topic}</span></p>
-          <p className="mt-1 text-xs text-gray-400">{ui('{0} دراسة استشهدت بعملك في هذا الموضوع.', [item.citingWorks])}</p>
+          <p className="mt-1 text-xs text-gray-400">{ui(shared ? '{0} دراسة استشهدت بأعمال الباحث في هذا الموضوع.' : '{0} دراسة استشهدت بعملك في هذا الموضوع.', [item.citingWorks])}</p>
           <p className="mt-1 text-xs text-gray-400">{ui('انطلاقًا من')}: <span dir="auto">{item.fromWorks.map(work => work.title).join(' · ')}</span></p>
         </li>)}</ol>}
-    </section>
+    </section>}
 
-    <section className={card}>
+    {show('timeline') && <section className={card}>
       <h2 className="text-xl font-bold">{ui('الأعمال المنشورة')}</h2>
       {career.timeline.length === 0
         ? <p className="mt-4 text-sm text-gray-300">{ui('لا توجد أعمال مرتبطة بهذا المعرّف في OpenAlex.')}</p>
@@ -65,7 +69,7 @@ export function CareerView({ career }: { career: Career }) {
             : item.title}</p>
           <p className="text-xs text-gray-500"><span dir="auto">{item.venue || ''}</span>{item.venue ? ' · ' : ''}{ui('الاستشهادات: {0}', [item.citations])}</p>
         </li>)}</ol>}
-    </section>
+    </section>}
   </div>;
 }
 
@@ -132,9 +136,9 @@ export default function CareerWorkspace() {
     {state === 'ready' && career && <>
       <section aria-label={ui('تصدير المسيرة')} className={card}>
         <p className="text-sm font-bold">{ui('تصدير المسيرة')}</p>
-        <p className="mt-1 text-xs text-gray-500">{ui('رابط المشاركة العامة غير متاح بعد.')}</p>
         <div className="mt-3 flex flex-wrap gap-2">{(['docx', 'pdf'] as const).map(format => <button key={format} type="button" disabled={busy !== null} onClick={() => void download(format)} className="rounded-lg border border-cyan-500/40 px-4 py-2 text-sm font-bold text-cyan-300 disabled:opacity-40">{format.toUpperCase()}</button>)}</div>
       </section>
+      <CareerSharePanel orcid={career.orcid} />
       <CareerView career={career} />
     </>}
   </div>;
