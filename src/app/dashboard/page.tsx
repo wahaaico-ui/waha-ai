@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SiteHeader from '@/components/SiteHeader';
+import DefenseReminderBanner from '@/components/DefenseReminderBanner';
 import ScoreCircle from '@/components/ScoreCircle';
 import { useWahaLanguage } from '@/lib/use-language';
 import { useAuthSession } from '@/components/AuthSessionProvider';
@@ -250,6 +251,8 @@ export default function DashboardPage() {
             <Link href="/verify-idea" className="inline-flex shrink-0 items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-bold text-blue-700 shadow-sm">{t.newProject}</Link>
           </div>
         </section>
+
+        <DefenseReminderBanner />
 
         {loading ? (
           <p className="text-slate-500 text-sm">{t.loading}</p>

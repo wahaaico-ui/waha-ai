@@ -161,4 +161,29 @@ test.describe('WAHA authenticated critical path', () => {
     expect(revoked?.status()).toBe(404);
     await visitor.close();
   });
+
+  // DOC-38-03: a saved defense date gives a two-week plan, ticks are kept, and the dashboard reminds.
+  test('@critical defense date gives a preparation plan and a dashboard reminder', async ({ page }) => {
+    if (!projectId) throw new Error('Defense gate requires E2E_TEST_PROJECT_ID owned by the temporary user.');
+    test.setTimeout(120_000);
+    await login(page);
+    await expect(page).toHaveURL(/\/dashboard/);
+    const defenseDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    await page.goto(`/research/defense?projectId=${projectId}`);
+    await page.getByLabel('موعد المناقشة').fill(defenseDate);
+    await page.getByRole('button', { name: /احفظ الموعد|حدّث الموعد/ }).click();
+    await expect(page.getByText('بقي على المناقشة 10 يومًا.')).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('بدأت الخطة متأخرة')).toBeVisible();
+
+    const tick = page.getByRole('button', { name: 'علّم منجزة: جهّز عرض المناقشة' });
+    await tick.click();
+    await expect(page.getByRole('button', { name: 'ألغِ إنجاز: جهّز عرض المناقشة' })).toHaveAttribute('aria-pressed', 'true');
+    await page.reload();
+    await expect(page.getByRole('button', { name: 'ألغِ إنجاز: جهّز عرض المناقشة' })).toBeVisible({ timeout: 30_000 });
+
+    await page.goto('/dashboard');
+    const reminder = page.getByRole('region', { name: 'تذكير بالمناقشة' });
+    await expect(reminder.getByText(/يومًا\.$/).first()).toBeVisible({ timeout: 30_000 });
+    await expect(reminder.getByRole('link', { name: 'افتح خطة الاستعداد' }).first()).toHaveAttribute('href', `/research/defense?projectId=${projectId}`);
+  });
 });
