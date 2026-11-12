@@ -155,6 +155,16 @@ export async function buildProjectDocx(model: ProjectExportModel): Promise<Buffe
   return Buffer.from(await Packer.toBuffer(document));
 }
 
+/**
+ * PDFKit places each run from the top of its own font, and fonts differ in
+ * height, so digits and Latin words in Helvetica sat above Amiri's Arabic.
+ * Every run of a line now shares the baseline of the line's tallest font.
+ */
+function lineBaseline(document: PDFKit.PDFDocument, fonts: PdfFontName[], size: number) {
+  const ascent = Math.max(...fonts.map(font => (document.font(font).fontSize(size) as unknown as { _font: { ascender: number } })._font.ascender));
+  return -ascent / 1000 * size;
+}
+
 export async function buildProjectPdf(model: ProjectExportModel): Promise<Buffer> {
   const profile = model.styleProfile;
   const point = (centimeters: number | undefined, fallback: number) => centimeters === undefined ? fallback : centimeters * 72 / 2.54;
@@ -212,13 +222,14 @@ export async function buildProjectPdf(model: ProjectExportModel): Promise<Buffer
         if (document.y + height > document.page.height - document.page.margins.bottom - 18) document.addPage();
         const y = document.y;
         const runs = visual(logical);
+        const baseline = lineBaseline(document, runs.map(run => run.font), size);
         const x = /\p{Script=Arabic}/u.test(logical) ? document.page.width - right - runs.reduce((sum, run) => sum + runWidth(run), 0) : left;
         // Preserve logical Unicode for copy/paste and accessible extraction;
         // Arabic glyph shaping alone is not a reliable text round trip.
         document.markContent('Span', { actual: logical });
         for (const run of pdfReadingOrderRuns(runs, x, runWidth)) {
           document.markContent('Span', { actual: run.text });
-          document.font(run.font).text(run.text, run.x, y, { lineBreak: false, features: ['rtla'] });
+          document.font(run.font).fontSize(size).text(run.text, run.x, y, { lineBreak: false, features: ['rtla'], baseline });
           document.endMarkedContent();
         }
         document.endMarkedContent();
@@ -259,18 +270,19 @@ export async function buildProjectPdf(model: ProjectExportModel): Promise<Buffer
       if (document.y + height > document.page.height - document.page.margins.bottom - 18) document.addPage();
       const original = logical.map(run => run.text).join(''); const rtl = /\p{Script=Arabic}/u.test(original);
       const visual = visualRuns(logical); const y = document.y;
+      const baseline = lineBaseline(document, ['Helvetica', ...visual.map(run => run.font)], size);
       const x = rtl ? document.page.width - right - Math.min(block.indent, 6) * 16 - listColumn - measure(logical) : left + Math.min(block.indent, 6) * 16 + listColumn;
       document.markContent('Span', { actual: `${lineIndex === 0 ? block.prefix || '' : ''}${original}` });
       if (lineIndex === 0 && block.prefix) {
         document.font('Helvetica').fontSize(size).fillColor('#1e293b');
         const prefix = block.prefix.trim(); const prefixLeft = rtl ? document.page.width - right - Math.min(block.indent, 6) * 16 - document.widthOfString(prefix) : left + Math.min(block.indent, 6) * 16;
-        document.text(prefix, prefixLeft, y, { lineBreak: false });
+        document.font('Helvetica').fontSize(size).text(prefix, prefixLeft, y, { lineBreak: false, baseline });
       }
       for (const run of pdfReadingOrderRuns(visual, x, run => document.font(run.font).fontSize(size).widthOfString(run.text, { features: ['rtla'] }))) {
         const name = run.font, nativeLatin = name.startsWith('Helvetica');
         document.font(name).fontSize(size).fillColor(block.quote ? '#475569' : '#1e293b').strokeColor(block.quote ? '#475569' : '#1e293b').lineWidth(0.2);
         document.markContent('Span', { actual: run.text });
-        document.text(run.text, run.x, y, { lineBreak: false, features: ['rtla'], underline: run.marks?.includes('underline'), strike: run.marks?.includes('strike'),
+        document.text(run.text, run.x, y, { lineBreak: false, features: ['rtla'], baseline, underline: run.marks?.includes('underline'), strike: run.marks?.includes('strike'),
           stroke: !nativeLatin && run.marks?.includes('bold'), fill: true, oblique: !nativeLatin && run.marks?.includes('italic') ? 12 : false });
         document.endMarkedContent();
       }
@@ -344,11 +356,13 @@ export async function buildProjectPdf(model: ProjectExportModel): Promise<Buffer
           const y = top + padding + index * lineHeight;
           const x = rtl ? cellLeft + cellWidth - padding - measure(logical) : cellLeft + padding;
           document.markContent('Span', { actual: original });
-          for (const run of pdfReadingOrderRuns(visualRuns(logical), x, run => document.font(run.font).fontSize(size).widthOfString(run.text, { features: ['rtla'] }))) {
+          const cellRuns = visualRuns(logical);
+          const baseline = lineBaseline(document, cellRuns.map(run => run.font), size);
+          for (const run of pdfReadingOrderRuns(cellRuns, x, run => document.font(run.font).fontSize(size).widthOfString(run.text, { features: ['rtla'] }))) {
             const name = run.font, nativeLatin = name.startsWith('Helvetica');
             document.font(name).fontSize(size).fillColor('#1e293b').strokeColor('#1e293b').lineWidth(0.2);
             document.markContent('Span', { actual: run.text });
-            document.text(run.text, run.x, y, { lineBreak: false, features: ['rtla'], underline: run.marks?.includes('underline'), strike: run.marks?.includes('strike'),
+            document.text(run.text, run.x, y, { lineBreak: false, features: ['rtla'], baseline, underline: run.marks?.includes('underline'), strike: run.marks?.includes('strike'),
               stroke: !nativeLatin && run.marks?.includes('bold'), fill: true, oblique: !nativeLatin && run.marks?.includes('italic') ? 12 : false });
             document.endMarkedContent();
           }
