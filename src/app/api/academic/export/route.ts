@@ -13,6 +13,8 @@ import { researcherProfileFromMetadata } from '@/lib/researcher-profile';
 import { CITATION_STYLES, type CitationStyle } from '@/lib/citations/types';
 import { readCompleteExportRows } from '@/lib/complete-export-rows';
 import { verifyProjectExportEvidence } from '@/lib/project-export-evidence';
+import { loadProjectSummaries } from '@/lib/project-summaries-data';
+import { summaryExportModel, summaryReady } from '@/lib/project-summaries';
 import { ProjectExportEvidenceError, projectExportEvidenceMessage } from '@/lib/project-export-errors';
 
 export const runtime = 'nodejs';
@@ -91,6 +93,11 @@ export async function POST(request: Request) {
         const project = await access.supabase.from('projects').select('title').eq('id', projectId).eq('user_id', access.user.id).maybeSingle();
         if (project.error || !project.data) throw new Error('Project unavailable');
         model = synthesisExportModel(project.data.title, analysis, used, language);
+      } else if (body.task === 'journal_summary' || body.task === 'decision_summary') {
+        const summaries = await loadProjectSummaries(access.supabase, projectId);
+        const summary = body.task === 'journal_summary' ? summaries.journal : summaries.decision;
+        if (!summaryReady(summary)) return NextResponse.json({ error: summary.kind === 'journal' ? 'اكتب الملخص المهيكل في مرحلة «جاهزية النشر» أولًا.' : 'لا يُصدَّر ملخص القرار قبل حفظ النتائج وحدودها.' }, { status: 409 });
+        model = summaryExportModel(summary, language);
       } else return NextResponse.json({ error: 'Unsupported task' }, { status: 400 });
       const content = format === 'docx' ? await buildProjectDocx(model) : format === 'pdf' ? await buildProjectPdf(model) : taskMarkdown(model);
       return new NextResponse(responseBody(content), { headers: { 'Content-Type': formatResponse[format].contentType, 'Content-Disposition': `attachment; filename="waha-${body.task}.${format === 'markdown' ? 'md' : format}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });

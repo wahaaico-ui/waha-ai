@@ -4,6 +4,17 @@ import { firstUnsupportedResearchNumber } from '@/lib/research-numeric-integrity
 export type RecommendationType = 'practice' | 'policy' | 'future_research';
 export type RecommendationHorizon = 'immediate' | 'short_term' | 'long_term';
 
+export const RECOMMENDATION_TYPE_LABELS: Record<RecommendationType, string> = {
+  practice: 'ممارسة أو إجراء',
+  policy: 'سياسة أو قرار مؤسسي',
+  future_research: 'بحث مستقبلي',
+};
+export const RECOMMENDATION_HORIZON_LABELS: Record<RecommendationHorizon, string> = {
+  immediate: 'أولوية فورية',
+  short_term: 'قصيرة المدى',
+  long_term: 'طويلة المدى',
+};
+
 export type ResearchRecommendationItem = {
   questionIndex: number;
   questionText: string;

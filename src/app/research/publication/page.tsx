@@ -7,6 +7,7 @@ import SiteHeader from '@/components/SiteHeader';
 import ProjectExportButton from '@/components/ProjectExportButton';
 import { JournalReviewPanel, JournalTemplatePanel } from '@/components/JournalPublicationPanels';
 import JournalMatchingPanel from '@/components/JournalMatchingPanel';
+import ProjectSummariesPanel from '@/components/ProjectSummariesPanel';
 import JourneyProgress from '@/components/JourneyProgress';
 import { JourneyStageSaveError, loadJourney, saveJourneyStage } from '@/lib/research-journey';
 import {
@@ -44,6 +45,7 @@ export default function ResearchPublicationPage() {
   const [loadedProjectId, setLoadedProjectId] = useState('');
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [error, setError] = useState('');
+  const [savedAt, setSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -106,6 +108,7 @@ export default function ResearchPublicationPage() {
         aiUseDisclosure: form.aiUseDisclosure.trim(),
       });
       setStatus('saved');
+      setSavedAt(new Date().toISOString());
     } catch (reason) {
       setError(reason instanceof JourneyStageSaveError || reason instanceof Error ? reason.message : 'تعذر حفظ جاهزية النشر.');
       setStatus('idle');
@@ -168,6 +171,7 @@ export default function ResearchPublicationPage() {
         {journey && <JournalMatchingPanel defaultTopic={typeof journey.outputs.title?.title === 'string' ? journey.outputs.title.title : ''} />}
         {journey && form && <JournalTemplatePanel projectId={projectId} outputs={journey.outputs} publication={form} />}
         <JournalReviewPanel projectId={projectId} journalName={form?.targetName || ''} />
+        <ProjectSummariesPanel projectId={projectId} savedAt={savedAt} />
       </> : null}
     </main>
   </div>;

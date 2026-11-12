@@ -11,26 +11,15 @@ import {
   isRecommendationHorizon,
   isRecommendationType,
   researchRecommendationsConsistencyIssue,
-  type RecommendationHorizon,
-  type RecommendationType,
   type ResearchRecommendationsOutput,
+  RECOMMENDATION_HORIZON_LABELS,
+  RECOMMENDATION_TYPE_LABELS,
 } from '@/lib/research-recommendations';
 import { stageComplete } from '@/lib/research-workflow';
 import { useProjectId } from '@/lib/use-project-id';
 import { useJourneyAutosave } from '@/lib/use-journey-autosave';
 
 type JourneyData = Awaited<ReturnType<typeof loadJourney>>;
-
-const TYPE_LABELS: Record<RecommendationType, string> = {
-  practice: 'ممارسة أو إجراء',
-  policy: 'سياسة أو قرار مؤسسي',
-  future_research: 'بحث مستقبلي',
-};
-const HORIZON_LABELS: Record<RecommendationHorizon, string> = {
-  immediate: 'أولوية فورية',
-  short_term: 'قصيرة المدى',
-  long_term: 'طويلة المدى',
-};
 
 function savedRecommendations(output: Record<string, unknown> | undefined): ResearchRecommendationsOutput | null {
   if (!output || !Array.isArray(output.recommendations)) return null;
@@ -140,9 +129,9 @@ export default function ResearchRecommendationsPage() {
           {form.recommendations.map((item, index) => <article key={item.questionIndex} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
             <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4"><p className="text-xs font-bold text-emerald-700">{ui("الاستنتاج المعتمد للسؤال")}{' '}{index + 1}</p><p className="mt-2 text-sm font-bold leading-7 text-emerald-950">{item.conclusionStatement}</p><p className="mt-2 border-t border-emerald-200 pt-2 text-xs leading-6 text-emerald-800">{item.questionText}</p></div>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <label className="space-y-2 text-sm font-bold">{ui("نوع التوصية")}<select value={item.recommendationType} onChange={(event) => { if (isRecommendationType(event.target.value)) updateItem(index, { recommendationType: event.target.value }); }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal">{Object.entries(TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{ui(label)}</option>)}</select></label>
+              <label className="space-y-2 text-sm font-bold">{ui("نوع التوصية")}<select value={item.recommendationType} onChange={(event) => { if (isRecommendationType(event.target.value)) updateItem(index, { recommendationType: event.target.value }); }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal">{Object.entries(RECOMMENDATION_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{ui(label)}</option>)}</select></label>
               <label className="space-y-2 text-sm font-bold">{ui("الجهة المستهدفة")}<input value={item.targetAudience} onChange={(event) => updateItem(index, { targetAudience: event.target.value })} maxLength={240} placeholder={ui("مثال: إدارات الجامعات")} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal" /></label>
-              <label className="space-y-2 text-sm font-bold">{ui("أفق التنفيذ")}<select value={item.implementationHorizon} onChange={(event) => { if (isRecommendationHorizon(event.target.value)) updateItem(index, { implementationHorizon: event.target.value }); }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal">{Object.entries(HORIZON_LABELS).map(([value, label]) => <option key={value} value={value}>{ui(label)}</option>)}</select></label>
+              <label className="space-y-2 text-sm font-bold">{ui("أفق التنفيذ")}<select value={item.implementationHorizon} onChange={(event) => { if (isRecommendationHorizon(event.target.value)) updateItem(index, { implementationHorizon: event.target.value }); }} className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-normal">{Object.entries(RECOMMENDATION_HORIZON_LABELS).map(([value, label]) => <option key={value} value={value}>{ui(label)}</option>)}</select></label>
             </div>
             <label className="mt-4 block space-y-2 text-sm font-bold">{ui("صياغة التوصية")}<textarea dir="auto" value={item.recommendationText} onChange={(event) => updateItem(index, { recommendationText: event.target.value })} maxLength={2400} rows={6} placeholder={ui("اكتب إجراءً محدداً ومتناسباً مع الاستنتاج وحدود الدراسة، ووضّح الغرض منه…")} className="w-full rounded-xl border border-slate-300 px-4 py-3 font-normal leading-7" />
               <span className="block text-xs font-normal leading-6 text-slate-500">{ui("لا تضف نسبة أو هدفاً رقمياً لم يرد في الاستنتاج. استخدم حقل أفق التنفيذ بدل كتابة مدة مخترعة.")}</span>
