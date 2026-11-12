@@ -25,3 +25,16 @@ The test suite expects `20261005000000_scholarly_works.sql`, which is lost. To
 close the gap, dump the production schema (`supabase db dump --schema public`,
 needs Docker) and turn the definitions of these tables into a committed
 migration.
+
+## Found on 11 Nov 2026
+
+`20261005000000_scholarly_works.sql` is not lost. It and eight other
+migrations (20260927000000 to 20261010000000: server-owned research
+documents, server-held search results, server-owned references and
+sources, scholarly works, project reference works, scholarly work
+observations, evidence items, claims, gap intelligence) are on the remote
+branches `claude/jolly-euler-1qu9i5` and `claude/reference-check-v0`.
+They are likely what created the tables above. Before they move into
+`supabase/migrations/`, compare them with a production schema dump, and
+record them as applied in production (`supabase migration repair`) so no
+later push replays them. Both steps need the owner.

@@ -12,7 +12,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { createTableFake } from '@/lib/test-support/table-fake';
 
 type Paper = { id: string; title: string; authors: string; year: number; doi: string; journal: string | null; publicationType: string; url: string };
-const { selected }: { selected: Paper[] } = JSON.parse(readFileSync(join(process.cwd(), 'output/qa/real-source-inputs.json'), 'utf8'));
+const { selected }: { selected: Paper[] } = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'real-source-inputs.json'), 'utf8'));
 const projectId = 'ce0c5872-122d-4f72-a9d1-43b120b95f45';
 const userId = 'owner';
 

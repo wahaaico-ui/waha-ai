@@ -1,0 +1,590 @@
+{
+  "checkedAt": "2026-11-11T18:40:31.651Z",
+  "query": "simulation nursing education",
+  "source": "OpenAlex",
+  "papers": [
+    {
+      "id": "W1965271829",
+      "title": "High-Fidelity Nursing Simulation: Impact on Student Self-Confidence and Clinical Competence",
+      "abstract": "Development of safe nursing practice in entry-level nursing students requires special consideration from nurse educators. The paucity of data supporting high-fidelity patient simulation effectiveness in this population informed the development of a quasi-experimental, quantitative study of the relationship between simulation and student self-confidence and clinical competence. Moreover, the study reports a novel approach to measuring self-confidence and competence of entry-level nursing students. Fifty-three baccalaureate students, enrolled in either a traditional or simulation-enhanced laboratory, participated during their first clinical rotation. Student self-confidence and faculty perception of student clinical competence were measured using selected scale items of the Lasater Clinical Judgment Rubric. The results indicated an overall improvement in self-confidence and competence across the semester, however, simulation did not significantly enhance these caring attributes. The study highlights the need for further examination of teaching strategies developed to promote the transfer of self-confidence and competence from the laboratory to the clinical setting.",
+      "authors": [
+        "Cynthia Ann Blum",
+        "Susan T. Borglund",
+        "Dax Andrew Parcells"
+      ],
+      "year": 2010,
+      "source": "openalex"
+    },
+    {
+      "id": "W2897153259",
+      "title": "A Concept Analysis of 'Facilitator' in Simulation Nursing Education",
+      "abstract": "Purpose: This study was to identify and define the concept of a facilitator and specific attributes for providing basic data on simulation nursing education. Methods: Using Walker and Avant's (2005) criteria that identify the attributes, antecedents, and consequences of facilitators in simulation nursing education, the findings of research articles published from 2001 to 2017 were reviewed. Results: There were three aspects of the facilitator concept in simulation nursing education: (1) continuous support throughout the entire simulation process; (2) skilled progress based on clinical expertise; (3) guidance for learners to actively understand and reflect on the situation. Conclusion: This concept analysis helps us to better understand better facilitators in simulation nursing education.",
+      "authors": [
+        "Jiyoung Kim"
+      ],
+      "year": 2018,
+      "source": "openalex"
+    },
+    {
+      "id": "W3151954612",
+      "title": "Simulation in Clinical Nursing Education",
+      "abstract": "BACKGROUND: Simulation constitutes a teaching method and a strategy for learning and understanding theoretical knowledge and skills in the nursing and medical field. OBJECTIVE: To review and present modern data related to this issue. METHODS: Literature review of data related to the issue derived from Medline, Cinhal, and Scopus databases, in English, using the following keywords: nursing, simulation, simulator, nursing laboratory. RESULTS: The implementation of simulation enables students to practice their clinical and decision-making skills for some significant issues they may face in their daily work. The protected environment and the sense of security enhance students' self-esteem and confidence, thus promoting learning. In this way, the gap between theory and practice is substantially reduced. CONCLUSION: The further development of simulation, along with other instructional techniques, can significantly help the efforts made by the students to become integrated and successful healthcare professionals.",
+      "authors": [
+        "Κωνσταντίνος Κουκουρίκος",
+        "Areti Tsaloglidou",
+        "Lambrini I. Kourkouta",
+        "Ioanna V. Papathanasiou",
+        "Christos Iliadis",
+        "Aikaterini Apostolos Frantzana"
+      ],
+      "year": 2021,
+      "source": "openalex"
+    },
+    {
+      "id": "W135395601",
+      "title": "Simulation in Nursing Education: A Review of the Research",
+      "abstract": "Simulation in education has been used at least since the time of World War II. Simulation in nursing education in the form of static manikins, role playing, CPR manikins, and other techniques has also been utilized as a teaching modality for quite some time. High-fidelity simulation is a relatively new area in nursing education and utilizes high technology simulation monitors and computers. This technology offers new avenues for teaching student nurses scenarios as well as critical thinking and reflection on lived experience and practice. However, the outcome research in the area of high-fidelity simulation in nursing education is limited at this time. This article focuses on the qualitative and quantitative research currently available in this area.",
+      "authors": [
+        "Pamela Sanford"
+      ],
+      "year": 2014,
+      "source": "openalex"
+    },
+    {
+      "id": "W2586828426",
+      "title": "Simulation in nursing education",
+      "abstract": "Part of becoming a working professional always involves applying knowledge and trying out skills in carefully controlled and monitored settings to get feedback on our first attempts at practice. For many years, nurses have practiced taking BP readings on each other, learned to provide certain kinds of physical care on manikins, and rehearsed giving injections with oranges. With advances in technology, learning labs in nursing schools now include standardized patients (actors), various kinds of lifelike models, and full-scale simulators (manikins that manifest symptoms and respond to treatment decisions and other actions). The use of simulation in nursing education has grown to the point where it's now a common element in the preparation for practice. We review what should you know about simulation and how it's shaping the education of nursing students and graduate nurses coming to your units and settings.",
+      "authors": [
+        "Patrick Lavoie",
+        "Sean Patrick Clarke"
+      ],
+      "year": 2017,
+      "source": "openalex"
+    },
+    {
+      "id": "W2674492409",
+      "title": "Simulation in nursing education",
+      "abstract": "Patrick Lavoie is a postdoctoral fellow at the Boston College William F. Connell School of Nursing in Chestnut Hill, Mass. Sean P. Clarke is a professor and the associate dean of undergraduate programs at the Boston College William F. Connell School of Nursing. The authors have disclosed no financial relationships related to this article.",
+      "authors": [
+        "Patrick Lavoie",
+        "Sean Patrick Clarke"
+      ],
+      "year": 2017,
+      "source": "openalex"
+    },
+    {
+      "id": "W2182919517",
+      "title": "Using Simulation Technology for Undergraduate Nursing Education",
+      "abstract": "As simulation technology is rapidly expanding, nursing programs are making large investments in this technology, which has great potential for undergraduate nursing programs. Unfortunately, this potential is underestimated and underused. With simulation technology, undergraduate students can gain and improve skills in a safe, non-threatening, experiential environment that also provides opportunities for decision making, critical thinking, and team building. This article describes how to use simulation technology to enhance undergraduate nursing education. The process for simulation technology instruction, leveling content from simple to complex, and faculty resources are discussed. An example of a simulation program is included.",
+      "authors": [
+        "Catherine F. Medley",
+        "Claydell H. Horne"
+      ],
+      "year": 2005,
+      "source": "openalex"
+    },
+    {
+      "id": "W1987194771",
+      "title": "Simulation Methodology in Nursing Education and Adult Learning Theory",
+      "abstract": "Simulation is often used in nursing education as a teaching methodology. Simulation is rooted in adult learning theory. Three learning theories, cognitive, social, and constructivist, explain how learners gain knowledge with simulation experiences. This article takes an in-depth look at each of these three theories as each relates to simulation. Pedagogical approaches as well as ties to simulation of each theory zare addressed. Finally, the implications for research and practice in health care and adult education are discussed.",
+      "authors": [
+        "Tonya Rutherford-Hemming"
+      ],
+      "year": 2012,
+      "source": "openalex"
+    },
+    {
+      "id": "W2971679940",
+      "title": "Simulation as a Nursing Education Disrupter",
+      "abstract": "Simulation as an evidence-based pedagogy began emerging at a time when many constraints were being imposed on clinical experiences for nursing students. As research illuminated the advantages of simulation and standards were developed, educators began to recognize the limitations of the clinical setting, such as the inability to provide experiences in teamwork and delegation, and a focus on tasks. Simulations are crafted to provide an experience that matches content that is being taught in class, and debriefing techniques guide learners in a reflective process that promotes the development of clinical reasoning and judgment. The National Council of State Boards of Nursing study concluded that simulation could be substituted for 50% of clinical hours. Simulation-exposed gaps in the curriculum and its pedagogical principles are now extending to adaptations of its use in the classroom and in clinical postconferences. They are also shaping teacher-student conversations in the office and the hallways. Use of simulation for assessment is beginning to evolve. In a little more than 10 years, it has started a revolution that will continue to have a major impact on all aspects of nursing education in the future.",
+      "authors": [
+        "KT Waxman",
+        "Fara Bowler",
+        "Susan Gross Forneris",
+        "Suzan Kardong‐Edgren",
+        "Mary Anne Rizzolo"
+      ],
+      "year": 2019,
+      "source": "openalex"
+    },
+    {
+      "id": "W2099504280",
+      "title": "Reevaluating Simulation in Nursing Education: Beyond the Human Patient Simulator",
+      "abstract": "The human patient simulator or high-fidelity mannequin has become synonymous with the word simulation in nursing education. Founded on a historical context and on an evaluation of the current application of simulation in nursing education, this article challenges that assumption as limited and restrictive. A definition of simulation and a broader conceptualization of its application in nursing education are presented. The need for an ideological basis for simulation in nursing education is highlighted. The call is made for theory to answer the question of why simulation is used in nursing to anchor its proper and effective application in nursing education.",
+      "authors": [
+        "Martin Schiavenato"
+      ],
+      "year": 2009,
+      "source": "openalex"
+    },
+    {
+      "id": "W1599584452",
+      "title": "A Taxonomy of Games and Simulations for Nursing Education",
+      "abstract": "The purposes of this study were to locate games and simulations available for nursing education, to categorize these materials to make them more accessible for nurse educators, and to determine how nursing's use of instructional games might be enhanced. Twenty-nine games and simulations were identified in the nursing literature. The taxonomy developed for this study described three types of process games: clinical, pathophysiologic and psychosocial. These games were further analyzed using a modified version of Ruben's (1977) classification, which compared and contrasted games by structural components and control parameters. The taxonomy is intended to guide nurse educators in conveniently locating games and simulations which may fit or be tailored to fit individual learning objectives. Recommendations include instituting standards for describing games and simulations, establishing a clearinghouse for disseminating information on nursing games and initiating research on the effectiveness of games and simulations as instructional strategies.",
+      "authors": [
+        "Ellen Stoetzner Duke"
+      ],
+      "year": 1986,
+      "source": "openalex"
+    },
+    {
+      "id": "W1977097723",
+      "title": "The Relationship Between Simulation in Nursing Education and Medication Safety",
+      "abstract": "This experimental study examined whether the use of clinical simulation in nursing education could help reduce medication errors. Fifty-four student volunteers were randomly assigned to an experimental (treatment) group (24 students) or a clinical control group (30 students). The treatment replaced some early-term clinical placement hours with a simulated clinical experience. The control group had all normally scheduled clinical hours. Treatment occurred prior to opportunities for medication administration.",
+      "authors": [
+        "Kim Sears",
+        "Sandra Goldsworthy",
+        "William M. Goodman"
+      ],
+      "year": 2009,
+      "source": "openalex"
+    },
+    {
+      "id": "W129467142",
+      "title": "Simulation Gaming in Nursing Education",
+      "abstract": "Simulation games can be used in nursing education to promote problem solving or to impart information. Most games focus upon one of the two areas: cognitive knowledge or affective knowledge. We call these types of games content games and process games, respectively. Simulation games of both types are used in nursing education. Since simulation gaming in nursing education is a relatively new teaching strategy much of its use has been haphazard. In order for a simulation game to be an effective teaching strategy; there must be a \"fit\" between the game and the instructional objectives. The game operator should analyze the components of each game used prior to playing the game, so he will be able to use the game appropriately. One disadvantage of gaming is that there is a risk of experiencing untoward reactions in the gaming experience. For this reason, the operator should support all the participants throughout the game. Finally, the game operator should assess the effectiveness of the gaming process through the debriefing session and through research. To extend our knowledge of the effects of simulation games, game operators can research the effect of simulation gaming on student motivation, cognitive learning, and affective learning.",
+      "authors": [
+        "Margaret Smith Ulione"
+      ],
+      "year": 1983,
+      "source": "openalex"
+    },
+    {
+      "id": "W4308679110",
+      "title": "Simulation debriefing as part of simulation for clinical teaching and learning in nursing education: A scoping review",
+      "abstract": "AIM: To map the evidence of the simulation debriefing phase in simulation activities of nursing education, to address and inform clinical teaching and learning in nursing. DESIGN: A scoping review. METHODS: A systematic review of literature published between 2008-2021 was conducted using CINAHL & ERIC, MEDLINE, EMBASE, APA PsycInfo, the Cochrane Library and JBI Evidence synthesis. Inclusion criteria were primary studies published in English on simulation debriefing at all levels in nursing education. RESULTS: Of 140 included references, only 80% (N = 112) framed simulation debriefing theoretically either by specific theories/models or as a literature review of the topic. A variety of simulation debriefing methods were identified; however, debriefing methods were only described in 79% (N = 110) of the references. There appears to be a gap in consensus concerning the theoretical or methodological frameworks characterizing simulation debriefing in nursing education. The majority of studies (86%) were conducted at a bachelor's degree level (N = 121).",
+      "authors": [
+        "Liv Fegran",
+        "Wilma ten Ham‐Baloyi",
+        "Mariann Fossum",
+        "Olav Johannes Hovland",
+        "Joanne Rachel Naidoo",
+        "Dalena R.M. van Rooyen"
+      ],
+      "year": 2022,
+      "source": "openalex"
+    },
+    {
+      "id": "W2023668644",
+      "title": "Applications of simulation technology in psychiatric mental health nursing education",
+      "abstract": "The purpose of this paper is to review the use of simulation in education across the health professionals, to describe the development and implementation of innovative simulation techniques for an undergraduate psychiatric mental-health nursing course, and to identify lessons learned and future directions for successful simulation experiences in psychiatric nursing.",
+      "authors": [
+        "Jennifer Field Brown"
+      ],
+      "year": 2008,
+      "source": "openalex"
+    },
+    {
+      "id": "W1964688400",
+      "title": "Incorporating Scenario-Based Simulation Into a Hospital Nursing Education Program",
+      "abstract": "Nurse educators are challenged to provide meaningful and effective learning opportunities for both new and experienced nurses. Simulation as a teaching and learning methodology is being embraced by nursing in academic and practice settings to provide innovative educational experiences to assess and develop clinical competency, promote teamwork, and improve care processes. This article provides an overview of the historical basis for using simulation in education, simulation methodologies, and perceived advantages and disadvantages. It also provides a description of the integration of scenario-based programs using a full-scale patient simulator into nursing education programming at a large academic medical center.",
+      "authors": [
+        "Beth Nagle",
+        "Jeanne M. McHale",
+        "Gail A. Alexander",
+        "Brian M. French"
+      ],
+      "year": 2009,
+      "source": "openalex"
+    },
+    {
+      "id": "W2622563170",
+      "title": "Flipped Learning With Simulation in Undergraduate Nursing Education",
+      "abstract": "BACKGROUND: Flipped learning has proliferated in various educational environments. This study aimed to verify the effects of flipped learning on the academic achievement, teamwork skills, and satisfaction levels of undergraduate nursing students. METHOD: For the flipped learning group, simulation-based education via the flipped learning method was provided, whereas traditional, simulation-based education was provided for the control group. After completion of the program, academic achievement, teamwork skills, and satisfaction levels were assessed and analyzed. RESULTS: The flipped learning group received higher scores on academic achievement, teamwork skills, and satisfaction levels than the control group, including the areas of content knowledge and clinical nursing practice competency. In addition, this difference gradually increased between the two groups throughout the trial. CONCLUSION: The results of this study demonstrated the positive, statistically significant effects of the flipped learning method on simulation-based nursing education. [J Nurs Educ. 2017;56(6):329-336.].",
+      "authors": [
+        "HeaRan Kim",
+        "YounKyoung Jang"
+      ],
+      "year": 2017,
+      "source": "openalex"
+    },
+    {
+      "id": "W2124384775",
+      "title": "Taking the Patient to the Classroom: Applying Theoretical Frameworks to Simulation in Nursing Education",
+      "abstract": "Upon completion of their education, nursing students are expected to practice safely and competently. Societal changes and revisions to nursing education have altered the way nursing students learn to competently care for patients. Increasingly, simulation experiences are used to assist students to integrate theoretical knowledge into practice. Reasons for and the variety of simulation activities used in nursing education in light of learning theory are discussed. By combining Benner's nursing skill acquisition theory with Kolb's experiential learning theory, theoretical underpinnings for examining the use of simulations in the context of nursing education are provided.",
+      "authors": [
+        "Magda H Waldner",
+        "Joanne Olson"
+      ],
+      "year": 2007,
+      "source": "openalex"
+    },
+    {
+      "id": "W3004636243",
+      "title": "Virtual Simulation in Nursing Education: A Systematic Review Spanning 1996 to 2018",
+      "abstract": "STATEMENT: As virtual simulation is burgeoning, faculty and administrators are asking for evidence of its effectiveness. The objective of this systematic review was to identify how virtual simulation impacts nursing student learning outcomes. Applying the Preferred Reporting Items for Systematic Reviews and Meta-analyses guidelines, 80 studies were reviewed. Results indicate that most research (n = 69, 86%) supported virtual simulation as an effective pedagogy to support learning outcomes while highlighting gaps and areas of bias. Adding search terms could have expanded the findings. The body of evidence supports virtual simulation as an effective pedagogy. Future studies should use more robust research designs, prioritize curricular integration of virtual simulation, and determine best practices in virtual simulation methodology.",
+      "authors": [
+        "Cynthia L. Foronda",
+        "Margo Fernandez-Burgos",
+        "Catherine Nadeau",
+        "Courtney N. Kelley",
+        "Myrthle N. Henry"
+      ],
+      "year": 2020,
+      "source": "openalex"
+    },
+    {
+      "id": "W2001887335",
+      "title": "Methods and Evaluations for Simulation Debriefing in Nursing Education",
+      "abstract": "Debriefing is the most important aspect of simulated learning, but actual debriefing practices are not evidence based or widely known. Expert opinions on effective simulation debriefing have been widely published and likely guide debriefing in nursing education. However, various terms are used to discuss simulation debriefing, making it difficult to distinguish debriefing methods. Also, the means for evaluating simulation debriefing are lacking. The purpose of this review is to identify and examine methods and evaluations for simulation debriefing in the educational setting. Twenty-two methods and seven evaluations for simulation debriefing were found. Four areas of differences among methods-suggested uses, design features, supplemental resources, and means for evaluation-were demonstrated. This review offers nurse educators and researchers a comprehensive, practical examination of the methods and evaluations for simulation debriefing in the educational setting, clarifies terminology, and describes how the debriefing methods, phases, approaches, elements, and evaluations are interrelated.",
+      "authors": [
+        "Annette R. Waznonis"
+      ],
+      "year": 2014,
+      "source": "openalex"
+    },
+    {
+      "id": "W2610957916",
+      "title": "Virtual Gaming Simulation in Nursing Education: A Focus Group Study",
+      "abstract": "BACKGROUND: The use of serious gaming in a virtual world is a novel pedagogical approach in nursing education. A virtual gaming simulation was implemented in a health assessment class that focused on mental health and interpersonal violence. The study's purpose was to explore students' experiences of the virtual gaming simulation. METHOD: Three focus groups were conducted with a convenience sample of 20 first-year nursing students after they completed the virtual gaming simulation. RESULTS: Analysis yielded five themes: (a) Experiential Learning, (b) The Learning Process, (c) Personal Versus Professional, (d) Self-Efficacy, and (e) Knowledge. CONCLUSION: Virtual gaming simulation can provide experiential learning opportunities that promote engagement and allow learners to acquire and apply new knowledge while practicing skills in a safe and realistic environment. [J Nurs Educ. 2017;56(5):274-280.].",
+      "authors": [
+        "Margaret Anne Verkuyl",
+        "Michelle Hughes",
+        "Joyce Tsui",
+        "Lorraine Betts",
+        "Oona St-Amant",
+        "Jennifer L. Lapum"
+      ],
+      "year": 2017,
+      "source": "openalex"
+    },
+    {
+      "id": "W3127293040",
+      "title": "Simulation in Nursing Education: Review of Research",
+      "abstract": "INTRODUCTION Nursing education consists of the theoretical and practical training provided to nurses with the purpose to prepare them for their duties as nursing care professionals. The scope of nursing practice reflects all the role and responsibilities undertaken by the nurse to address the full range of human experiences and responses to health and illness. The instructional strategies utilized in both didactic and clinical components of nursing education courses are highly influential in determining critical thinking and clinical decision making ability as well as in developing the psychomotor skill performance of new graduates. Simulation provides nursing students with opportunities to practice their clinical and decision-making skills through various real-life situational experiences. Although endorsed in nursing curricula, its effectiveness is largely unknown.",
+      "authors": [
+        "Sulochana Ghimire",
+        "Anuja Kachapati"
+      ],
+      "year": 2020,
+      "source": "openalex"
+    },
+    {
+      "id": "W4402817535",
+      "title": "Clinical Simulation in Nursing Education",
+      "abstract": "Virtual reality simulation has revolutionized the healthcare sector by fusing human skills with cutting-edge technology to promote patient-centered care, clinical efficacy, and a compassionate digital healthcare ecosystem. In order to enhance nursing education by providing dynamic and engaging learning settings, the goal of this research is to assess the transformative potential of virtual reality. Through familiarization with state-of-the-art technology through the use of immersive pedagogy and technology framework, the paper proposed a fresh way to nursing education and clinical practice. Student nurses can fully immerse themselves in a personalized virtual reality as if they were actually there, interact with their surroundings, and learn in a dynamic and pedagogically informative digital ecosystem by donning VR headgear or goggles. Virtual reality can be used to create incredibly lifelike simulations that allow trainee nurses to practice problem-solving skills without really putting themselves in danger as clinical simulation offers deep understanding of real-world situations.",
+      "authors": [
+        "Ajibola Olaosebikan Waliu",
+        "Esther Emarobebh Muojekwu",
+        "Ugochukwu Okwudili Matthew",
+        "Jazuli Sanusi Kazaure",
+        "Victoria Enemona Oseni",
+        "Ononiwu Chamberlyn C."
+      ],
+      "year": 2024,
+      "source": "openalex"
+    },
+    {
+      "id": "W1903855108",
+      "title": "Successful Techniques for Using Human Patient Simulation in Nursing Education",
+      "abstract": "PURPOSE: The purpose of this paper was to explore techniques used successfully for human simulation exercises in nursing education. DESIGN AND METHODS: An integrated review of current literature was completed using the Cumulative Index to Nursing and Allied Health Literature (CINAHL) with Full Text and PubMed databases to identify studies that used simulation successfully in nursing curriculum. FINDINGS AND CONCLUSIONS: Human patient simulation can be used successfully as an instructional method in nursing education. While no single process was proven to be superior, there are techniques which have been used effectively. CLINICAL RELEVANCE: Nursing educators are challenged with discovering ways to facilitate the education of their students. Human patient simulation can be a valuable tool. More research is needed to fully develop this promising educational avenue.",
+      "authors": [
+        "Evelyn P. Brewer"
+      ],
+      "year": 2011,
+      "source": "openalex"
+    },
+    {
+      "id": "W2990207230",
+      "title": "Simulation in nursing education",
+      "abstract": "This chapter presents an overview of simulation, including fidelity, modalities, standards, guidelines and frameworks for simulation, phases of simulation, challenges and general tips. Simulation is an educational strategy where elements of the real world are integrated to achieve specific goals relating to learning or evaluation. Fidelity simply means how authentic or life-like the manikin and/or the simulation is and how accurately the modality reflects a real-life situation or scenario. Low-fidelity simulation experiences include those that are often static and lack realism and/or situational context. Medium-fidelity simulation experiences are considered to be more dynamic and realistic than low-fidelity ones. High-fidelity simulations reflect the conditions and circumstances of real life as accurately as possible. Simulated patients, sometimes called standardised patients, are usually volunteer members of the community or paid actors who support the education of healthcare professionals. Part task trainers are replications of body parts that provide key elements relative to performing a procedure or learning a task.",
+      "authors": [
+        "Leeanne Heaton",
+        "Kerry Reid‐Searl",
+        "Rachelle Cole"
+      ],
+      "year": 2019,
+      "source": "openalex"
+    },
+    {
+      "id": "W2024022371",
+      "title": "The Development of a Quantitative Evaluation Tool for Simulations in Nursing Education",
+      "abstract": "In a complex healthcare environment, educating nursing students to safely care for clients is a challenging endeavor. As the use of high fidelity simulations increases, the ability to evaluate students is essential. A review of the literature identified a lack of tested simulation evaluation instruments to accurately measure student performance. A simulation evaluation tool was developed and tested with senior nursing students. Content validity was established from the literature and from the review of the tool by an expert panel. Reliability was established using sixteen simulation sessions, with two trained evaluators at each session. Percent agreement by evaluators ranged from 84.4% to 89.1%. Additional research needs to verify these results with different evaluators, varying levels of students, and additional scenarios. A valid, reliable tool to evaluate simulation experiences improves student assessment skills and ultimately clinical performance.",
+      "authors": [
+        "Martha J. Todd",
+        "Julie A. Manz",
+        "Kim Hawkins",
+        "Mary E. Parsons",
+        "Maribeth Hercinger"
+      ],
+      "year": 2008,
+      "source": "openalex"
+    },
+    {
+      "id": "W3000569290",
+      "title": "Medical simulation – innovation in nursing education",
+      "abstract": "Abstract Aim. Analysis of the impact of educational simulation on the level of knowledge, skills and competences of nursing students. Methods. The research used a non-systematic literature analysis method. Literature was classified for analysis, from which the contents on the impact of educational simulation on the education process of nursing students were selected. During the qualification of the magazines Google Scholar was used. Articles published in electronic databases were used: EBSCOhost, MEDLINE, ScienceDirect. Conclusions. Education conducted using educational simulation in nursing not only increases the level of knowledge, skills and competences of students but also increases the quality of patient care and their security.",
+      "authors": [
+        "Joanna Girzelska",
+        "Ewa Guz",
+        "Magdalena Nieckula",
+        "Marek Dąbrowski"
+      ],
+      "year": 2019,
+      "source": "openalex"
+    },
+    {
+      "id": "W3167920425",
+      "title": "Virtual clinical simulation in nursing education: a concept analysis",
+      "abstract": "OBJECTIVES: To analyze the concept of virtual clinical simulation in nursing education. METHODS: The Walker and Avant concept analysis model guided the study process and the data collection followed the integrative literature review method. Databases searched were: CINAHL, PubMed, Education Resources Information Center, and Scopus. Search terms and Boolean operators were: e-simulation OR virtual clinical simulation OR computer-simulation OR computer simulation OR virtual gaming OR virtual reality AND nursing education OR nursing. The sample comprised 45 studies. RESULTS: Virtual clinical simulation in nursing education was defined as the innovative teaching and learning technological strategy that provides immersive self-regulated training of nursing practice, reproducing real-life experiences and feedback in a virtual environment that is safe, interactive, dynamic and enjoyable. CONCLUSIONS: Clarification of this concept contributes to the development of a standardized terminology to include in the nursing nomenclature system and its dissemination for the construction of nursing science.",
+      "authors": [
+        "Jéssica Dantas de Sá Tinôco",
+        "Bertha Cruz Enders",
+        "Andréa Sonenberg",
+        "Ana Luísa Brandão de Carvalho Lira"
+      ],
+      "year": 2021,
+      "source": "openalex"
+    },
+    {
+      "id": "W4404029529",
+      "title": "Verifying the Reliability and Validity of the Lasater Clinical Judgment Rubric(LCJR) Measurement in Simulation Nursing Education on Caring for Older Adults with Cognitive Impairment",
+      "abstract": "연구는 Lasater Clinical Judgment Rubric(LCJR) 도구가 인지장애 노인 시뮬레이션 교육에서 간호 수행에 대한 임상판단능력을 평가할 수 있는 신뢰할 수 있고 타당한 도구임을 검증하여 도구의 적용가능성을 확인하고자 하였다. S시의 1개 지역 1개 간호학과 4학년 학생을 대상으로 노인인지 장애 시나리오에 기반한 시뮬레이션 교육에서 간호수행을 평가한 데이터를 분석한 후향적 연구로 SPSS 22 Version을 이용하여 신뢰도와 구성타당도를 분석하였다. 전체문항의 내적 일관성 신뢰도는 .764, 이며, 요인분석결과 11문항, 3개의 요인으로 추출되었고, 62.7%의 누적 설명력을 보였다. 2025년 대한민국은 65세 이상의 인구가 전체 인구의 20%를 차지하는 초고령사회에 진입할 것으로 예상되며, 이에 노인 인구의 인지장애 돌봄에 대한 시대적 중요성이 커지는 상황에서 보건의료인력의 전문화된 수행역량은 노인인구의 건강과 복지를 증진하는 초석이라 할 수 있다. 현 시점에서 본 연구의 결과는 노인 인지장애 간호수행에 대한 임상판단능력 평가에 대한 근거를 제시함으로써 전문화된 간호수행역량을 함양하기 위한 간호교육, 실무, 연구에 적극적으로 활용될 수 있을 것이다.",
+      "authors": [
+        "Jiyoung Kim",
+        "Narae Heo"
+      ],
+      "year": 2024,
+      "source": "openalex"
+    },
+    {
+      "id": "W4388167511",
+      "title": "Simulation in nursing education and practice",
+      "abstract": "Abstract The use of simulation is neither new nor unfamiliar for most nursing educators. As professionals we have not been crediting many common nursing educational activities as ‘simulation’. Role playing and other forms of nonpatient interaction have long held a role in nursing educational approaches, with static mannequins such as ‘Mrs Chase’ in the 1930s foreshadowing the evolution of SimOne®, the first high fidelity simulator by three decades(1–3). The introduction of advanced, yet affordable, patient simulators has encouraged their widespread acquisition, and pushed nursing educators to explore this educational approach. While simulation training is not a panacea or whole-cloth replacement for traditional education in either the clinical or classroom settings, thought leaders in nursing education perceive the approach as supplementing clinical training, enriching current clinical experience, and in reinforcing didactic principles.",
+      "authors": [
+        "John Marc O'Donnell",
+        "Joseph S. Goode"
+      ],
+      "year": 2008,
+      "source": "openalex"
+    },
+    {
+      "id": "W3206444400",
+      "title": "Virtual Simulation in Nursing Education: A Systematic Review",
+      "abstract": "Background: With recent advances in computer and information technology over the last few years, therehas been an increase in the use of virtual simulation in the field of nursing education.Design: Systematic review of experimental, quasi-experimental, and qualitative studies.Data sources: CINAHL, MEDLINE, PubMed, ERIC, PsychINFO, and ProQuest were searched by title andabstract spanning from January 2010 to December 2020.Results: Twenty-three studies were included in the narrative summary. Overwhelming evidence from thesestudies shows a positive impact on student knowledge, skills, affective learning outcomes. Studies weremostly conducted in developed countries perhaps due to the high cost of acquiring this technology in theclassroom.Conclusion: Virtual simulation is highly effective in improving knowledge, skills, and affective outcomesof students. Nursing educators and other stakeholders need to support future initiatives in the advancementof virtual simulation and possible inclusion in the nursing curriculum.",
+      "authors": [
+        "Jasper Erwin L. Tolarba"
+      ],
+      "year": 2021,
+      "source": "openalex"
+    },
+    {
+      "id": "W2968685504",
+      "title": "Clinical simulation in nursing education in intensive therapy: an integrative review",
+      "abstract": "OBJECTIVE: to analyze the publications on clinical simulation practices for education in Nursing in Intensive Care. METHOD: an integrative review carried out through LILACS, PubMed, Cochrane Library, CINAHL and SciELO databases, of articles published from 2008 to 2017. RESULTS: 29 articles were selected, of which 76% discuss the use of simulation in continuing education of nursing professionals, while the others describe their use for student education. There is a higher prevalence of studies with a level of evidence 6 (17), with 28 international publications. There was an increase in scientific production, with 16 articles published in the last three years. CONCLUSION: variables after simulation use, such as confidence, communication skills, efficiency in the identification of clinical worsening of patients, development of technical skills, teamwork and clinical decision-making, presented a significant improvement, demonstrating that this tool is effective in qualifying care for critical patients.",
+      "authors": [
+        "Amanda Chlalup Linn",
+        "Rita Catalina Aquino Caregnato",
+        "Emiliane Nogueira de Souza"
+      ],
+      "year": 2019,
+      "source": "openalex"
+    },
+    {
+      "id": "W2314705153",
+      "title": "Social Cognitive Theory, Metacognition, and Simulation Learning in Nursing Education",
+      "abstract": "Simulation learning encompasses simple, introductory scenarios requiring response to patients' needs during basic hygienic care and during situations demanding complex decision making. Simulation integrates principles of social cognitive theory (SCT) into an interactive approach to learning that encompasses the core principles of intentionality, forethought, self-reactiveness, and self-reflectiveness. Effective simulation requires an environment conducive to learning and introduces activities that foster symbolic coding operations and mastery of new skills; debriefing builds self-efficacy and supports self-regulation of behavior. Tailoring the level of difficulty to students' mastery level supports successful outcomes and motivation to set higher standards. Mindful selection of simulation complexity and structure matches course learning objectives and supports progressive development of metacognition. Theory-based facilitation of simulated learning optimizes efficacy of this learning method to foster maturation of cognitive processes of SCT, metacognition, and self-directedness. Examples of metacognition that are supported through mindful, theory-based implementation of simulation learning are provided.",
+      "authors": [
+        "Helen Burke",
+        "Lorraine Mancuso"
+      ],
+      "year": 2012,
+      "source": "openalex"
+    },
+    {
+      "id": "W4387057209",
+      "title": "Challenges for future directions for artificial intelligence integrated nursing simulation education",
+      "abstract": "Artificial intelligence (AI) has tremendous potential to change the way we train future health professionals. Although AI can provide improved realism, engagement, and personalization in nursing simulations, it is also important to address any issues associated with the technology, teaching methods, and ethical considerations of AI. In nursing simulation education, AI does not replace the valuable role of nurse educators but can enhance the educational effectiveness of simulation by promoting interdisciplinary collaboration, faculty development, and learner self-direction. We should continue to explore, innovate, and adapt our teaching methods to provide nursing students with the best possible education.",
+      "authors": [
+        "Sun Young Jung"
+      ],
+      "year": 2023,
+      "source": "openalex"
+    },
+    {
+      "id": "W2750540676",
+      "title": "Impact of Simulation-Enhanced Pharmacology Education in Prelicensure Nursing Education",
+      "abstract": "Student and novice nurses are susceptible to committing medication errors related to lack of experience. To address medication safety, a quasi-experimental design (N = 120) was used to test the effect of adding simulation to an undergraduate nursing pharmacology course on students' confidence and competence, medication adverse events, and observed medication administration practices. Students who received simulation-enhanced pharmacology demonstrated important improvements in medication administration safety. Implementing simulation in nursing pharmacology curriculum is consistent with recommendations to implement Quality and Safety Education for Nurses competencies into nursing education.",
+      "authors": [
+        "Jill Steiner Sanko",
+        "Mary Mckay"
+      ],
+      "year": 2017,
+      "source": "openalex"
+    },
+    {
+      "id": "W2088347401",
+      "title": "Nursing Student Perceptions of Intraprofessional Team Education Using High-Fidelity Simulation",
+      "abstract": "High-fidelity simulation in health professional programs helps educators and students meet the challenges of increasingly complex clinical practice settings. Simulation has been used primarily to train nursing students either in interprofessional teams or within their respective nursing training levels. However, students' experiences of learning alongside others in different levels or years of the nursing program have not been explored. BSN students (N = 48) were placed in intraprofessional teams (i.e., one student from each nursing level) to manage acute pediatric and adult simulation scenarios. Students were instructed to manage the clinical scenario based on their level of clinical competence and education. Following debriefing, students responded to a satisfaction survey regarding their simulation experiences and their perceptions of learning within an intraprofessional nursing team. Project results suggest that intraprofessional educational experiences provide rich learning opportunities for both third-year and fourth-year nursing students. In addition, simulation provides a context within which to support intraprofessional nursing student education.",
+      "authors": [
+        "Brenda Leonard",
+        "Elaine L.H. Shuhaibar",
+        "Ruth Chen"
+      ],
+      "year": 2010,
+      "source": "openalex"
+    },
+    {
+      "id": "W3180318373",
+      "title": "Psychological Safety in Simulation-Based Prelicensure Nursing Education",
+      "abstract": "BACKGROUND: Psychological safety, essential in high-quality simulation-based education, positively influences learning behaviors and outcomes in corporate organizations. Current assessment of psychological safety is grounded in Edmondson's work team learning model. To understand applicability of this model in nursing education, a literature review was conducted. We reviewed literature on psychological safety in nursing education to assess support for this learning model constructs. Adapting existing models and assessment instruments in different contexts is an important contribution to the profession. METHODS: A structured narrative review examined psychological safety in nursing education simulation literature to identify support for Edmondson's work team learning model constructs. RESULTS: Included articles (n = 13) supported the Edmondson model constructs. When faculty practiced specific leader behaviors, learners experienced psychological safety and demonstrated specific learning-oriented behaviors. CONCLUSION: Psychological safety literature in nursing education supports the work team learning model constructs. This link offers promise for transfer to an assessment instrument in nursing education.",
+      "authors": [
+        "Amy L. Daniels",
+        "Catherine Y. Morse",
+        "Rachel Blankstein Breman"
+      ],
+      "year": 2021,
+      "source": "openalex"
+    },
+    {
+      "id": "W2491411576",
+      "title": "Simulation in nursing education and practice",
+      "abstract": "Abstract Although familiarity and use of simulation educational approaches is widespread among nurse educators, questions remain regarding instructor preparedness, optimal curricular integration, substitution of clinical experience with simulation, and the transfer of simulation learning to the bedside. Identifiable barriers to a shared understanding among nursing simulation educators and researchers include: (1) no single theoretical model has been adopted to guide educational and research programmes; and (2) lack of a standardized nomenclature. Nursing student clinical experiences are increasingly difficult to arrange, particularly in higher acuity and specialty settings. Replacing real-world experiences with simulation shows growing support. The 2014 US National Council of State Boards of Nursing study demonstrated the efficacy of carefully considered replacement of clinical experiences with simulation. Results indicated no differences in knowledge outcomes, clinical performances or nursing licensure pass rates. Questions remain regarding the effectiveness of widely adopted replacement and the optimal mix of ‘live’ versus ‘simulated’ clinical experiences.",
+      "authors": [
+        "Joseph S. Goode",
+        "John Marc O'Donnell"
+      ],
+      "year": 2015,
+      "source": "openalex"
+    },
+    {
+      "id": "W3095499818",
+      "title": "The Use of Virtual Reality Simulations in Nursing Education, and Patient Safety",
+      "abstract": "Nursing education puts theory into practice. Patient safety is indispensable in nursing education. During clinical practice, nursing students make medication errors and have difficulty deciding on what interventions to perform in unusual situations and communicating with patients or other healthcare professionals. All these problems put patient safety at risk. However, “First, do no harm” is a fundamental human right and an ethical principle, which nurses should always consider when they perform interventions. Nursing students can help develop a culture of patient safety through experience in line with their knowledge, skills, and affective goals. Clinical settings can be equipped with real-life laboratories, mannequins, etc. Virtual reality simulations show nursing students what it is like to be in a real-world clinical setting and what problems and risks they may encounter there, and thus, helps them develop skills, build confidence, and prepare for clinical practice. This section addressed the effect of virtual reality simulations on skill development and patient safety in nursing education.",
+      "authors": [
+        "S Bayram",
+        "Nurcan Çalışkan"
+      ],
+      "year": 2022,
+      "source": "openalex"
+    },
+    {
+      "id": "W2915235511",
+      "title": "A Systematic Review of the Use of Standardized Patients as a Simulation Modality in Nursing Education",
+      "abstract": "AIM: The objective of the study was to search, extract, appraise, and synthesize studies using standardized patients (SPs) in nursing academia to determine how this modality of simulation is being used. BACKGROUND: SPs are a common simulation modality used in nursing education. METHOD: This review was conducted using the Preferred Reporting Items for Systematic Reviews and Meta-analyses. Five databases were searched as well as keywords to retrieve nonindexed citations for the period January 2011 to September 2016. The inclusion criteria included nurses, a simulated experience with SPs, and original research published in English. RESULTS: Sixty-five studies were identified and analyzed. CONCLUSION: More randomized controlled trials and studies with power analyses and validated measurement instruments are needed. Studies that compare SPs to high-fidelity simulators are also desired to determine optimal student learning outcomes and standardize best practices in simulation.",
+      "authors": [
+        "Tonya Rutherford-Hemming",
+        "Celeste Marie Alfes",
+        "Tonya L. Breymier"
+      ],
+      "year": 2019,
+      "source": "openalex"
+    },
+    {
+      "id": "W1974455673",
+      "title": "Theory-Based Research of High Fidelity Simulation Use in Nursing Education: A Review of the Literature",
+      "abstract": "In this article, we explore the extent to which theory-based research is informing our understanding of high-fidelity simulation use in nursing education. We reviewed the primary literature archived in the Cumulative Index of Nursing and Applied Health Literature (CINAHL) and Proquest Dissertation and Theses for empirical reports using the key terms high-fidelity simulation and nursing from the years 1989 to 2009. Of the articles that matched our inclusion criteria: 45% made no use of theory; 45% made minimal use; and 10% made adequate use. We argue that theory-based research could bring coherence and external validity to this domain.",
+      "authors": [
+        "Liam Rourke",
+        "Megan Schmidt",
+        "Neera Garga"
+      ],
+      "year": 2010,
+      "source": "openalex"
+    },
+    {
+      "id": "W4394795869",
+      "title": "Integration of Simulation Based Education in Nursing and Midwifery Education",
+      "abstract": "Simulation-Based Education (SBE) has been more prioritized among universities in their specialized health courses like as medicine, nursing and midwifery at different level. Evidences have proved that SBE helps students to acquire knowledge, attitude and skills into structured non-threatening environment which equipped them for clinical practice with more confident, less clinical errors resulting into better health outcome of their patient and client. Integration of structure curriculum is essential for implementing SBE where educators can facilitate their students for quality education which can transfer into quality practice during preservice courses.",
+      "authors": [
+        "Archana Pandey Bista"
+      ],
+      "year": 2022,
+      "source": "openalex"
+    },
+    {
+      "id": "W4413241298",
+      "title": "Virtual Reality Simulation in Nursing Education: A Call for Integration in Nursing Curricula",
+      "abstract": "Simulation remains essential in healthcare, particularly nursing education, enhancing clinical competence, patient care, healthcare outcomes, and safety. According to Shorey et al. [1], Simulation has been a part of nursing education for over five decades and has been shown to improve cognitive outcomes such as theoretical knowledge. Today, we live in a digital age coupled with rapid technological advancements, making virtual Simulation, particularly virtual standardized patient simulations, increasingly prominent in nursing training/education. The COVID-19 global pandemic accelerated the adoption of simulation-based education in nursing programs, as restrictions on in-person clinical placements limited traditional hands-on training opportunities.",
+      "authors": [
+        "Chizoba Anako",
+        "Kristen Johnson",
+        "Javonna O'Brien"
+      ],
+      "year": 2025,
+      "source": "openalex"
+    },
+    {
+      "id": "W2270229175",
+      "title": "Simulation in Nursing Education—International Perspectives and Contemporary Scope of Practice",
+      "abstract": "PURPOSE: This article provides insights and perspectives from four experienced educators about their approaches to developing, delivering, and evaluating impactful simulation learning experiences for undergraduate nurses. A case study format has been used to illustrate the commonalities and differences of where simulation has been positioned within curricula, with examples of specialized clinical domains and others with a more generic focus. The importance of pedagogy in developing and delivering simulations is highlighted in each case study. A range of learning theories appropriate for healthcare simulations are a reminder of the commonalities across theories and that no one theory can account for the engaging and impactful learning that simulation elicits. CLINICAL RELEVANCE: Creating meaningful and robust learning experiences through simulation can benefit students' performance in subsequent clinical practice. The ability to rehearse particular clinical scenarios, which may be difficult to otherwise achieve, assists students in anticipating likely patient trajectories and understanding how to respond to patients, relatives, and others in the healthcare team.",
+      "authors": [
+        "Michelle Kelly",
+        "Elizabeth Berragan",
+        "Sissel Eikeland Husebø",
+        "Fiona Orr"
+      ],
+      "year": 2016,
+      "source": "openalex"
+    },
+    {
+      "id": "W4210501836",
+      "title": "The Use of Guided Reflection in Simulation-Based Education With Prelicensure Nursing Students: An Integrative Review",
+      "abstract": "Background: This integrative review synthesized the findings of studies to determine the uses and outcomes of guided reflection in simulation-based education (SBE) with prelicensure nursing students. Method: A search of Cumulative Index to Nursing and Allied Health (CINAHL) Plus, Education Resources Information Center (ERIC), Education Research Complete (ERC), and PsychINFO using the key words reflection, guided reflection, simulation (nursing education or nursing student), traditional, and baccalaureate identified 18 articles. Results: Findings suggest facilitation of guided reflection in SBE has a positive effect on leadership development, clinical judgment, student satisfaction, and critical thought. Development of a tool to accurately measure guided reflection is warranted. Conclusion: Current evidence on the use of guided reflection in SBE calls for a major paradigm shift in higher education. Guided SBE experiences enhance participant knowledge, and guided reflection should be used as an innovative teaching strategy in SBE. [ J Nurs Educ . 2022;61(2):73–79.]",
+      "authors": [
+        "Julianne A. Walsh",
+        "Kristen A. Sethares"
+      ],
+      "year": 2022,
+      "source": "openalex"
+    },
+    {
+      "id": "W1997332314",
+      "title": "Human Patient Simulation: State of the Science in Prelicensure Nursing Education",
+      "abstract": "Nurse educators strive to engage students in an active learning process. Human patient simulation (HPS) may provide an interactive learning experience for nursing students. However, the current literature and research published on HPS is restricted and lacks objective evidence supporting this educational method in prelicensure nursing education. Studies with large numbers of participants and clearly defined, objective, and validated data collection methods are rare. Despite the lack of empirical evidence for HPS, many are embracing a technology and form of education in which the efficacy is still in question. This article reviews the current research in the areas of HPS value perceptions and studies of HPS impact on knowledge and knowledge transfer among nurses.",
+      "authors": [
+        "Mary Ann Shinnick",
+        "Mary A. Woo",
+        "Janet C. Mentes"
+      ],
+      "year": 2011,
+      "source": "openalex"
+    },
+    {
+      "id": "W2780746941",
+      "title": "Integrating simulation based learning into nursing education programs: Hybrid simulation",
+      "abstract": "BACKGROUND: Hybrid simulation can be developed with mannequins of any fidelity and tabletop simulators with a standardized patient to create a complex, high-level learning activity. OBJECTIVE: The aim of this study is to analyze the effects of a hybrid simulation technique used with nursing students in a scenario about the emergency setting. METHODS: This one-group pre-test post-test model quasi-experimental study was carried out with 39 students in Ankara, Turkey, from October 2014 to July 2015. RESULTS: Nearly all participants reported that the simulation improved their critical thinking, decision-making skills, and self-confidence before the clinical activity and that they felt as though they were real nurses during the activity (94.7%, 97.3%, 84.2%, and 92.1%, respectively). CONCLUSION: The results of this study support the integration of hybrid simulation experiences throughout the nursing curriculum, as evidenced by positive responses from students through the simulation evaluation questionnaire.",
+      "authors": [
+        "Vesile Ünver",
+        "Tülay Başak",
+        "Hatice Ayhan",
+        "Fatma İlknur Çınar",
+        "Emine İyigün",
+        "Nuran Tosun"
+      ],
+      "year": 2017,
+      "source": "openalex"
+    },
+    {
+      "id": "W2910402531",
+      "title": "Theories in Simulation-Based Nursing Education",
+      "abstract": "Simulation allows nursing students to learn, practice, and gain experience in a safe and structured environment without risk to patients. Studies suggest that simulation should be based on a theoretical frame work or conceptual model to guide the simulation practice. It is required based on a theoretical frame work or conceptual model for perform more effectively of simulation. There are widely used educational theories for designing, implementing and evaluating simulations in nursing education. Social, cognitive, experiential and constructivist learning theories are crucial to adult learning. In addition novice to expert model, model of clinical judgment and Jeffries simulation theory were the widely-guided theories in simulation-based training. The design, implementation and evaluation of simulation-based learning under theories guidance reveals and reinforces the theoretical background in simulation education. In this context, it is expected contributing to increasing the quality of nursing education. This review article was aimed: provides a comprehensive frame work for understanding and identification of theories in simulation-based nursing education.",
+      "authors": [
+        "Ayşe Akalın",
+        "Sevil Şahin"
+      ],
+      "year": 2019,
+      "source": "openalex"
+    },
+    {
+      "id": "W3158254838",
+      "title": "Virtual Simulation in Undergraduate Nursing Education",
+      "abstract": "Virtual simulation as an emerging nursing pedagogy can facilitate optimal learning through the use of experiential learning and technology. The purpose of this prospective cohort study was to assess the long-term effects of virtual simulation on undergraduate nursing students' recognition of and causative beliefs about depression and schizophrenia. Students' responses from the simulation cohort (n = 149) and the nonsimulation cohort (n = 150) at a school of nursing in the United States were compared. While students' responses were fairly similar between the two cohorts, students who received virtual simulations more often rated character weakness as an unlikely cause for schizophrenia than those who did not receive virtual simulations. The major difference supports the use of virtual simulation in influencing positive changes in nursing students' perceptions and attitudes toward mental illness.",
+      "authors": [
+        "Wei Liu"
+      ],
+      "year": 2021,
+      "source": "openalex"
+    },
+    {
+      "id": "W4405593409",
+      "title": "The effectiveness of simulation, based training in nursing education",
+      "abstract": "Simulation-based training (SBT) has emerged as a vital component in nursing education, offering students a safe and controlled environment to practice clinical skills, enhance critical thinking, and build confidence. This article explores the impact of SBT on nursing education, examining its benefits, challenges, and the evidence supporting its effectiveness. Through a comprehensive review of current literature and case studies, we aim to provide a thorough understanding of how SBT can improve nursing competencies and patient care outcomes.",
+      "authors": [
+        "Fatema Khatun"
+      ],
+      "year": 2024,
+      "source": "openalex"
+    }
+  ]
+}

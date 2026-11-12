@@ -12,7 +12,7 @@ import { translateUiText } from '@/lib/i18n/ui-text';
 
 const db = createTableFake({ strictQuery: true, serverRowLimit: 3 });
 const projectId = '56cca03a-078a-4d81-b19a-8547664136d8';
-const publicRecords = JSON.parse(readFileSync(join(process.cwd(), 'output/qa/nursing-simulation-live.json'), 'utf8')).papers as Array<Record<string, unknown>>;
+const publicRecords = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'nursing-simulation.json'), 'utf8')).papers as Array<Record<string, unknown>>;
 const request = () => new Request('http://localhost/api/research/draft', { method: 'POST', body: JSON.stringify({ projectId, stage: 'objectives' }) });
 const capturedContext = () => {
   const prompt = (generateStructured as jest.Mock).mock.calls[0][0].prompt as string;
