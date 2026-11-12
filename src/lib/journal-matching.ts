@@ -70,7 +70,8 @@ export function toJournalAngles(topics: Group[], examples: Record<string, Journa
 }
 
 /** Every OpenAlex call carries the platform key: shared server addresses are throttled without it. */
-export function openAlexUrl(path: 'works' | 'sources', params: Record<string, string>) {
+/** `path` is a list (`works`, `sources`) or one record (`works/W1`, `authors/orcid:0000-…`). */
+export function openAlexUrl(path: string, params: Record<string, string>) {
   const query = new URLSearchParams({ ...params, mailto: APPLICATION_EMAIL });
   if (process.env.OPENALEX_API_KEY) query.set('api_key', process.env.OPENALEX_API_KEY);
   return `https://api.openalex.org/${path}?${query}`;
