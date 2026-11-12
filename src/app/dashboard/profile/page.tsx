@@ -4,7 +4,7 @@ import { useUiTranslation } from '@/lib/use-ui-translation';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Shield, ArrowRight, Save, Plug, KeyRound, Database } from 'lucide-react';
+import { User, Mail, Shield, ArrowRight, Save, Plug, KeyRound, Database, BookOpen } from 'lucide-react';
 import Link from 'next/link';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 import {
@@ -107,6 +107,11 @@ export default function ProfilePage() {
 
         <Link href="/settings/privacy" className="mb-6 flex items-center justify-between rounded-2xl border border-violet-500/20 bg-violet-500/5 p-5 text-violet-300 transition hover:bg-violet-500/10">
           <span className="flex items-center gap-3"><Database className="h-5 w-5" /><span><strong className="block">{ui("الخصوصية وبيانات الحساب")}</strong><small className="text-gray-400">{ui("تنزيل بياناتك أو حذف الحساب نهائياً")}</small></span></span>
+          <span>←</span>
+        </Link>
+
+        <Link href="/dashboard/career" className="mb-6 flex items-center justify-between rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5 text-cyan-300 transition hover:bg-cyan-500/10">
+          <span className="flex items-center gap-3"><BookOpen className="h-5 w-5" /><span><strong className="block">{ui("مسيرتي البحثية")}</strong><small className="text-gray-400">{ui("أعمالك واستشهاداتها من معرّف ORCID")}</small></span></span>
           <span>←</span>
         </Link>
 
