@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'مفتاح Gemini API غير متوفر' }, { status: 500 });
+      return NextResponse.json({ success: false, error: 'هذه الخدمة غير متاحة الآن.' }, { status: 503 });
     }
 
     if (!text || !text.trim()) {
@@ -56,6 +56,7 @@ export async function POST(req: Request) {
     }
 
   } catch (err: unknown) {
-    return NextResponse.json({ success: false, error: err instanceof Error && err.message ? err.message : 'خطأ في الاتصال' }, { status: 500 });
+    console.error('/api/academic/analyzer failed', err);
+    return NextResponse.json({ success: false, error: 'خطأ في الاتصال' }, { status: 500 });
   }
 }

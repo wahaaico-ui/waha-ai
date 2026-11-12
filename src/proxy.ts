@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
+import { SESSION_COOKIE_OPTIONS } from '@/lib/supabase/cookie-options';
 
 const RATE_LIMITED_API_PREFIXES = new Map<string, { maxRequests: number; windowSeconds: number }>([
   ['/api/academic/parse-pdf', { maxRequests: 10, windowSeconds: 60 }],
@@ -25,6 +26,7 @@ const RATE_LIMITED_API_PREFIXES = new Map<string, { maxRequests: number; windowS
   ['/api/auth/signup', { maxRequests: 5, windowSeconds: 60 }],
   ['/api/auth/login', { maxRequests: 10, windowSeconds: 60 }],
   ['/api/auth/logout', { maxRequests: 20, windowSeconds: 60 }],
+  ['/api/auth/password', { maxRequests: 5, windowSeconds: 60 }],
   ['/api/account/export', { maxRequests: 3, windowSeconds: 3_600 }],
   ['/api/account/delete', { maxRequests: 3, windowSeconds: 3_600 }],
   ['/api/email/project-snapshot', { maxRequests: 5, windowSeconds: 86_400 }],
@@ -114,7 +116,28 @@ async function rateLimitStatus(request: NextRequest, policy: { maxRequests: numb
   }
 }
 
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/** Signed webhooks come from the payment provider's servers, not from a page. */
+const CROSS_SITE_ALLOWED = new Set(['/api/stripe/webhook']);
+
+/**
+ * A request that changes data must come from this site's own pages. Browsers
+ * send Origin (or Sec-Fetch-Site) on such requests; a page on another site
+ * that tries to act with the visitor's session is refused here (CSRF).
+ */
+export function isCrossSiteWrite(request: NextRequest) {
+  const { pathname, origin } = request.nextUrl;
+  if (SAFE_METHODS.has(request.method) || !pathname.startsWith('/api/') || CROSS_SITE_ALLOWED.has(pathname)) return false;
+  const sender = request.headers.get('origin');
+  if (sender) return sender !== origin;
+  return request.headers.get('sec-fetch-site') === 'cross-site';
+}
+
 export async function proxy(request: NextRequest) {
+  if (isCrossSiteWrite(request)) {
+    return NextResponse.json({ error: 'Cross-site request refused.' }, { status: 403 });
+  }
+
   const rateLimitPolicy = rateLimitFor(request.nextUrl.pathname, request.method);
   if (rateLimitPolicy) {
     const status = await rateLimitStatus(request, rateLimitPolicy);
@@ -142,6 +165,7 @@ export async function proxy(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      cookieOptions: SESSION_COOKIE_OPTIONS,
       cookies: {
         getAll() {
           return request.cookies.getAll();
