@@ -2,7 +2,7 @@ export type AcademicDomain = 'biomedical' | 'computing' | 'social-humanities' | 
 
 export type AcademicProvider =
   | 'openalex' | 'semantic-scholar' | 'crossref' | 'core' | 'arxiv'
-  | 'europe-pmc' | 'openaire' | 'plos' | 'doab' | 'datacite' | 'pubmed';
+  | 'europe-pmc' | 'openaire' | 'plos' | 'doab' | 'doaj' | 'datacite' | 'pubmed';
 
 export type AcademicCapability = 'discovery' | 'metadata' | 'open-access' | 'citations' | 'author-identity' | 'books' | 'datasets';
 export type EvidenceVerificationStatus = 'verified' | 'cross-checked' | 'partially-verified' | 'unverified';

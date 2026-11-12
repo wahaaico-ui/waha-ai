@@ -33,3 +33,21 @@ test('authenticated academic search returns traceable production sources', async
     expect(Boolean(paper.doi || paper.url || paper.pdfUrl)).toBe(true);
   }
 });
+
+// DOC-31-04: articles from listed open-access journals reach the search under DOAJ's own name.
+test('an Arabic humanities search includes DOAJ articles named as DOAJ', async ({ request }) => {
+  if (!email || !password || !projectId) throw new Error('Academic search gate requires E2E_TEST_EMAIL, E2E_TEST_PASSWORD and E2E_TEST_PROJECT_ID.');
+  expect((await request.post('/api/auth/login', { data: { email, password } })).status()).toBe(200);
+  const response = await request.post('/api/academic/search', {
+    data: { query: 'التعليم الإلكتروني في الجامعات', specialty: 'education', projectId },
+    timeout: 60_000,
+  });
+  expect(response.status()).toBe(200);
+  const payload = await response.json() as { data?: Array<{ title?: string; url?: string | null; sources?: string[] }> };
+  const fromDoaj = (payload.data || []).filter((paper) => paper.sources?.includes('doaj'));
+  expect(fromDoaj.length).toBeGreaterThan(0);
+  for (const paper of fromDoaj) {
+    expect(paper.title?.trim().length).toBeGreaterThan(0);
+    expect(paper.url).toMatch(/^https?:\/\//);
+  }
+});

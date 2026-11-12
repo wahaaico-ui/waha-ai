@@ -11,6 +11,7 @@
 const PROVIDER_NAMES: Record<string, string> = {
   openalex: 'OpenAlex', crossref: 'Crossref', core: 'CORE', semantic_scholar: 'Semantic Scholar',
   semanticscholar: 'Semantic Scholar', pubmed: 'PubMed', arxiv: 'arXiv', zotero: 'Zotero',
+  'europe-pmc': 'Europe PMC', openaire: 'OpenAIRE', plos: 'PLOS', doab: 'DOAB', doaj: 'DOAJ', datacite: 'DataCite',
 };
 
 /** Display name for a search provider id; unknown ids are shown as recorded. */
