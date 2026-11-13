@@ -186,4 +186,37 @@ test.describe('WAHA authenticated critical path', () => {
     await expect(reminder.getByText(/يومًا\.$/).first()).toBeVisible({ timeout: 30_000 });
     await expect(reminder.getByRole('link', { name: 'افتح خطة الاستعداد' }).first()).toHaveAttribute('href', `/research/defense?projectId=${projectId}`);
   });
+
+  // DOC-13-06, DOC-26-03: drafting help waits for an approved style profile measured from the researcher's own sample.
+  test('@critical style test comes before draft suggestions and is approved after review', async ({ page }) => {
+    if (!projectId) throw new Error('Style gate requires E2E_TEST_PROJECT_ID owned by the temporary user.');
+    test.setTimeout(120_000);
+    await login(page);
+    await expect(page).toHaveURL(/\/dashboard/);
+    const before = await page.request.post('/api/research/draft', { data: { projectId, stage: 'objectives' } });
+    expect(before.status()).toBe(428);
+    expect((await before.json()).code).toBe('STYLE_PROFILE_REQUIRED');
+
+    await page.goto('/research/writing-style');
+    const sample = [
+      'يهدف هذا البحث إلى دراسة أثر التعليم الإلكتروني في تحصيل طلبة الجامعات الناشئة في فلسطين. ويعتمد الباحث على المنهج الوصفي التحليلي لأنه يناسب طبيعة الظاهرة المدروسة (عودة، 2019).',
+      'وقد أظهرت دراسات سابقة أن التعليم الإلكتروني يرفع دافعية الطلبة حين يتوافر دعم تقني مستمر من إدارة الجامعة (Smith, 2020). غير أن معظم تلك الدراسات أُجريت في جامعات كبيرة ذات موارد واسعة.',
+      'أما الجامعات الناشئة فتواجه نقصًا في البنية التحتية وفي تدريب أعضاء هيئة التدريس على المنصات الرقمية. ولذلك تبقى نتائج التعليم الإلكتروني فيها غير واضحة، ويحتاج الأمر إلى قياس مباشر للتحصيل.',
+      'ويستخدم الباحث استبانة محكّمة تقيس التحصيل والدافعية والرضا، ويطبقها على عينة عشوائية طبقية من طلبة السنة الثانية. ثم يحلل البيانات بالإحصاء الوصفي واختبار الفروق بين المجموعات.',
+      'ويتوقع الباحث أن تكشف النتائج عن علاقة بين جودة الدعم التقني ومستوى التحصيل، وأن تقدم الدراسة توصيات عملية لإدارات الجامعات الناشئة حول تطوير التعليم الإلكتروني وتدريب المدرسين عليه بصورة منتظمة ومدروسة.',
+      'وتبقى حدود الدراسة في اقتصارها على ثلاث جامعات وفصل دراسي واحد، وهو ما يدعو إلى دراسات لاحقة أوسع نطاقًا وأطول مدة.',
+    ].join('\n\n');
+    await page.getByLabel(/عينة من كتابتك|أعد الاختبار بعينة جديدة/).fill(sample);
+    await page.getByRole('button', { name: 'حلّل عينتي' }).click();
+    const result = page.getByRole('region', { name: 'نتيجة اختبار الأسلوب' });
+    await expect(result.getByText('المؤلف والسنة بين قوسين', { exact: false })).toBeVisible({ timeout: 30_000 });
+    await expect(result.getByLabel('مصطلحاتك (مصطلح في كل سطر)')).toHaveValue(/التعليم الإلكتروني/);
+    await result.getByRole('button', { name: 'اعتمد ملف أسلوبي' }).click();
+    await expect(page.getByText('اعتُمد ملف أسلوبك.', { exact: false })).toBeVisible({ timeout: 30_000 });
+
+    const saved = await page.request.get('/api/writing-style');
+    const { profile } = await saved.json() as { profile: { approvedAt?: string; terms?: string[] } | null };
+    expect(profile?.approvedAt).toBeTruthy();
+    expect(profile?.terms).toContain('التعليم الإلكتروني');
+  });
 });
