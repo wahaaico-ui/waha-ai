@@ -10,6 +10,8 @@ import { createTableFake } from '@/lib/test-support/table-fake';
 import { DRAFT_CONTEXT_CHARACTER_BUDGET, DRAFT_CONTEXT_TOO_LARGE } from '@/lib/research-draft-context';
 import { translateUiText } from '@/lib/i18n/ui-text';
 
+const APPROVED_STYLE = { version: 1, approvedAt: '2026-11-13T10:00:00.000Z', sample: { words: 200 }, sentences: { count: 12, averageWords: 16, longShare: 0 }, paragraphs: { count: 4, averageSentences: 3 }, vocabulary: { diversity: 0.6 }, terms: ['التعليم الإلكتروني'], citations: { format: 'author-year', perHundredWords: 1 }, voice: 'third', sentenceLength: 'medium' };
+
 const db = createTableFake({ strictQuery: true, serverRowLimit: 3 });
 const projectId = '56cca03a-078a-4d81-b19a-8547664136d8';
 const publicRecords = JSON.parse(readFileSync(join(__dirname, 'fixtures', 'nursing-simulation.json'), 'utf8')).papers as Array<Record<string, unknown>>;
@@ -21,7 +23,7 @@ const capturedContext = () => {
 
 beforeEach(() => {
   jest.clearAllMocks(); db.reset();
-  (requireAuthenticatedUser as jest.Mock).mockResolvedValue({ user: { id: 'owner' }, supabase: db.session });
+  (requireAuthenticatedUser as jest.Mock).mockResolvedValue({ user: { id: 'owner', user_metadata: { writingStyle: APPROVED_STYLE } }, supabase: db.session });
   (ownsProject as jest.Mock).mockResolvedValue(true);
   (generateStructured as jest.Mock).mockResolvedValue({ output: JSON.stringify({ objectives: ['A declared fixture objective for a bounded context check.'] }) });
   db.seed('documents', { project_id: projectId, type: 'journey:title', version: 1, content: JSON.stringify({ title: 'Simulation in nursing education' }) });
@@ -105,4 +107,22 @@ test('private context is not read or generated for an unauthenticated or foreign
 
 test.each([DRAFT_CONTEXT_TOO_LARGE, 'تعذر استرجاع أحد أقسام مشروعك. افتحه وراجع حفظه ثم أعد المحاولة.'])('the recovery message is available in English: %s', message => {
   expect(translateUiText(message, 'en')).not.toMatch(/[\u0600-\u06ff]/);
+});
+
+// DOC-13-06: no drafting help before the researcher approves a style profile.
+test('a researcher without an approved style profile is sent to the style test before any draft', async () => {
+  (requireAuthenticatedUser as jest.Mock).mockResolvedValueOnce({ user: { id: 'owner', user_metadata: {} }, supabase: {} });
+  (ownsProject as jest.Mock).mockResolvedValueOnce(true);
+  const response = await POST(new Request('https://waha.systems/api/research/draft', { method: 'POST', body: JSON.stringify({ projectId: 'project-1', stage: 'problem' }) }));
+  expect(response.status).toBe(428);
+  expect((await response.json()).code).toBe('STYLE_PROFILE_REQUIRED');
+  expect(generateStructured).not.toHaveBeenCalled();
+});
+
+test('drafts follow the approved style, given to the model before the project record', async () => {
+  const response = await POST(request()); expect(response.status).toBe(200);
+  const prompt = (generateStructured as jest.Mock).mock.calls[0][0].prompt as string;
+  expect(prompt).toContain('اكتب بأسلوب الباحث المعتمد');
+  expect(prompt).toContain('التعليم الإلكتروني');
+  expect(prompt.indexOf('اكتب بأسلوب الباحث المعتمد')).toBeLessThan(prompt.indexOf('سجل المشروع:'));
 });
