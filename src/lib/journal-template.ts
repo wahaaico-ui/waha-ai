@@ -29,8 +29,9 @@ export type JournalTemplate = {
   sections: ManuscriptSection[];
   wordLimit: number | null;
   abstractMaxWords: number | null;
-  keywordsMin: number;
-  keywordsMax: number;
+  /** Both null when the journal states no keyword count; a minimum of 0 means keywords are optional. */
+  keywordsMin: number | null;
+  keywordsMax: number | null;
   referenceLimit: number | null;
 };
 
@@ -49,8 +50,9 @@ export function parseJournalTemplate(value: unknown): JournalTemplate | null {
   if (!Array.isArray(v.sections) || !v.sections.length || new Set(v.sections).size !== v.sections.length
     || v.sections.some(s => !MANUSCRIPT_SECTIONS.includes(s as ManuscriptSection))) return null;
   const wordLimit = limit(v.wordLimit, 200_000), abstractMaxWords = limit(v.abstractMaxWords, 2_000), referenceLimit = limit(v.referenceLimit, 2_000);
-  const keywordsMin = limit(v.keywordsMin, 30), keywordsMax = limit(v.keywordsMax, 30);
-  if (wordLimit === undefined || abstractMaxWords === undefined || referenceLimit === undefined || !keywordsMin || !keywordsMax || keywordsMin > keywordsMax) return null;
+  const keywordsMin = v.keywordsMin === 0 ? 0 : limit(v.keywordsMin, 30), keywordsMax = limit(v.keywordsMax, 30);
+  if (wordLimit === undefined || abstractMaxWords === undefined || referenceLimit === undefined || keywordsMin === undefined || keywordsMax === undefined) return null;
+  if ((keywordsMin === null) !== (keywordsMax === null) || (keywordsMax !== null && (keywordsMax < 1 || keywordsMin! > keywordsMax))) return null;
   return { preset: v.preset as JournalTemplate['preset'], sections: v.sections as ManuscriptSection[], wordLimit, abstractMaxWords, keywordsMin, keywordsMax, referenceLimit };
 }
 
@@ -93,7 +95,7 @@ export function buildJournalFit(
   const checks: FitCheck[] = [{ id: 'sections', ok: missing === 0, actual: template.sections.length - missing, limit: String(template.sections.length) }];
   if (template.wordLimit) checks.push({ id: 'words', ok: totalWords <= template.wordLimit, actual: totalWords, limit: String(template.wordLimit) });
   if (template.abstractMaxWords) checks.push({ id: 'abstract', ok: abstractWords > 0 && abstractWords <= template.abstractMaxWords, actual: abstractWords, limit: String(template.abstractMaxWords) });
-  checks.push({ id: 'keywords', ok: keywords >= template.keywordsMin && keywords <= template.keywordsMax, actual: keywords, limit: `${template.keywordsMin}–${template.keywordsMax}` });
+  if (template.keywordsMin !== null && template.keywordsMax !== null) checks.push({ id: 'keywords', ok: keywords >= template.keywordsMin && keywords <= template.keywordsMax, actual: keywords, limit: `${template.keywordsMin}–${template.keywordsMax}` });
   if (template.referenceLimit) checks.push({ id: 'references', ok: referenceCount <= template.referenceLimit, actual: referenceCount, limit: String(template.referenceLimit) });
   return { outline, totalWords, checks };
 }

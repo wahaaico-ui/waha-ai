@@ -28,22 +28,38 @@ export type AcademicStyleProfile = {
 export const PAGE_NUMBER_POSITIONS = ['bottom-center', 'bottom-right', 'bottom-left', 'top-center', 'top-right', 'top-left'] as const;
 export type PageNumberPosition = typeof PAGE_NUMBER_POSITIONS[number];
 
-const ABSTRACT = /ملخص|المستخلص|abstract/iu;
+const ABSTRACT = /ملخص|الم\s?لخص|المستخلص|abstract/iu;
 const toNumber = (digits: string) => Number(digits.replace(/[,٬\s]/gu, ''));
 
 /** «لا يزيد / لا يتجاوز … 40000 كلمة», «must not exceed 80,000 words», «no more than 350 words». */
 function wordLimit(line: string, min: number, max: number): number | null {
-  const match = line.match(/(?:(?:لا|ألا|الا)\s*(?:يزيد|يتجاوز|تزيد|تتجاوز)|حد(?:ا|ًا)?\s*أقصى|not\s+exceed|no\s+more\s+than|maximum\s+of|at\s+most|up\s+to)[^\d]{0,60}?(\d{2,3}(?:[,٬]\d{3})+|\d{2,6})\s*\)?\s*(?:كلمة|كلمات|words?)/iu);
+  const match = line.match(/(?:(?:لا|ألا|الا)\s*(?:يزيد|يتجاوز|تزيد|تتجاوز)|حد(?:ا|ًا)?\s*أقصى|(?:حده|حدها|الحد)\s*(?:الأعلى|األعلى)|not\s+(?:normally\s+|usually\s+)?exceed|no\s+more\s+than|maximum\s+of|at\s+most|up\s+to)[^\d]{0,60}?(\d{2,3}(?:[,٬]\d{3})+|\d{2,6})\s*\)?\s*(?:كلمة|كلمات|words?)/iu)
+    // «350 word maximum», «(150 words or less)»: the limit written after the number.
+    || line.match(/(\d{2,3}(?:[,٬]\d{3})+|\d{2,6})\s*(?:words?|كلمة|كلمات)\s*(?:maximum|max\b|or\s+(?:less|fewer)|at\s+most|كحد\s+أقصى)/iu);
   if (!match) return null;
   const value = toNumber(match[1]);
   return value >= min && value <= max ? value : null;
 }
 
+const WORD_INSTRUCTIONS = /ribbon|click|drop[- ]?down|menu\b|tab\b|اضغط|انقر|القائمة/iu;
+/** Of several labelled patterns, the one whose first match comes earliest in the line. */
+function earliest<T extends string>(line: string, patterns: Record<T, RegExp>): T | null {
+  let best: { key: T; index: number } | null = null;
+  for (const key of Object.keys(patterns) as T[]) {
+    const index = line.search(patterns[key]);
+    if (index >= 0 && (!best || index < best.index)) best = { key, index };
+  }
+  return best?.key ?? null;
+}
+
 function pageNumbering(lines: string[]): SourcedRule<PageNumberPosition> {
   for (const line of lines) {
     if (!/ترقيم\s*الصفحات|رقم\s*الصفحة|أرقام\s*الصفحات|page\s*numb/iu.test(line)) continue;
-    const vertical = /أسفل|bottom|footer/iu.test(line) ? 'bottom' : /أعلى|top|header/iu.test(line) ? 'top' : null;
-    const horizontal = /منتصف|وسط|cent(?:er|re)|middle/iu.test(line) ? 'center' : /يمين|right/iu.test(line) ? 'right' : /يسار|left/iu.test(line) ? 'left' : null;
+    // Word instructions («the far left ribbon») describe the software, not the page.
+    if (WORD_INSTRUCTIONS.test(line)) continue;
+    // The first position named is the rule; later ones are the alternatives («lower right; lower centre … also»).
+    const vertical = earliest(line, { bottom: /أسفل|bottom|footer|lower/iu, top: /أعلى|top|header|upper/iu });
+    const horizontal = earliest(line, { center: /منتصف|وسط|cent(?:er|re)|middle/iu, right: /يمين|right/iu, left: /يسار|left/iu });
     if (vertical && horizontal) return { value: `${vertical}-${horizontal}` as PageNumberPosition, evidence: line };
   }
   return null;
@@ -91,10 +107,10 @@ function firstRule<T>(lines: string[], read: (text: string) => T | null): Source
 }
 const inRange = (value: number, min: number, max: number) => Number.isFinite(value) && value >= min && value <= max ? value : null;
 const centimetres = (amount: string, unit: string) => {
-  const value = Number(amount) * (/^(?:in|inch|inches|")$/iu.test(unit) ? 2.54 : 1);
+  const value = Number(amount.replace(',', '.')) * (/^(?:in|inch|inches|"|”|″)$/iu.test(unit) ? 2.54 : 1);
   return inRange(Math.round(value * 100) / 100, 0.5, 8);
 };
-const UNIT = String.raw`(\d+(?:\.\d+)?)\s*(cm|سم|in|inch|inches|")`;
+const UNIT = String.raw`(\d+(?:[.,]\d+)?)\s*(cm|سم|inches|inch|in|"|”|″)`;
 
 function sentenceFont(lines: string[], language: 'arabic' | 'english') {
   const names = new RegExp(`(${language === 'arabic' ? ARABIC_FONTS : ENGLISH_FONTS})`, 'iu');
@@ -108,35 +124,45 @@ function sentenceFont(lines: string[], language: 'arabic' | 'english') {
 function sentenceSize(lines: string[], language: 'arabic' | 'english') {
   return firstRule(lines, text => {
     if (NOT_BODY.test(text) || !/size|font|حجم|بحجم/iu.test(text)) return null;
-    const arabic = ARABIC.test(text) && !ENGLISH_AR.test(text);
+    const arabic = ARABIC.test(text) && !ENGLISH_AR.test(text) && !/(?:غ)?ير\s*العربية/u.test(text);
     const english = isArabicScript(text) ? ENGLISH_AR.test(text) && !ARABIC.test(text) : !/arabic/iu.test(text);
     if (language === 'arabic' ? !arabic : !english) return null;
-    const match = text.match(/\(\s*(\d{1,2})(?:\s*(?:pt|point|نقطة))?\b/u) || text.match(/\b(\d{1,2})\s*(?:pt\.?|point|نقطة)/iu);
+    // «(8 ½ by 11» is the paper size, not a font size.
+    const match = text.match(/\(\s*(\d{1,2})(?![\d½¼¾])(?!\s*(?:½|¼|¾|by\b|x\b|×))(?:\s*(?:pt|point|نقطة))?\b/u) || text.match(/\b(\d{1,2})\s*-?\s*(?:pt\.?|point|نقطة)/iu);
     return match ? inRange(Number(match[1]), 8, 30) : null;
   });
 }
 function sentenceMargins(lines: string[]) {
   const all = firstRule(lines, text => {
-    const match = text.match(new RegExp(`(?:الأبعاد|األبعاد|الهوامش|margins?)[^\\d]{0,20}${UNIT}\\s*(?:من جميع الجهات|on all sides|all around|on each side)`, 'iu'));
+    const match = text.match(new RegExp(`(?:الأبعاد|األبعاد|الهوامش|margins?)[^\\d]{0,20}${UNIT}\\s*(?:من جميع الجهات|on all sides|all around|on each side)`, 'iu'))
+      // «All margins should be 1 inch», «All margins—top, left, right, and bottom—should be set to 1.0 inch».
+      || text.match(new RegExp(`(?:all\\s+(?:page\\s+)?margins|جميع\\s+الهوامش)[^\\d]{0,70}?${UNIT}`, 'iu'));
     return match ? centimetres(match[1], match[2]) : null;
   });
   const except = firstRule(lines, text => {
     const match = text.match(new RegExp(`(?:من جميع الجهات|on all sides)\\s*(?:ب\\s*)?(?:استثناء|باستثناء|except)[^\\d]{0,40}${UNIT}`, 'iu'));
     return match ? centimetres(match[1], match[2]) : null;
   });
-  const side = (pattern: string) => firstRule(lines, text => {
-    const match = text.match(new RegExp(`(?:${pattern})[^\\d.]{0,20}(?:must be|should be|is|of|=|:)?\\s*${UNIT}`, 'iu'));
+  const side = (pattern: string, before?: string) => firstRule(lines, text => {
+    // A chapter's first page or the title page has its own margin; it is not the page margin.
+    if (/first page|each chapter|major division|title page|الصفحة الأولى|بداية (?:كل )?فصل/iu.test(text)) return null;
+    const match = text.match(new RegExp(`(?:${pattern})[^\\d.]{0,20}(?:must be|should be|is|of|=|:)?\\s*${UNIT}`, 'iu'))
+      // «1.5" left, 1" top, 1" right and bottom margin»: the value written before the side.
+      || (before && /margin/iu.test(text) ? text.match(new RegExp(`${UNIT}\\s*(?:${before})\\b`, 'iu')) : null);
     return match ? centimetres(match[1], match[2]) : null;
   });
-  const binding = side('inside margin|binding margin|left margin|gutter') || except;
-  const other = side('right and bottom margins|outside margin|right margin') || all;
-  const bottom = side('right and bottom margins|bottom margin') || all;
-  const top = side('top margin') || all;
+  // A gutter is added to the margin; «total binding edge» is the whole binding side.
+  const binding = side('total bi(?:n)?ding edge(?: of)?', undefined) || side('inside margin|binding margin|left margin|gutter', 'left') || except;
+  const other = side('right and bottom margins|outside margin|right margin', 'right') || all;
+  const bottom = side('right and bottom margins|bottom margin', 'bottom') || all;
+  const top = side('top margin|margins? top', 'top') || all;
   return { top, bottom, binding, other };
 }
 function sentenceSpacing(lines: string[]) {
   return firstRule(lines, text => {
     if (NOT_BODY.test(text) && !/document text|body text|المتن/iu.test(text)) return null;
+    // Space between paragraphs is not line spacing.
+    if (/between paragraphs|بين الفقرات/iu.test(text) && !/document text|body text|المتن|بين الأسطر|بين السطور/iu.test(text)) return null;
     if (/double[- ]spac|مسافة مزدوجة|مسافتين/iu.test(text)) return 2;
     if (/(?:1\.5|one and a half)[- ]?(?:line )?spac|مسافة ونصف|سطر ونصف/iu.test(text)) return 1.5;
     return null;
@@ -144,7 +170,12 @@ function sentenceSpacing(lines: string[]) {
 }
 function sentenceCitation(lines: string[]) {
   return firstRule(lines, text => {
-    if (!/توثيق|التوثيق|citation|referenc/iu.test(text) || !/المعتمد|يعتمد|نظام|must|required|use|follow/iu.test(text)) return null;
+    // «referenced in the text» is a verb about tables, not the reference style.
+    if (!/توثيق|التوثيق|citation|referencing|references?\s+(?:style|list|format)|\breferences\b/iu.test(text) || !/المعتمد|يعتمد|نظام|must|required|use|follow/iu.test(text)) return null;
+    // Two styles offered as a choice («APA أو MLA») leave the choice to the department.
+    if (/\b(?:APA|MLA|Harvard|IEEE|Chicago|Vancouver)\b\)?\s*(?:أو|or|\/)\s*\(?\b(?:APA|MLA|Harvard|IEEE|Chicago|Vancouver)\b/iu.test(text)) return null;
+    // A style named as an example or one of several options is not the required style.
+    if (/\be\.g\.|for (?:instance|example)|such as|etc\.|\bvs\.?\b|مثل|على سبيل المثال/iu.test(text)) return null;
     const match = text.match(/\b(APA(?:\s*7(?:th)?)?|Harvard|IEEE|Chicago)\b/u);
     return match ? (/^apa/iu.test(match[1]) ? 'APA 7' : match[1]) as 'APA 7' | 'Harvard' | 'IEEE' | 'Chicago' : null;
   });
@@ -173,7 +204,8 @@ export function extractAcademicStyleProfile(text: string): AcademicStyleProfile 
   const citation = matchingRule(lines, /(?:citation style|referencing style|نظام التوثيق|نمط التوثيق)\s*[:：-]?\s*(APA\s*7(?:th)?|Harvard|IEEE|Chicago)/iu,
     match => (/^apa/iu.test(match[1]) ? 'APA 7' : match[1]) as 'APA 7' | 'Harvard' | 'IEEE' | 'Chicago') || sentenceCitation(lines);
   return {
-    university_or_journal_name: matchingRule(lines, /(?:university|journal|الجامعة|المجلة)\s*[:：-]\s*([^:：]{3,100})/iu, match => match[1].trim()),
+    // Only a line that starts with the label; a sample reference also contains «Journal,».
+    university_or_journal_name: matchingRule(lines, /^(?:university|journal|الجامعة|المجلة)\s*[:：-]\s*([^:：]{3,100})/iu, match => match[1].trim()),
     language_rules: {
       arabic_font_family: font('arabic'), arabic_font_size_body: size('arabic', false),
       arabic_font_size_heading_1: size('arabic', true), english_font_family: font('english'),

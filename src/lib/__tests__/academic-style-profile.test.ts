@@ -176,3 +176,64 @@ test('an approved page number position moves the Word page number', async () => 
     expect(fallback.read(footer)).toMatch(/<w:jc w:val="center"\/>/u);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+// Sentences from the public guides tested in roadmap item 3.4 (DOC-45-02).
+describe('phrasings found in twenty published guides', () => {
+  const read = (text: string) => extractAcademicStyleProfile(text);
+  test('margins stated for all sides in several ways', () => {
+    expect(read('All margins—top, left, right, and bottom—should be set to 1.0 inch throughout the').page_layout.margin_top?.value).toBe(2.54);
+    expect(read('Line spacing must be double. All margins should be 1 inch.').page_layout.margin_other_side?.value).toBe(2.54);
+  });
+  test('a curly inch mark, a margin named after its side, and values written before the side', () => {
+    const curly = read('Top Margin: 1”\nBottom Margin: 1”\nLeft Margin: 1”\nRight Margin: 1”').page_layout;
+    expect([curly.margin_top?.value, curly.margin_bottom?.value, curly.margin_binding_side?.value, curly.margin_other_side?.value]).toEqual([2.54, 2.54, 2.54, 2.54]);
+    expect(read('Margins Top 1.8cm').page_layout.margin_top?.value).toBe(1.8);
+    const before = read('1.5" left, 1" top, 1" right and bottom margin for all pages').page_layout;
+    expect([before.margin_binding_side?.value, before.margin_top?.value, before.margin_other_side?.value]).toEqual([3.81, 2.54, 2.54]);
+  });
+  test("a chapter's first-page margin is not the page margin", () => {
+    const layout = read('• Standard margins: 1" on all sides.\n• First page of each chapter: 2” top margin.\n• All other pages: 1” top and bottom margins.').page_layout;
+    expect(layout.margin_top?.value).toBe(2.54);
+  });
+  test('a decimal comma in centimetres', () => {
+    expect(read('الهوامش 2,5 سم من جميع الجهات').page_layout.margin_top?.value).toBe(2.5);
+  });
+  test('hyphenated point sizes, and never the paper size', () => {
+    expect(read('Text in a manuscript must be 12-pt. font size and Times New Roman.').language_rules.english_font_size_body?.value).toBe(12);
+    expect(read('Times New Roman font, size 12-point, 12 characters per inch must be used.').language_rules.english_font_size_body?.value).toBe(12);
+    expect(read('Oversized illustrations, such as images, maps or charts larger than letter size (8 ½ by 11').language_rules.english_font_size_body).toBeNull();
+  });
+  test('word limits written after the number, or softened with «normally»', () => {
+    expect(read('Abstract 350 word maximum. Too many words.').document_rules.abstract_max_words?.value).toBe(350);
+    expect(read('• Abstract (150 words or less)').document_rules.abstract_max_words?.value).toBe(150);
+    expect(read('A Phd thesis should not normally exceed 100,000 words of text (including').document_rules.max_words?.value).toBe(100000);
+    expect(read('يكون حجم الم لخص في حده األعلى بالنسبة لرسائل (250) كلمة').document_rules.abstract_max_words?.value).toBe(250);
+  });
+  test('a citation style given as an example or an option is not required', () => {
+    expect(read('APA, Chicago, MLA, etc.) to be used for basic formatting and style, proper citations, and the use').citation_style.system).toBeNull();
+    expect(read('according to disciplinary styles (for instance MLA referencing vs APA referencing), all theses must adhere').citation_style.system).toBeNull();
+    expect(read('type must be in APA style. No introduction or additional text is needed, just list your references.').citation_style.system?.value).toBe('APA 7');
+  });
+  test('two styles offered as a choice, or a sentence about tables, set no citation style', () => {
+    expect(read('ويجب مراعاة صياغتها وفق نظام (APA) أو (MLA) للأقسام التي تأخذ بهما في التوثيق.').citation_style.system).toBeNull();
+    expect(read('• Each table/figure is numbered sequentially and referenced in the text before appearing. • Captions and labels follow APA 7th edition format.').citation_style.system).toBeNull();
+    expect(read('1 . إن التوثيق المعتمد لدى كلية الدراسات العليا هو نظام جمعية علم النفس الأمريكية APA في كل الرسائل').citation_style.system?.value).toBe('APA 7');
+  });
+  test('space between paragraphs is not line spacing', () => {
+    expect(read('ترك مسافة مزدوجة (Double Space) بين الفقرات').language_rules.line_spacing).toBeNull();
+  });
+  test('page numbers: the first position named, and never a Word instruction', () => {
+    expect(read('page number location is lower right; lower centre and top right are also').document_rules.page_numbering?.value).toBe('bottom-right');
+    expect(read('Header & Footer Design tab then on the far left ribbon, click on the Page number drop').document_rules.page_numbering).toBeNull();
+  });
+  test('the size of non-Arabic words is not the Arabic body size', () => {
+    expect(read('تكتب الكلمات غير العربية في متن الرسالة بحجم (12) نقطة').language_rules.arabic_font_size_body).toBeNull();
+  });
+  test('a gutter adds to the margin: the total binding edge is the binding side', () => {
+    expect(read('Gutter 2.5cm (making total biding edge of 4.0cm)').page_layout.margin_binding_side?.value).toBe(4);
+  });
+  test('a sample reference line is not the university name', () => {
+    expect(read('Author, A. A., & Author, B. B. (Year). Title of article. Title of Journal, 1(2), 3-4.').university_or_journal_name).toBeNull();
+    expect(read('الجامعة: جامعة مؤتة').university_or_journal_name?.value).toBe('جامعة مؤتة');
+  });
+});

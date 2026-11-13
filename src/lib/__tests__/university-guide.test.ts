@@ -47,3 +47,26 @@ test('normalizes control characters as text while preserving meaningful numbers 
   expect(normalizeUniversityPolicy(' \u0000APA 7\r\np < .05; <b>text</b> ')).toBe('APA 7\np < .05; <b>text</b>');
   expect(normalizeUniversityPolicy({ text: 'object' })).toBeNull(); expect(normalizeUniversityPolicy('Manual PDF Upload: a.pdf')).toBeNull();
 });
+
+describe('a scrambled Arabic text layer (found in a published guide, item 3.4)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { arabicTextLayerUnreadable } = require('@/lib/university-policy') as typeof import('@/lib/university-policy');
+  const readable = 'يجب أن تكون الرسالة مكتوبة بخط واضح في جميع الصفحات، ويكون حجم الخط في المتن ستة عشر. '.repeat(30);
+  const scrambled = 'لكمالوعدلفبل العقمل اوأ لوأكونلحيملرسخطلسل لب الحيملعطلرسم ف كونل رس وض ح ج لاو وأيوزلبنلتك ال شكلل ائل '.repeat(30);
+  test('readable Arabic, English, and short texts are read', () => {
+    expect(arabicTextLayerUnreadable(readable)).toBe(false);
+    expect(arabicTextLayerUnreadable('Use Times New Roman, 12 point, double spaced. '.repeat(50))).toBe(false);
+    expect(arabicTextLayerUnreadable('لكمالوعدلفبل')).toBe(false);
+  });
+  test('Arabic letters that do not form words are refused', () => {
+    expect(arabicTextLayerUnreadable(scrambled)).toBe(true);
+  });
+});
+
+test('Arabic stored as presentation forms is read as plain letters', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { normalizeUniversityPolicy } = require('@/lib/university-policy') as typeof import('@/lib/university-policy');
+  expect(normalizeUniversityPolicy('ﺗﺮك ﻣﺴﺎﻓﺔ ﻣﺰدوﺟﺔ ﺑﯿﻦ اﻟﻔﻘﺮات')).toBe('ترك مسافة مزدوجة بين الفقرات'.normalize('NFKC'));
+  expect(normalizeUniversityPolicy('بين الفقѧرات وأن تُكتـب')).toBe('بين الفقرات وأن تُكتب');
+  expect(normalizeUniversityPolicy('letter size (8 ½ by 11)')).toBe('letter size (8 ½ by 11)');
+});

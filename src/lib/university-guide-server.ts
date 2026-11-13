@@ -1,5 +1,5 @@
 import { canonicalPdfPages } from '@/lib/pdf-evidence';
-import { normalizeUniversityPolicy, UNIVERSITY_GUIDE_MAX_BYTES, UNIVERSITY_GUIDE_MAX_PAGES, UNIVERSITY_POLICY_MAX_CHARS } from '@/lib/university-policy';
+import { arabicTextLayerUnreadable, normalizeUniversityPolicy, UNIVERSITY_GUIDE_MAX_BYTES, UNIVERSITY_GUIDE_MAX_PAGES, UNIVERSITY_POLICY_MAX_CHARS } from '@/lib/university-policy';
 import { extractAcademicStyleProfile } from '@/lib/academic-style-profile';
 
 /** Local text-layer extraction only. Never invokes an AI/OCR provider or stores PDF bytes. */
@@ -16,6 +16,7 @@ export async function extractUniversityGuide(bytes: Uint8Array) {
     if (canonical.text.length > UNIVERSITY_POLICY_MAX_CHARS) throw new Error('guide_text');
     // An image-only (scanned) guide has no text layer; nothing is guessed from it.
     if (!text || text.length < 20) throw new Error('guide_no_text');
+    if (arabicTextLayerUnreadable(text)) throw new Error('guide_scrambled_text');
     return { text, totalPages: info.total, emptyPages: result.pages.filter(page => !page.text.trim()).map(page => page.num), styleProfile: extractAcademicStyleProfile(text) };
   } finally { await parser.destroy(); }
 }

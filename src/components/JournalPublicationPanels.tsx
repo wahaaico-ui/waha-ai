@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useUiTranslation } from '@/lib/use-ui-translation';
+import { JOURNAL_CATALOG } from '@/lib/journal-catalog';
 import { buildJournalFit, JOURNAL_PRESETS, MANUSCRIPT_SECTIONS, SECTION_LABELS, type JournalTemplate, type ManuscriptSection } from '@/lib/journal-template';
 import { buildResponseLetter, COMMENT_STATUSES, REVIEW_DECISIONS, REVIEWERS, type JournalReview, type ReviewComment } from '@/lib/journal-review';
 
@@ -17,11 +18,13 @@ export function JournalTemplatePanel({ projectId, outputs, publication }: {
   outputs: Partial<Record<string, unknown>>;
   publication: { structuredAbstract?: Record<string, string>; keywords?: string[] } | null;
 }) {
-  const { text: ui } = useUiTranslation();
+  const { text: ui, language } = useUiTranslation();
   const [template, setTemplate] = useState<JournalTemplate>(JOURNAL_PRESETS.imrad);
   const [references, setReferences] = useState(0);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  const [catalogId, setCatalogId] = useState('');
+  const catalogJournal = JOURNAL_CATALOG.find(journal => journal.id === catalogId) ?? null;
 
   useEffect(() => {
     let active = true;
@@ -32,7 +35,7 @@ export function JournalTemplatePanel({ projectId, outputs, publication }: {
   }, [projectId]);
 
   const fit = useMemo(() => buildJournalFit(template, outputs, publication, references), [template, outputs, publication, references]);
-  const change = (next: Partial<JournalTemplate>) => { setStatus('idle'); setTemplate(current => ({ ...current, ...next, preset: next.preset ?? 'custom' })); };
+  const change = (next: Partial<JournalTemplate>) => { setStatus('idle'); setCatalogId(''); setTemplate(current => ({ ...current, ...next, preset: next.preset ?? 'custom' })); };
   const numberOrNull = (value: string) => value.trim() ? Math.max(1, Math.trunc(Number(value)) || 1) : null;
   const toggleSection = (section: ManuscriptSection) => change({ sections: template.sections.includes(section) ? template.sections.filter(s => s !== section) : MANUSCRIPT_SECTIONS.filter(s => s === section || template.sections.includes(s)) });
 
@@ -48,10 +51,20 @@ export function JournalTemplatePanel({ projectId, outputs, publication }: {
 
   return <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
     <h2 className="text-xl font-black">{ui('4. مطابقة قالب المجلة')}</h2>
-    <p className="mt-2 text-sm leading-7 text-slate-600">{ui('أدخل تعليمات المجلة كما في دليل المؤلفين، فنرتب أقسام بحثك بترتيبها ونفحصه بحدودها. القوالب الجاهزة نقطة بداية عامة، لا تعليمات مجلة بعينها.')}</p>
+    <p className="mt-2 text-sm leading-7 text-slate-600">{ui('أدخل تعليمات المجلة كما في دليل المؤلفين، أو ابدأ من مجلة قرأنا تعليماتها، فنرتب أقسام بحثك بترتيبها ونفحصه بحدودها. القالبان العامّان نقطة بداية لا تعليمات مجلة بعينها.')}</p>
 
-    <div className="mt-5 grid gap-2 sm:grid-cols-2">{(['imrad', 'review'] as const).map(preset => <button key={preset} type="button" onClick={() => { setStatus('idle'); setTemplate(JOURNAL_PRESETS[preset]); }}
+    <div className="mt-5 grid gap-2 sm:grid-cols-2">{(['imrad', 'review'] as const).map(preset => <button key={preset} type="button" onClick={() => { setStatus('idle'); setCatalogId(''); setTemplate(JOURNAL_PRESETS[preset]); }}
       className={`rounded-xl border px-4 py-3 text-sm font-bold ${template.preset === preset ? 'border-blue-600 bg-blue-50' : 'border-slate-200'}`}>{ui(preset === 'imrad' ? 'مقال بحثي (IMRaD)' : 'مقال مراجعة')}</button>)}</div>
+
+    <label className="mt-4 block text-sm font-bold">{ui('أو ابدأ من تعليمات مجلة قرأناها')}
+      <select value={catalogId} onChange={event => { const journal = JOURNAL_CATALOG.find(item => item.id === event.target.value); setStatus('idle'); setCatalogId(journal?.id ?? ''); if (journal) setTemplate(journal.template); }} className={`mt-1 ${field}`}>
+        <option value="">{ui('اختر مجلة')}</option>
+        {JOURNAL_CATALOG.map(journal => <option key={journal.id} value={journal.id}>{journal.name} — {journal.articleType}</option>)}
+      </select></label>
+    {catalogJournal && <div className="mt-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-7 text-blue-950">
+      <p>{ui('من تعليمات المؤلفين كما قرأناها في {0}. تحقق من الصفحة قبل الإرسال؛ تتغير التعليمات.', [new Date(`${catalogJournal.checkedAt}T00:00:00Z`).toLocaleDateString(language === 'en' ? 'en-GB' : 'ar-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })])} <a href={catalogJournal.source} target="_blank" rel="noopener noreferrer" className="font-bold underline">{ui(catalogJournal.sourceKind === 'journal' ? 'صفحة المجلة' : 'المصدر الناقل')}</a></p>
+      {catalogJournal.notChecked.length > 0 && <><p className="mt-2 font-bold">{ui('قواعد في التعليمات لا يفحصها القالب:')}</p><ul className="list-disc ps-5">{catalogJournal.notChecked.map(rule => <li key={rule}>{ui(rule)}</li>)}</ul></>}
+    </div>}
 
     <fieldset className="mt-5"><legend className="text-sm font-bold">{ui('الأقسام المطلوبة بترتيب المجلة')}</legend>
       <div className="mt-2 flex flex-wrap gap-2">{MANUSCRIPT_SECTIONS.map(section => <label key={section} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm">
@@ -61,8 +74,8 @@ export function JournalTemplatePanel({ projectId, outputs, publication }: {
       {([['wordLimit', 'الحد الأقصى لكلمات المخطوط'], ['abstractMaxWords', 'الحد الأقصى لكلمات الملخص'], ['referenceLimit', 'الحد الأقصى للمراجع']] as const).map(([key, label]) => <label key={key} className="block space-y-1 text-sm font-bold">{ui(label)}
         <input type="number" min={1} inputMode="numeric" placeholder={ui('دون حد')} value={template[key] ?? ''} onChange={event => change({ [key]: numberOrNull(event.target.value) })} className={field} /></label>)}
       <label className="block space-y-1 text-sm font-bold">{ui('الكلمات المفتاحية: من … إلى')}
-        <span className="flex gap-2"><input type="number" min={1} value={template.keywordsMin} onChange={event => change({ keywordsMin: numberOrNull(event.target.value) ?? 1 })} className={field} />
-          <input type="number" min={1} value={template.keywordsMax} onChange={event => change({ keywordsMax: numberOrNull(event.target.value) ?? 1 })} className={field} /></span></label>
+        <span className="flex gap-2"><input type="number" min={0} value={template.keywordsMin ?? ''} onChange={event => change({ keywordsMin: event.target.value === '0' ? 0 : numberOrNull(event.target.value) })} className={field} />
+          <input type="number" min={1} value={template.keywordsMax ?? ''} onChange={event => change({ keywordsMax: numberOrNull(event.target.value) })} className={field} /></span></label>
     </div>
 
     <h3 className="mt-6 text-sm font-black">{ui('ترتيب المخطوط حسب القالب')}</h3>
