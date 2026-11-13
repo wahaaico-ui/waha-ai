@@ -6,7 +6,7 @@ import { join } from 'node:path';
 
 jest.mock('@/lib/supabase/authorization', () => ({ requireAuthenticatedUser: jest.fn(), ownsProject: jest.fn() }));
 jest.mock('@/lib/supabase/service', () => ({ createServiceClient: jest.fn() }));
-jest.mock('@/lib/billing/entitlements', () => ({ hasEntitlement: jest.fn().mockResolvedValue(true) }));
+jest.mock('@/lib/billing/entitlements', () => ({ hasEntitlement: jest.fn().mockResolvedValue(true), hasPaidPlan: jest.fn().mockResolvedValue(false) }));
 jest.mock('@/lib/ai/geminiClient', () => ({ generateStructured: jest.fn() }));
 jest.mock('@/lib/language/DeepLService', () => ({ DeepLService: { configured: () => false } }));
 jest.mock('@/lib/language/MicrosoftTranslatorService', () => ({ MicrosoftTranslatorService: { configured: () => false } }));

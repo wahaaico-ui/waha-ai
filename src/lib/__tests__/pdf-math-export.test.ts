@@ -27,7 +27,8 @@ test('extended Arabic keeps the original font across the whole joining span', ()
   expect(pdfFontRuns('\u0870كلمة', 'Amiri')).toEqual([{ text: '\u0870كلمة', font: 'NotoNaskhArabicExtended' }]);
 });
 test('actual generated PDF embeds math glyphs and contains no empty Unicode mappings',async()=>{
-  const pdf=await buildProjectPdf({language:'ar',title:'Mathematical planning fixture',notice:'Synthetic values only.',sections:[{title:'الحساب والمنهجية',paragraphs:['العينة n ≥ 278 من المجتمع N = 1000، بنسبة استجابة 70%.','n₀ ≈ Z²p(1−p)/e²; α = 0.05; ρ = 0.','ينبغي حفظ ملاحظات المشرف ومراجع الدراسة كاملة.']}]});
+  // A subscriber's file: a free file is encrypted, so its font streams cannot be inspected raw.
+  const pdf=await buildProjectPdf({watermark:'none',language:'ar',title:'Mathematical planning fixture',notice:'Synthetic values only.',sections:[{title:'الحساب والمنهجية',paragraphs:['العينة n ≥ 278 من المجتمع N = 1000، بنسبة استجابة 70%.','n₀ ≈ Z²p(1−p)/e²; α = 0.05; ρ = 0.','ينبغي حفظ ملاحظات المشرف ومراجع الدراسة كاملة.']}]});
   expect(pdf.toString('latin1')).toContain('NotoSansMath');
   const streams:string[]=[];
   for(const match of pdf.toString('latin1').matchAll(/stream\r?\n([\s\S]*?)\r?\nendstream/g)) {

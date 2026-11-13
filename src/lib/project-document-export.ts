@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { AlignmentType, BorderStyle, Document as WordDocument, Footer, Header, HeadingLevel, LevelFormat, LevelSuffix, Packer, PageNumber, Paragraph, Table, TableCell, TableLayoutType, TableRow, TextRun, WidthType, type ILevelsOptions } from 'docx';
 import PDFDocument from 'pdfkit';
+import { randomBytes } from 'node:crypto';
 import type { ProjectExportModel } from '@/lib/project-export';
 import { documentLogicalRuns, pdfVisualStyledRuns } from './pdf-text-runs';
 import { translateUiText } from './i18n/ui-text';
@@ -65,10 +66,10 @@ function richDocumentParagraph(block: WritingRenderBlock, listReference?: string
 }
 
 /** Page number where an approved guide rule puts it; centred footer otherwise. */
-function pageNumberPlacement(position?: string) {
+function pageNumberPlacement(position?: string, marked = true) {
   const [vertical, horizontal] = (position || 'bottom-center').split('-');
   const alignment = horizontal === 'right' ? AlignmentType.RIGHT : horizontal === 'left' ? AlignmentType.LEFT : AlignmentType.CENTER;
-  const paragraph = new Paragraph({ alignment, children: [new TextRun('WAHA - '), new TextRun({ children: [PageNumber.CURRENT] })] });
+  const paragraph = new Paragraph({ alignment, children: [...(marked ? [new TextRun('WAHA - ')] : []), new TextRun({ children: [PageNumber.CURRENT] })] });
   return vertical === 'top' ? { headers: { default: new Header({ children: [paragraph] }) } } : { footers: { default: new Footer({ children: [paragraph] }) } };
 }
 
@@ -138,7 +139,7 @@ export async function buildProjectDocx(model: ProjectExportModel): Promise<Buffe
       documentParagraph(section.title, { heading: true }, profile),
       ...(section.blocks ? formattedContent(section.blocks) : (section.paragraphs.length ? section.paragraphs : [translateUiText('لا توجد بيانات محفوظة لهذه الفقرة.', model.language || 'ar')]).flatMap((paragraph) => paragraph.split(/\r?\n/).map((line) => documentParagraph(line, {}, profile)))),
     ]),
-    documentParagraph(ui('أُعد بمساعدة الواحة.'), {}, profile),
+    ...(model.watermark === 'none' ? [] : [documentParagraph(ui('أُعد بمساعدة الواحة.'), {}, profile)]),
   ];
   const document = new WordDocument({
     creator: 'WAHA',
@@ -149,7 +150,7 @@ export async function buildProjectDocx(model: ProjectExportModel): Promise<Buffe
     sections: [{
       properties: { page: { margin: pageMargins } },
       children,
-      ...pageNumberPlacement(profile?.document_rules?.page_numbering?.value),
+      ...pageNumberPlacement(profile?.document_rules?.page_numbering?.value, model.watermark !== 'none'),
     }],
   });
   return Buffer.from(await Packer.toBuffer(document));
@@ -171,7 +172,11 @@ export async function buildProjectPdf(model: ProjectExportModel): Promise<Buffer
   const rtl = bindingOnRight(model);
   const left = point(profile?.page_layout[rtl ? 'margin_other_side' : 'margin_binding_side']?.value, 54);
   const right = point(profile?.page_layout[rtl ? 'margin_binding_side' : 'margin_other_side']?.value, 54);
-  const document = new PDFDocument({ size: 'A4', bufferPages: true, margins: { top: point(profile?.page_layout.margin_top?.value, 54), right, bottom: point(profile?.page_layout.margin_bottom?.value, 58), left }, info: { Title: model.title, Author: 'WAHA' } });
+  const document = new PDFDocument({ size: 'A4', bufferPages: true, margins: { top: point(profile?.page_layout.margin_top?.value, 54), right, bottom: point(profile?.page_layout.margin_bottom?.value, 58), left }, info: { Title: model.title, Author: 'WAHA' },
+    // A free file opens and prints freely but refuses editing in standard readers, which keeps the mark.
+    // The owner password is random and never stored: nobody, WAHA included, can lift the restriction.
+    ...(model.watermark === 'none' ? {} : { pdfVersion: '1.7ext3' as const, ownerPassword: randomBytes(24).toString('hex'),
+      permissions: { printing: 'highResolution' as const, copying: true, modifying: false, annotating: false, fillingForms: false, contentAccessibility: true, documentAssembly: false } }) });
   const chunks: Buffer[] = [];
   document.on('data', (chunk: Buffer) => chunks.push(chunk));
   const completed = new Promise<Buffer>((resolve, reject) => {
@@ -412,10 +417,11 @@ export async function buildProjectPdf(model: ProjectExportModel): Promise<Buffer
     }
     document.moveDown(0.6);
   }
+  if (model.watermark !== 'none') text(translateUiText('أُعد بمساعدة الواحة.', model.language || 'ar'), 10, '#64748b');
   const range = document.bufferedPageRange();
   for (let index = range.start; index < range.start + range.count; index += 1) {
     document.switchToPage(index);
-    document.font('Helvetica').fontSize(8).fillColor('#64748b').text(`WAHA - ${index + 1} / ${range.count}`, left, document.page.height - document.page.margins.bottom - 14, { align: 'center', width: document.page.width - left - right, lineBreak: false });
+    document.font('Helvetica').fontSize(8).fillColor('#64748b').text(`${model.watermark === 'none' ? '' : 'WAHA - '}${index + 1} / ${range.count}`, left, document.page.height - document.page.margins.bottom - 14, { align: 'center', width: document.page.width - left - right, lineBreak: false });
   }
   completePdfUnicodeMappings(document);
   document.end();

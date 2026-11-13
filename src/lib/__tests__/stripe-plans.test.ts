@@ -40,3 +40,25 @@ describe('Stripe price-to-plan mapping', () => {
     expect(getStripePlanForPrice('price_legacy', { STRIPE_RESEARCHER_PRICE_ID: 'price_legacy' })).toBe('pro');
   });
 });
+
+describe('choosing a plan by name (item 3.5)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getStripePriceForPlan, availableStripePlans } = require('../billing/stripe-plans') as typeof import('../billing/stripe-plans');
+  const env = { BILLING_ENABLED: 'true', STRIPE_SECRET_KEY: 'sk_test_x', STRIPE_PRO_PRICE_ID: 'price_pro', STRIPE_EXPERT_PRICE_IDS: 'price_expert_a,price_expert_b' };
+
+  test('the first configured price of each plan; none when the plan has no price', () => {
+    expect(getStripePriceForPlan('pro', env)).toBe('price_pro');
+    expect(getStripePriceForPlan('expert', env)).toBe('price_expert_a');
+    expect(getStripePriceForPlan('institutional', env)).toBeNull();
+  });
+
+  test('plans offered for subscription: none until billing is switched on with keys and prices', () => {
+    expect(availableStripePlans(env)).toEqual(['pro', 'expert']);
+    expect(availableStripePlans({ ...env, BILLING_ENABLED: 'false' })).toEqual([]);
+    expect(availableStripePlans({})).toEqual([]);
+  });
+
+  test('the institutional plan is never bought online; it goes to contact', () => {
+    expect(availableStripePlans({ ...env, STRIPE_INSTITUTIONAL_PRICE_ID: 'price_inst' })).not.toContain('institutional');
+  });
+});

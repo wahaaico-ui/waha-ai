@@ -47,3 +47,15 @@ export function getStripePlanForPrice(
   if (!priceId) return null;
   return getStripePricePlanMap(environment).get(priceId) ?? null;
 }
+
+/** The first configured price of a plan, so the page can ask for a plan by name. */
+export function getStripePriceForPlan(plan: StripePlan, environment: StripePlanEnvironment = process.env) {
+  for (const [priceId, pricePlan] of getStripePricePlanMap(environment)) if (pricePlan === plan) return priceId;
+  return null;
+}
+
+/** Plans a researcher can subscribe to online now. The institutional plan always goes through contact. */
+export function availableStripePlans(environment: StripePlanEnvironment = process.env): StripePlan[] {
+  if (!isStripeCheckoutEnabled(environment)) return [];
+  return (['pro', 'expert'] as const).filter(plan => getStripePriceForPlan(plan, environment) !== null);
+}

@@ -4,6 +4,7 @@ import PricingPage from './page';
 let mockLanguage: 'ar' | 'en' = 'ar';
 jest.mock('@/lib/use-language', () => ({ useWahaLanguage: () => ({ language: mockLanguage }) }));
 jest.mock('@/components/SiteHeader', () => ({ __esModule: true, default: () => null }));
+jest.mock('next/navigation', () => ({ useRouter: () => ({ push: jest.fn() }) }));
 jest.mock('@/lib/use-ui-translation', () => ({ useUiTranslation: () => ({ text: (text: string) => text }) }));
 
 afterEach(() => { mockLanguage = 'ar'; });
@@ -27,4 +28,14 @@ test.each(['ar', 'en'] as const)('visitors start writing for free and can open t
   expect(html).toContain('href="/tools/sample-size"');
   expect(html).not.toMatch(/Subscribe to|الاشتراك في|<button\b/);
   if (language === 'en') expect(html).not.toMatch(/[\u0600-\u06ff]/);
+});
+
+test.each(['ar', 'en'] as const)('the free plan states the WAHA mark, paid plans its absence, and its limits honestly, in %s', (language) => {
+  mockLanguage = language;
+  const html = renderToStaticMarkup(<PricingPage />);
+  expect(html).toContain(language === 'ar' ? 'أُعد بمساعدة الواحة' : 'Prepared with WAHA');
+  expect(html).toContain(language === 'ar' ? 'ملفات مصدّرة بلا عبارة الواحة' : 'Exported files without the WAHA mark');
+  expect(html).toContain(language === 'ar' ? 'فلا نعد بحماية لا تُكسر' : 'we do not promise protection that cannot be broken');
+  // Before billing status arrives (and while billing is off) nothing can be bought.
+  expect(html).not.toContain(language === 'ar' ? 'اشترك الآن' : 'Subscribe now');
 });

@@ -4,7 +4,7 @@ const mockFrom = jest.fn();
 const mockCookieSet = jest.fn();
 const mockToken = jest.fn();
 jest.mock('@/lib/supabase/authorization', () => ({ requireAuthenticatedUser: () => mockAuth() }));
-jest.mock('@/lib/billing/entitlements', () => ({ hasEntitlement: (...args: unknown[]) => mockEntitlement(...args) }));
+jest.mock('@/lib/billing/entitlements', () => ({ hasEntitlement: (...args: unknown[]) => mockEntitlement(...args), hasPaidPlan: jest.fn().mockResolvedValue(false) }));
 jest.mock('@/lib/supabase/service', () => ({ createServiceClient: () => ({ from: (...args: unknown[]) => mockFrom(...args) }) }));
 jest.mock('next/headers', () => ({ cookies: async () => ({ set: mockCookieSet }) }));
 jest.mock('@/lib/integrations/crypto', () => ({ encryptIntegrationSecret: () => 'encrypted-test-state' }));

@@ -1,5 +1,5 @@
 jest.mock('@/lib/supabase/authorization', () => ({ requireAuthenticatedUser: jest.fn(), ownsProject: jest.fn() }));
-jest.mock('@/lib/billing/entitlements', () => ({ hasEntitlement: jest.fn() }));
+jest.mock('@/lib/billing/entitlements', () => ({ hasEntitlement: jest.fn(), hasPaidPlan: jest.fn().mockResolvedValue(false) }));
 jest.mock('@/lib/ai/geminiClient', () => ({ generateStructured: jest.fn() }));
 jest.mock('@/lib/supabase/service', () => ({ createServiceClient: jest.fn() }));
 jest.mock('@/lib/language/DeepLService', () => ({ DeepLService: { configured: jest.fn(() => false) } }));

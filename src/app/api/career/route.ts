@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 import { careerExportModel, loadCareer, normalizeOrcid } from '@/lib/scholarly-career';
 import { buildProjectDocx, buildProjectPdf } from '@/lib/project-document-export';
+import { hasPaidPlan } from '@/lib/billing/entitlements';
 
 export const runtime = 'nodejs';
 const headers = { 'Cache-Control': 'private, no-store' };
@@ -30,6 +31,7 @@ export async function POST(request: Request) {
   if (!orcid) return NextResponse.json({ error: 'أضف معرّف ORCID أولاً.' }, { status: 409, headers });
   try {
     const model = careerExportModel(await loadCareer(orcid), body?.language === 'en' ? 'en' : 'ar');
+    model.watermark = (await hasPaidPlan(access.user.id)) ? 'none' : 'free';
     const file = format === 'pdf' ? await buildProjectPdf(model) : await buildProjectDocx(model);
     return new NextResponse(Uint8Array.from(file).buffer, { headers: { ...headers, 'X-Content-Type-Options': 'nosniff',
       'Content-Type': format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

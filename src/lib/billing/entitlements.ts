@@ -7,6 +7,30 @@ const FREE_LAUNCH_ENTITLEMENTS: readonly Entitlement[] = ['academic_language_too
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 
+const PAID_PLANS = ['pro', 'expert', 'institutional', 'researcher'];
+
+/**
+ * Whether the account has an active paid plan: its exported files then carry
+ * no «أُعد بمساعدة الواحة» mark (DOC-41-06). Any failure reads as the free plan.
+ */
+export async function hasPaidPlan(userId: string) {
+  if (!userId.trim()) return false;
+  try {
+    const { data, error } = await createServiceClient()
+      .from('subscriptions')
+      .select('plan, status, current_period_end')
+      .eq('user_id', userId)
+      .in('status', ACTIVE_STATUSES)
+      .maybeSingle();
+    if (error || !data) return false;
+    if (data.current_period_end && new Date(data.current_period_end).getTime() < Date.now()) return false;
+    return PAID_PLANS.includes(data.plan);
+  } catch {
+    // Without the billing record the file is exported as free; the export itself never fails for it.
+    return false;
+  }
+}
+
 export async function hasEntitlement(userId: string, entitlement: Entitlement) {
   if (!userId.trim()) return false;
   if ((process.env.WAHA_CORE_FREE_LAUNCH ?? 'true') === 'true' && FREE_LAUNCH_ENTITLEMENTS.includes(entitlement)) return true;

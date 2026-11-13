@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { getStripePricePlanMap, isStripeCheckoutEnabled } from '@/lib/billing/stripe-plans';
+import { getStripePricePlanMap, getStripePriceForPlan, isStripeCheckoutEnabled } from '@/lib/billing/stripe-plans';
 import { requireAuthenticatedUser } from '@/lib/supabase/authorization';
 
 export async function POST(request: Request) {
   try {
     const access = await requireAuthenticatedUser();
     if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const body = await request.json() as { priceId?: string };
-    const priceId = body.priceId || process.env.STRIPE_PRO_PRICE_ID || process.env.STRIPE_RESEARCHER_PRICE_ID;
+    const body = await request.json() as { priceId?: string; plan?: unknown };
+    // The page asks for a plan by name; a price id is still accepted. The institutional plan is never sold here.
+    const planPrice = body.plan === 'pro' || body.plan === 'expert' ? getStripePriceForPlan(body.plan) : null;
+    const priceId = planPrice || body.priceId || process.env.STRIPE_PRO_PRICE_ID || process.env.STRIPE_RESEARCHER_PRICE_ID;
     const email = access.user.email;
     const origin = request.headers.get('origin');
     if (origin && origin !== new URL(request.url).origin) return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
