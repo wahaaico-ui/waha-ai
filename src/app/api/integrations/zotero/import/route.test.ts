@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const mockAuth = jest.fn(), mockOwns = jest.fn(), mockEntitlement = jest.fn(), mockIntegration = jest.fn(), mockService = jest.fn();
 jest.mock('@/lib/supabase/authorization', () => ({ requireAuthenticatedUser: () => mockAuth(), ownsProject: (...args: unknown[]) => mockOwns(...args) }));
-jest.mock('@/lib/billing/entitlements', () => ({ hasEntitlement: (...args: unknown[]) => mockEntitlement(...args) }));
+jest.mock('@/lib/billing/entitlements', () => ({ hasEntitlement: (...args: unknown[]) => mockEntitlement(...args), hasPaidPlan: jest.fn().mockResolvedValue(false) }));
 jest.mock('@/lib/integrations/zotero/server', () => ({ getZoteroIntegration: (...args: unknown[]) => mockIntegration(...args) }));
 jest.mock('@/lib/supabase/service', () => ({ createServiceClient: () => mockService() }));
 import { POST } from './route';

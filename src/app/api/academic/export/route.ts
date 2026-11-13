@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { ownsProject, requireAuthenticatedUser } from '@/lib/supabase/authorization';
-import { buildProjectExportModel, buildProjectMarkdown } from '@/lib/project-export';
+import { buildProjectExportModel, buildProjectMarkdown, type ProjectExportModel } from '@/lib/project-export';
 import { buildProjectDocx, buildProjectPdf } from '@/lib/project-document-export';
 import { buildProjectLatex } from '@/lib/latex-export';
+import { hasPaidPlan } from '@/lib/billing/entitlements';
 import { languageExportModel, synthesisExportModel, taskMarkdown } from '@/lib/research-task-export';
 import { readLanguageTask } from '@/lib/language-task';
 import { resolveLibrarySelection } from '@/lib/research-search-results';
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     if (!(await ownsProject(projectId, access.user.id, access.supabase))) return NextResponse.json({ error: 'Project not found' }, { status: 404 });
 
     if (body.task !== undefined) {
-      let model;
+      let model: ProjectExportModel;
       if (body.task === 'language') {
         if (typeof body.documentId !== 'string') return NextResponse.json({ error: 'Document required' }, { status: 400 });
         const result = await access.supabase.from('documents').select('content').eq('id', body.documentId).eq('project_id', projectId).eq('type', 'journey:language_task').maybeSingle();
@@ -101,6 +102,7 @@ export async function POST(request: Request) {
         if (!summaryReady(summary)) return NextResponse.json({ error: summary.kind === 'journal' ? 'اكتب الملخص المهيكل في مرحلة «جاهزية النشر» أولًا.' : 'لا يُصدَّر ملخص القرار قبل حفظ النتائج وحدودها.' }, { status: 409 });
         model = summaryExportModel(summary, language);
       } else return NextResponse.json({ error: 'Unsupported task' }, { status: 400 });
+      model.watermark = (await hasPaidPlan(access.user.id)) ? 'none' : 'free';
       const content = format === 'docx' ? await buildProjectDocx(model) : format === 'pdf' ? await buildProjectPdf(model) : format === 'latex' ? buildProjectLatex(model) : taskMarkdown(model);
       const extension = format === 'markdown' ? 'md' : format === 'latex' ? 'tex' : format;
       return new NextResponse(responseBody(content), { headers: { 'Content-Type': formatResponse[format].contentType, 'Content-Disposition': `attachment; filename="waha-${body.task}.${extension}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } });
@@ -117,6 +119,7 @@ export async function POST(request: Request) {
 
     verifyProjectExportEvidence(projectId, documents, sources, references, language);
     const model = buildProjectExportModel(project, documents || [], sources || [], references || [], citationStyle, language);
+    model.watermark = (await hasPaidPlan(access.user.id)) ? 'none' : 'free';
     const requiredStyle = model.styleProfile?.citation_style.system?.value?.toLowerCase().replace(/\s+/gu, '-') as CitationStyle | undefined;
     if (project.university_policy?.startsWith('WAHA_GUIDE_V1:') && requiredStyle && citationStyle && requiredStyle !== citationStyle) {
       return NextResponse.json({ error: language === 'en'
@@ -126,7 +129,7 @@ export async function POST(request: Request) {
     const content = format === 'docx' ? await buildProjectDocx(model)
       : format === 'pdf' ? await buildProjectPdf(model)
         : format === 'latex' ? buildProjectLatex(model)
-        : buildProjectMarkdown(project, documents || [], sources || [], references || [], citationStyle, language);
+        : buildProjectMarkdown(project, documents || [], sources || [], references || [], citationStyle, language, model.watermark);
     const metadata = formatResponse[format];
     return new NextResponse(responseBody(content), { headers: {
       'Content-Type': metadata.contentType,

@@ -18,7 +18,9 @@ export type ExportDocument = { id?: string; type: string | null; content: unknow
 type ExportSource = { raw_text: string | null; parsed_citation_apa: string | null; parsed_citation_ieee: string | null };
 export type ExportReference = { title: string; authors: unknown; publication_year: number | null; publication_title: string | null; doi: string | null; url: string | null; citation_data?: unknown };
 export type ProjectExportSection = { title: string; paragraphs: string[]; blocks?: WritingRenderBlock[] };
-export type ProjectExportModel = { language?: UiLanguage; documentDirection?: DocumentDirection; title: string; notice: string; sections: ProjectExportSection[]; styleProfile?: AcademicStyleProfile; citationStyle?: CitationStyle };
+export type ProjectExportModel = { language?: UiLanguage; documentDirection?: DocumentDirection; title: string; notice: string; sections: ProjectExportSection[]; styleProfile?: AcademicStyleProfile; citationStyle?: CitationStyle;
+  /** «free» files carry the WAHA mark and, in PDF, refuse editing; «none» is a paid plan. Unknown means free. */
+  watermark?: 'free' | 'none' };
 
 function referenceAuthors(reference: ExportReference, language: UiLanguage = 'ar'): string {
   return bibliographyFromReference({ ...reference, citation_data: reference.citation_data ?? {} }).authors
@@ -191,10 +193,10 @@ export function buildProjectExportModel(project: { title: string | null; univers
   };
 }
 
-export function buildProjectMarkdown(project: { title: string | null; university_policy: string | null }, documents: ExportDocument[], sources: ExportSource[], references: ExportReference[] = [], citationStyle?: CitationStyle, language: UiLanguage = 'ar'): string {
+export function buildProjectMarkdown(project: { title: string | null; university_policy: string | null }, documents: ExportDocument[], sources: ExportSource[], references: ExportReference[] = [], citationStyle?: CitationStyle, language: UiLanguage = 'ar', watermark: 'free' | 'none' = 'free'): string {
   if (language === 'en') {
     const model = buildProjectExportModel(project, documents, sources, references, citationStyle, language);
-    return [`# ${text(model.title)}`, '', text(model.notice), ...model.sections.flatMap((section) => [`## ${text(section.title)}`, ...(section.blocks ? writingBlocksMarkdown(section.blocks) : section.paragraphs.map(text)), ''])].join('\n');
+    return [`# ${text(model.title)}`, '', text(model.notice), ...model.sections.flatMap((section) => [`## ${text(section.title)}`, ...(section.blocks ? writingBlocksMarkdown(section.blocks) : section.paragraphs.map(text)), '']), ...(watermark === 'none' ? [] : [text(translateUiText('أُعد بمساعدة الواحة.', language)), ''])].join('\n');
   }
   const sections = latestExportDocuments(documents);
   const review = latestSupervisorReview(documents);
@@ -229,6 +231,6 @@ export function buildProjectMarkdown(project: { title: string | null; university
     ...(library ? [`## قائمة المراجع — ${citationStyle}`, 'منسقة من البيانات المحفوظة؛ راجع مطابقة الإحالات وتعليمات الجهة قبل التسليم.', '', ...library.bibliography.map(entry => text(entry.text)), '',
       ...(library.issues.length ? ['## بيانات مراجع تحتاج مراجعة', ...library.issues.map(issue => text(citationIssueText(issue, 'ar'))), ''] : []),
     ] : []),
-    'أُعد بمساعدة الواحة.', '',
+    ...(watermark === 'none' ? [] : ['أُعد بمساعدة الواحة.', '']),
   ].join('\n');
 }

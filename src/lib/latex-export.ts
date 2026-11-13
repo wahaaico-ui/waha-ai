@@ -3,7 +3,7 @@
  * so Arabic and English mix correctly. Every piece of text is escaped: what a
  * researcher typed is printed, never run as a command.
  */
-import type { UiLanguage } from '@/lib/i18n/ui-text';
+import { translateUiText, type UiLanguage } from '@/lib/i18n/ui-text';
 import type { ProjectExportModel } from '@/lib/project-export';
 import { groupWritingRenderBlocks, type WritingRenderBlock, type WritingRenderTable, type WritingTextRun } from '@/lib/writing-rich-text';
 
@@ -89,5 +89,5 @@ export function buildProjectLatex(model: ProjectExportModel): string {
     '\\date{}',
     '\\begin{document}',
     '\\maketitle',
-  ].join('\n') + '\n\n' + [latexText(model.notice, language), ...body].join('\n\n') + '\n\n\\end{document}\n';
+  ].join('\n') + '\n\n' + [latexText(model.notice, language), ...body, ...(model.watermark === 'none' ? [] : [latexText(translateUiText('أُعد بمساعدة الواحة.', language), language)])].join('\n\n') + '\n\n\\end{document}\n';
 }

@@ -32,5 +32,6 @@ export function languageExportModel(task: LanguageTask, language: UiLanguage = '
 
 export function taskMarkdown(model: ProjectExportModel) {
   const escape = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return [`# ${escape(model.title)}`, escape(model.notice), ...model.sections.flatMap((section) => [`\n## ${escape(section.title)}`, ...(section.blocks ? writingBlocksMarkdown(section.blocks) : section.paragraphs.map(escape))])].join('\n\n');
+  return [`# ${escape(model.title)}`, escape(model.notice), ...model.sections.flatMap((section) => [`\n## ${escape(section.title)}`, ...(section.blocks ? writingBlocksMarkdown(section.blocks) : section.paragraphs.map(escape))]),
+    ...(model.watermark === 'none' ? [] : [escape(translateUiText('أُعد بمساعدة الواحة.', model.language || 'ar'))])].join('\n\n');
 }
