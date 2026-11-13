@@ -67,7 +67,7 @@ export function journalSummary(outputs: Outputs, template: JournalTemplate | nul
   if (template.abstractMaxWords !== null && words) {
     summary.checks.push({ ...say('الملخص {0} كلمات، وحد المجلة {1} كلمة.', [words, template.abstractMaxWords]), state: words <= template.abstractMaxWords ? 'met' : 'attention' });
   }
-  if (keywords.length) {
+  if (keywords.length && template.keywordsMin !== null && template.keywordsMax !== null) {
     const fits = keywords.length >= template.keywordsMin && keywords.length <= template.keywordsMax;
     summary.checks.push({ ...say('الكلمات المفتاحية {0}، والمطلوب من {1} إلى {2}.', [keywords.length, template.keywordsMin, template.keywordsMax]), state: fits ? 'met' : 'attention' });
   }

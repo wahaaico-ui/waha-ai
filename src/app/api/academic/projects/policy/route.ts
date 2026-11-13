@@ -93,6 +93,7 @@ export async function POST(request: Request) {
     const result = await extractUniversityGuide(bytes);
     return json({ ...result, projectId, saved: false });
   } catch (error) {
+    if (error instanceof Error && error.message === 'guide_scrambled_text') return json({ error: 'النص العربي في هذا الملف مخزّن بترتيب حروف لا يُقرأ كلمات، فلم نستخرج منه قواعد قد تكون خاطئة. الصق نص التعليمات هنا، أو ارفع نسخة أخرى من الدليل.', code: 'scrambled_text_layer' }, 422);
     if (error instanceof Error && error.message === 'guide_no_text') return json({ error: 'لم نجد نصًا قابلًا للقراءة في الملف؛ يبدو أنه صور ممسوحة ضوئيًا. الواحة لا تقرأ الصور (OCR) حاليًا، فالصق نص التعليمات هنا أو ارفع نسخة PDF نصية.', code: 'no_text_layer' }, 422);
     return json({ error: 'تعذر قراءة الدليل كاملًا. اختر ملفًا نصيًا حتى 50 صفحة أو الصق التعليمات المطلوبة.' }, 422);
   }
